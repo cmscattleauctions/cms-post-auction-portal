@@ -1,31 +1,28 @@
-/* CMS Post-Auction Portal (client-only) — FULL app.js
-   Updates included (per your latest notes):
+/* CMS Post-Auction Portal (client-only) — FULL app.js (UPDATED)
 
-   1) Header tweaks
-      - Buyer/Consignor/Rep name moved DOWN (prevents print cutoff)
-      - Buyer name slightly bigger
-      - Buyer name + Auction name + Auction date shown on EVERY page
+Changes in this revision:
+1) Column widths updated (Sex wider, others narrower as requested)
+   - Sex doubled
+   - Base Wt smaller
+   - Location ~ half
+   - Shrink slightly smaller
+   - Slide slightly smaller
+   - Price ~ half
+   NOTE: To keep the grid full-width, Delivery absorbs the remaining width.
 
-   2) Colored line
-      - Thin colored line runs FULL width of page (edge-to-edge)
+2) Printing safety + more lots/page
+   - On pages AFTER page 1: Buyer/Consignor/Rep name moved DOWN more
+   - Boxes start LOWER on pages after page 1 (printing cutoff protection)
+   - Lots are allowed down to within ~0.25" of bottom (18pt)
 
-   3) Lot layout changes
-      - "Lot # " prefix
-      - Breed moved to a NEW line under Lot/Seller
-      - Column grid: centered labels + centered values
-      - Down money REMOVED from the grid line (still shown in dedicated row below)
-      - Grid spans full content width
-      - If cell value doesn't fit, it WRAPS to additional lines and the cell/row HEIGHT expands
-      - “All information must be on the page” — no truncation; wrapping is used instead
+3) Total Down Money box goes immediately after the last lot (no extra spacing)
 
-   4) Buyer footer fixes
-      - Space added after last lot before footer
-      - "Total Down Money Due: $X" moved to RIGHT side in a BOX
-      - Footer text spacing adjusted to prevent overlap
-      - If footer won’t fit, it moves to a new page cleanly
+4) Footer header line stands alone (no other text on that line)
 
-   Requires in index.html BEFORE app.js:
-     papaparse, pdf-lib, jszip
+5) Rep page: reduced padding between consignor divider and first lot
+
+Requires in index.html BEFORE app.js:
+  papaparse, pdf-lib, jszip
 */
 
 const CONFIG = {
@@ -56,17 +53,20 @@ const CONFIG = {
   PDF: {
     // LANDSCAPE letter
     pageSize: { width: 792, height: 612 },
+
+    // Keep side margins for layout, but allow content to run close to bottom.
     margin: 26,
+    bottomLimit: 18, // ~0.25" from bottom (more lots/page)
 
     // full-width top bar
     topBarH: 8,
 
     // header heights
-    headerHFirst: 74,   // page 1
-    headerHOther: 42,   // pages 2+
+    headerHFirst: 74,
+    headerHOther: 54, // push boxes down on pages after page 1 (print-safe)
 
     // typography
-    buyerNameSize: 13.8,      // slightly bigger than before
+    buyerNameSize: 13.8,
     otherNameSize: 12.3,
     headerSmall: 10.0,
     title: 12.2,
@@ -84,7 +84,6 @@ const CONFIG = {
 
     // spacing
     lotGap: 10,
-    spaceBeforeFooter: 14,
 
     // padding
     padX: 8,
@@ -400,23 +399,26 @@ async function buildPdfForGroup({entityName, rows, mode}){
   const W = CONFIG.PDF.pageSize.width;
   const H = CONFIG.PDF.pageSize.height;
   const M = CONFIG.PDF.margin;
+  const bottomLimit = CONFIG.PDF.bottomLimit;
   const contentW = W - 2*M;
 
-  // Full-width grid columns (no Down Money column)
-  // Sum MUST equal contentW (740 with M=26)
+  // UPDATED widths (sum MUST equal contentW = 740)
+  // loads 45, head 45, sex 100 (doubled), bw 40 (smaller),
+  // delivery 205 (absorbs remaining), location 65 (~half),
+  // shrink 50 (slightly smaller), slide 135 (slightly smaller), price 55 (~half)
   const colDefs = [
     { key: "loads", label: "Loads",   w: 45 },
     { key: "head",  label: "Head",    w: 45 },
-    { key: "sex",   label: "Sex",     w: 50 },
-    { key: "bw",    label: "Base Wt", w: 60 },
-    { key: "del",   label: "Delivery",w: 95 },
-    { key: "loc",   label: "Location",w: 130 },
-    { key: "shr",   label: "Shrink",  w: 55 },
-    { key: "sld",   label: "Slide",   w: 150 },
-    { key: "price", label: "Price",   w: 110 },
+    { key: "sex",   label: "Sex",     w: 100 },
+    { key: "bw",    label: "Base Wt", w: 40 },
+    { key: "del",   label: "Delivery",w: 205 },
+    { key: "loc",   label: "Location",w: 65 },
+    { key: "shr",   label: "Shrink",  w: 50 },
+    { key: "sld",   label: "Slide",   w: 135 },
+    { key: "price", label: "Price",   w: 55 },
   ];
   const gridX = M;
-  const gridW = colDefs.reduce((s,c)=>s+c.w,0); // should be contentW
+  const gridW = colDefs.reduce((s,c)=>s+c.w,0); // 740
 
   const auctionTitleBase = safeStr(auctionName.value) || "Auction";
   const extra = safeStr(auctionLabel.value);
@@ -435,7 +437,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
   let page = pdfDoc.addPage([W,H]);
   let pageIndex = 0;
 
-  // cursor
   let y = H - M;
 
   function drawTopBar(){
@@ -454,11 +455,14 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     const headerH = (pageIndex === 0) ? CONFIG.PDF.headerHFirst : CONFIG.PDF.headerHOther;
 
-    // Move everything DOWN a bit to avoid print cutoff
-    const topY = H - CONFIG.PDF.topBarH - 18;
+    // Move down more on pages after first to avoid print cutoff
+    const topY = (pageIndex === 0)
+      ? (H - CONFIG.PDF.topBarH - 18)
+      : (H - CONFIG.PDF.topBarH - 26);
 
-    // Left: entity name (bigger), then auction title + date
     const lx = M;
+
+    // Buyer/Consignor/Rep line
     page.drawText(`${leftLabel}: ${safeStr(entityName)}`, {
       x: lx,
       y: topY,
@@ -467,6 +471,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
+    // Auction name + date on EVERY page
     page.drawText(safeStr(auctionTitle), {
       x: lx,
       y: topY - 14,
@@ -485,7 +490,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       });
     }
 
-    // Center title ONLY on first page (keeps later pages tighter)
+    // Center title only on page 1 (keeps later pages tighter)
     if(pageIndex === 0){
       const tW = textWidth(fontBold, centerTitle, CONFIG.PDF.title);
       page.drawText(centerTitle, {
@@ -497,7 +502,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       });
     }
 
-    // y start under header block
     y = H - CONFIG.PDF.topBarH - headerH;
   }
 
@@ -505,10 +509,9 @@ async function buildPdfForGroup({entityName, rows, mode}){
     page = pdfDoc.addPage([W,H]);
     pageIndex += 1;
     y = H - M;
-    drawHeader(); // header on EVERY page
+    drawHeader();
   }
 
-  // initial header
   drawHeader();
 
   // rep group separator
@@ -531,13 +534,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
       font: fontBold,
       color: BLACK
     });
-    y -= (barH + 8);
+
+    // UPDATED: reduced padding below divider (was +8)
+    y -= (barH + 3);
   }
 
-  // buyer totals
   let buyerDownMoneyTotal = 0;
 
-  // helper to compute dynamic grid height based on wrapped values
   function computeGridValueLines(record){
     const values = {
       loads: safeStr(record[CONFIG.COLS.loads]) || "0",
@@ -574,20 +577,16 @@ async function buildPdfForGroup({entityName, rows, mode}){
   }
 
   function lotBlockHeight(record){
-    // Row 1: Lot/Seller line + Breed line
     const row1H = 32;
 
-    // Grid: label row fixed + value row dynamic
     const labelH = 14;
     const { maxLines } = computeGridValueLines(record);
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
     const gridH = labelH + valueH;
 
-    // Notes: dynamic full wrap
     const { lines } = computeNotesLines(record);
     const notesH = 8 + (lines.length * CONFIG.PDF.notesLineH) + 2;
 
-    // Buyer: down money row (always one line)
     const dmRowH = (mode === "buyer") ? 18 : 0;
 
     return row1H + gridH + notesH + dmRowH + CONFIG.PDF.lotGap;
@@ -595,10 +594,8 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
   function ensureRoom(record, footerReserve){
     const need = lotBlockHeight(record);
-    if(y - need < footerReserve){
+    if((y - need) < footerReserve){
       newPage();
-
-      // for rep, repeat the consignor divider at top of new page
       if(mode === "rep" && currentConsignor){
         drawRepConsignorDivider(currentConsignor);
       }
@@ -610,22 +607,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const seller = safeStr(r[CONFIG.COLS.consignor]);
     const breed = safeStr(r[CONFIG.COLS.breed]) || safeStr(r[CONFIG.COLS.description]);
 
-    const loads = safeStr(r[CONFIG.COLS.loads]) || "0";
-    const head  = safeStr(r[CONFIG.COLS.head])  || "0";
-    const sex   = safeStr(r[CONFIG.COLS.sex]);
-    const bw    = safeStr(r[CONFIG.COLS.baseWeight]);
-    const del   = safeStr(r[CONFIG.COLS.delivery]);
-    const loc   = safeStr(r[CONFIG.COLS.location]);
-    const shr   = safeStr(r[CONFIG.COLS.shrink]);
-    const sld   = safeStr(r[CONFIG.COLS.slide]);
-    const price = priceDisplay(r[CONFIG.COLS.price]);
-    const dm    = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
+    const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
 
     if(mode === "buyer"){
       buyerDownMoneyTotal += toNumber(r[CONFIG.COLS.downMoney]);
     }
 
-    // === Row 1 box (Lot/Seller + Breed on new line) ===
+    // Row 1 (Lot/Seller + Breed)
     const row1H = 32;
     page.drawRectangle({
       x: M, y: y - row1H, width: contentW, height: row1H,
@@ -634,8 +622,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       borderColor: GRID
     });
 
-    const line1 = `Lot # ${lot} - ${seller}`;
-    page.drawText(line1, {
+    page.drawText(`Lot # ${lot} - ${seller}`, {
       x: M + CONFIG.PDF.padX,
       y: y - 14,
       size: CONFIG.PDF.lotTitle,
@@ -643,7 +630,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // Breed on NEW line, left aligned
     page.drawText(safeStr(breed), {
       x: M + CONFIG.PDF.padX,
       y: y - 27,
@@ -654,13 +640,12 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= row1H;
 
-    // === Grid box (labels + dynamic wrapped values, centered) ===
+    // Grid (labels + wrapped centered values)
     const labelH = 14;
     const { wrapped, maxLines } = computeGridValueLines(r);
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
     const gridH = labelH + valueH;
 
-    // Outer grid
     page.drawRectangle({
       x: gridX, y: y - gridH, width: gridW, height: gridH,
       color: WHITE,
@@ -668,7 +653,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       borderColor: GRID
     });
 
-    // label/value separator
     page.drawLine({
       start: { x: gridX, y: y - labelH },
       end:   { x: gridX + gridW, y: y - labelH },
@@ -676,7 +660,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: GRID
     });
 
-    // vertical separators + content
     let cx = gridX;
     for(let i=0;i<colDefs.length;i++){
       const c = colDefs[i];
@@ -692,9 +675,8 @@ async function buildPdfForGroup({entityName, rows, mode}){
       const cellCenter = cx + c.w/2;
 
       // centered label
-      const label = c.label;
-      const lw = textWidth(fontBold, label, CONFIG.PDF.gridLabel);
-      page.drawText(label, {
+      const lw = textWidth(fontBold, c.label, CONFIG.PDF.gridLabel);
+      page.drawText(c.label, {
         x: cellCenter - lw/2,
         y: y - 11,
         size: CONFIG.PDF.gridLabel,
@@ -704,25 +686,16 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
       // centered wrapped value lines
       const lines = wrapped[c.key] || [""];
-      const startY = y - labelH - 11; // first line y
-      drawCenteredLines(
-        page,
-        font,
-        lines,
-        cellCenter,
-        startY,
-        CONFIG.PDF.gridLineH,
-        CONFIG.PDF.gridValue,
-        BLACK
-      );
+      const startY = y - labelH - 11;
+      drawCenteredLines(page, font, lines, cellCenter, startY, CONFIG.PDF.gridLineH, CONFIG.PDF.gridValue, BLACK);
 
       cx += c.w;
     }
 
     y -= gridH;
 
-    // === Notes box (wrap FULLY; no truncation) ===
-    const { notesFull, lines: noteLines } = computeNotesLines(r);
+    // Notes box (full wrap)
+    const { lines: noteLines } = computeNotesLines(r);
     const notesH = 8 + (noteLines.length * CONFIG.PDF.notesLineH) + 2;
 
     page.drawRectangle({
@@ -732,7 +705,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       borderColor: GRID
     });
 
-    // left aligned notes inside
     let ny = y - 12;
     for(const ln of noteLines){
       page.drawText(ln, {
@@ -747,7 +719,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= notesH;
 
-    // === Buyer: Down Money row (separate; NOT in grid) ===
+    // Buyer down money row (separate)
     if(mode === "buyer"){
       const dmRowH = 18;
       page.drawRectangle({
@@ -766,45 +738,39 @@ async function buildPdfForGroup({entityName, rows, mode}){
       y -= dmRowH;
     }
 
-    // space after each lot
     y -= CONFIG.PDF.lotGap;
   }
 
-  // ===== Build content =====
   const sorted = [...rows].sort(sortLots);
 
-  // footer reserve: for buyer, reserve enough room for total box + footer text
+  // Reserve only what we truly need
+  // - Buyer pages: reserve footer area near bottomLimit
+  // - Others: very small reserve
   const footerReserve = (mode === "buyer")
-    ? (CONFIG.PDF.footerMinH + 36) // safe reserve
-    : (40);
+    ? (bottomLimit + CONFIG.PDF.footerMinH + 24)
+    : (bottomLimit + 16);
 
   for(const r of sorted){
-    // Rep: split clearly by consignor
     if(mode === "rep"){
       const consignor = safeStr(r[CONFIG.COLS.consignor]);
       if(consignor && consignor !== currentConsignor){
-        // ensure room for divider + at least one lot
-        if(y < M + footerReserve + 60) newPage();
+        if(y < footerReserve + 60) newPage();
         currentConsignor = consignor;
         drawRepConsignorDivider(currentConsignor);
       }
     }
 
-    ensureRoom(r, M + footerReserve);
+    ensureRoom(r, footerReserve);
     drawLotBlock(r);
   }
 
-  // ===== Buyer Footer =====
+  // ===== Buyer footer =====
   if(mode === "buyer"){
-    // Add space after last lot to avoid overlap with footer
-    y -= CONFIG.PDF.spaceBeforeFooter;
-
-    // If footer won't fit, move to new page
-    if(y < M + CONFIG.PDF.footerMinH + 40){
+    // Total Down Money box goes immediately after last lot (no extra blank spacer)
+    if(y < bottomLimit + CONFIG.PDF.footerMinH + 40){
       newPage();
     }
 
-    // Total box on RIGHT side
     const totalBoxW = 260;
     const totalBoxH = 22;
     const totalX = M + contentW - totalBoxW;
@@ -821,7 +787,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
     });
 
     const totalText = `Total Down Money Due: ${formatMoney(buyerDownMoneyTotal)}`;
-    // shrink a little if needed to fit inside the box (but keep one line)
     let ts = 10.6;
     while(ts > 8.6 && textWidth(fontBold, totalText, ts) > (totalBoxW - 12)){
       ts -= 0.2;
@@ -834,12 +799,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    y = totalY - 12;
+    // move below total box
+    y = totalY - 10;
 
-    // Footer: two columns, with enough line spacing to avoid overlap
-    const leftFooter =
-`REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK
-PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
+    // Footer header line MUST be alone
+    const footerHeader = "REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK";
+    const footerLeft =
+`PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
 Wire Instructions for CMS Livestock Auction:
 Send Overnight Payments to:
 CMS Livestock Auction
@@ -847,7 +813,7 @@ CMS Livestock Auction
 Suite 135
 Amarillo, TX 79106.`;
 
-    const rightFooter =
+    const footerRight =
 `Wire funds to:
 Happy State Bank 200 Main Street
 Canadian, Tx 79014
@@ -858,16 +824,28 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
     const leftX = M;
     const rightX = M + colW + colGap;
 
-    const leftLines = leftFooter.split("\n").map(safeStr).filter(Boolean);
-    const rightLines = rightFooter.split("\n").map(safeStr).filter(Boolean);
+    const leftLines = footerLeft.split("\n").map(safeStr).filter(Boolean);
+    const rightLines = footerRight.split("\n").map(safeStr).filter(Boolean);
 
-    // If still too tight, force to new page
-    const footerNeedH = (Math.max(leftLines.length, rightLines.length) * CONFIG.PDF.footerLineH) + 14;
-    if(y < M + footerNeedH){
+    const neededLines = Math.max(leftLines.length, rightLines.length);
+    const footerNeedH = 16 + (neededLines * CONFIG.PDF.footerLineH) + 22; // header + body
+
+    if(y < bottomLimit + footerNeedH){
       newPage();
       y = H - CONFIG.PDF.topBarH - CONFIG.PDF.headerHOther - 10;
     }
 
+    // Header line (alone)
+    page.drawText(footerHeader, {
+      x: M,
+      y: y,
+      size: 8.2,
+      font: fontBold,
+      color: BLACK
+    });
+    y -= (CONFIG.PDF.footerLineH + 4);
+
+    // Two columns
     let ly = y;
     for(const ln of leftLines){
       page.drawText(ln, { x: leftX, y: ly, size: 7.9, font, color: BLACK });
