@@ -1,1 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CMS Post-Auction Report Builder</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Client-only libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
+        <div class="brandText">
+          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandSub">Internal PDF Builder</div>
+        </div>
+      </div>
+
+      <div class="topbarActions">
+        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">Exit / Clear</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- PAGE 1: Password -->
+      <section id="pageAuth" class="card">
+        <h1>Enter PIN</h1>
+        <p class="muted">Data is processed in your browser only. Nothing is stored.</p>
+
+        <div class="row">
+          <label class="label">PIN</label>
+          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+        </div>
+
+        <div class="row">
+          <button id="pinSubmit" class="btn">Enter</button>
+        </div>
+
+        <div id="authError" class="error hidden">Incorrect PIN.</div>
+      </section>
+
+      <!-- PAGE 2: Builder -->
+      <section id="pageBuilder" class="card hidden">
+        <h1>Report Builder</h1>
+
+        <div class="grid2">
+          <div class="row">
+            <label class="label">Auction Name</label>
+            <input id="auctionName" class="input" placeholder="e.g., CMS Video Auction" />
+          </div>
+
+          <div class="row">
+            <label class="label">Auction Date / Time</label>
+            <input id="auctionDate" class="input" placeholder="e.g., January 15, 2026 @ 1:00 PM CDT" />
+          </div>
+
+          <div class="row">
+            <label class="label">Auction Label (optional)</label>
+            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
+          </div>
+
+          <div class="row">
+            <label class="label">Contract # (optional label)</label>
+            <input id="contractLabel" class="input" placeholder="e.g., 011526 (optional)" />
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="row">
+          <label class="label">Upload CSV</label>
+
+          <div id="dropZone" class="dropZone">
+            <div class="dropTitle">Drag & drop CSV here</div>
+            <div class="dropSub">or</div>
+            <div>
+              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
+            </div>
+          </div>
+
+          <div id="fileMeta" class="muted small hidden"></div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="row">
+          <label class="label">Reports to Generate</label>
+
+          <div class="pillRow">
+            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports</label>
+            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports</label>
+            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports</label>
+          </div>
+
+          <div class="muted small">
+            Rep PDFs ignore rows where <b>Representative</b> is blank.
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
+        </div>
+
+        <div id="builderError" class="error hidden"></div>
+      </section>
+
+      <!-- PAGE 3: Results -->
+      <section id="pageResults" class="card hidden">
+        <h1>Generated PDFs</h1>
+        <p class="muted">Download individually or as ZIP files. Nothing is stored after you exit/refresh.</p>
+
+        <div class="resultsGrid">
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h2>Buyer Reports</h2>
+              <button id="zipBuyers" class="btn btnSmall btnGhost" disabled>Download Buyers ZIP</button>
+            </div>
+            <div id="listBuyers" class="list"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h2>Consignor Reports</h2>
+              <button id="zipConsignors" class="btn btnSmall btnGhost" disabled>Download Consignors ZIP</button>
+            </div>
+            <div id="listConsignors" class="list"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h2>Representative Reports</h2>
+              <button id="zipReps" class="btn btnSmall btnGhost" disabled>Download Reps ZIP</button>
+            </div>
+            <div id="listReps" class="list"></div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="row spaceBetween">
+          <button id="backBtn" class="btn btnGhost">Back</button>
+          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+        </div>
+
+        <div id="resultsMeta" class="muted small"></div>
+      </section>
+    </main>
+
+    <footer class="footer muted small">
+      Client-only app. No data is uploaded or saved by the site.
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
 
