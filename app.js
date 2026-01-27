@@ -1,7 +1,9 @@
 /* CMS Post-Auction Portal (client-only)
-   - CSV parse: PapaParse
-   - PDF gen: pdf-lib
-   - ZIP: JSZip
+   Robust version:
+   - Shows the REAL error on-screen (no DevTools needed)
+   - Validates libraries are loaded
+   - Validates CSV columns and prints missing columns clearly
+   - Landscape PDF, compact lots, header only on first page, thin top bar only
 */
 
 const CONFIG = {
@@ -12,6 +14,7 @@ const CONFIG = {
     consignor: "Consignor",
     rep: "Representative",
     breed: "Breed", // optional; falls back to Description
+
     lotNumber: "Lot Number",
     lotSeq: "Lot Sequence",
     head: "Head Count",
@@ -33,10 +36,10 @@ const CONFIG = {
     pageSize: { width: 792, height: 612 },
     margin: 26,
 
-    // thin top bar
+    // thin top bar (only page 1)
     topBarH: 8,
 
-    // header only on page 1 (not inside bar)
+    // header block (only page 1)
     headerBlockH: 68,
 
     // typography
@@ -46,17 +49,14 @@ const CONFIG = {
     title: 12.5,
 
     // table sizing
-    lineGap: 10,
     lotGap: 8,
     cellPadX: 5,
-    cellPadY: 4,
 
     // limits to keep lots compact
     maxNotesLines: 2,
 
     // footer area
     footerH: 92,
-    bottomGuard: 16,
 
     // fit rules
     minCellFont: 7.0
@@ -127,17 +127,17 @@ function toNumber(v){
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
+function formatMoney(n){
+  const fmt = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return "$" + fmt.format(Number.isFinite(n) ? n : 0);
+}
 function priceDisplay(v){
   const n = toNumber(v);
   return (n === 0) ? "PO" : formatMoney(n);
 }
 function downMoneyDisplay(v){
   const n = toNumber(v);
-  return formatMoney(n); // $0.00 ok
-}
-function formatMoney(n){
-  const fmt = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return "$" + fmt.format(Number.isFinite(n) ? n : 0);
+  return formatMoney(n);
 }
 function fileSafeName(name){
   return safeStr(name)
@@ -163,12 +163,67 @@ function groupBy(rows, key){
   }
   return map;
 }
+function assertLibsLoaded(){
+  if(!window.PDFLib) throw new Error("PDF library not loaded (PDFLib). Check index.html script tag for pdf-lib.");
+  if(!window.Papa) throw new Error("CSV parser not loaded (Papa). Check index.html script tag for papaparse.");
+  if(!window.JSZip) throw new Error("ZIP library not loaded (JSZip). Check index.html script tag for jszip.");
+}
 function requiredColsPresent(rows){
+  // Breed is optional; everything else required.
   const required = Object.values(CONFIG.COLS).filter(c => c !== CONFIG.COLS.breed);
   const row0 = rows[0] || {};
   const keys = new Set(Object.keys(row0));
   const missing = required.filter(c => !keys.has(c));
   return { ok: missing.length === 0, missing };
+}
+
+// ====== TEXT HELPERS ======
+function textWidth(font, text, size){
+  return font.widthOfTextAtSize(text || "", size);
+}
+function fitTextOneLine({font, text, size, maxW, minSize}){
+  let s = size;
+  while(s >= minSize){
+    if(textWidth(font, text, s) <= maxW) return { text, size: s };
+    s -= 0.3;
+  }
+  const ell = "…";
+  let t = String(text || "");
+  while(t.length > 0 && textWidth(font, t + ell, minSize) > maxW){
+    t = t.slice(0, -1);
+  }
+  return { text: (t ? t + ell : ""), size: minSize };
+}
+function wrapLines(font, text, size, maxW){
+  const words = safeStr(text).split(/\s+/).filter(Boolean);
+  if(words.length === 0) return [];
+  const lines = [];
+  let line = words[0];
+  for(let i=1;i<words.length;i++){
+    const test = line + " " + words[i];
+    if(textWidth(font, test, size) <= maxW){
+      line = test;
+    }else{
+      lines.push(line);
+      line = words[i];
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+function drawNotesLimited({page, font, x, y, text, size, maxW, maxLines, lineH, color}){
+  const lines = wrapLines(font, text, size, maxW);
+  const use = lines.slice(0, maxLines);
+  if(lines.length > maxLines && use.length){
+    const last = use[use.length-1] + " …";
+    const fitted = fitTextOneLine({ font, text: last, size, maxW, minSize: CONFIG.PDF.minCellFont });
+    use[use.length-1] = fitted.text;
+  }
+  for(const ln of use){
+    page.drawText(ln, { x, y, size, font, color });
+    y -= lineH;
+  }
+  return y;
 }
 
 // ====== AUTH ======
@@ -191,13 +246,21 @@ function setBuildEnabled(){
   const anyChecked = chkBuyer.checked || chkConsignor.checked || chkRep.checked;
   buildBtn.disabled = !(csvRows.length > 0 && anyChecked);
 }
-
 function handleFile(file){
   setError(builderError, "");
   if(!file) return;
 
   fileMeta.textContent = `Loaded: ${file.name || "uploaded.csv"}`;
   show(fileMeta);
+
+  try{
+    assertLibsLoaded();
+  }catch(err){
+    setError(builderError, err.message);
+    csvRows = [];
+    setBuildEnabled();
+    return;
+  }
 
   Papa.parse(file, {
     header: true,
@@ -224,12 +287,10 @@ function handleFile(file){
     }
   });
 }
-
 fileInput.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   handleFile(file);
 });
-
 dropZone.addEventListener("dragover", (e)=>{
   e.preventDefault();
   dropZone.classList.add("dragover");
@@ -243,7 +304,6 @@ dropZone.addEventListener("drop", (e)=>{
   const file = e.dataTransfer.files?.[0];
   handleFile(file);
 });
-
 [chkBuyer, chkConsignor, chkRep].forEach(el => el.addEventListener("change", setBuildEnabled));
 
 // ====== EXIT / WIPE ======
@@ -285,64 +345,11 @@ window.addEventListener("beforeunload", ()=>{
   }
 });
 
-// ====== TEXT HELPERS ======
-function textWidth(font, text, size){
-  return font.widthOfTextAtSize(text || "", size);
-}
-
-function fitTextOneLine({font, text, size, maxW, minSize}){
-  // Try shrink-to-fit first
-  let s = size;
-  while(s >= minSize){
-    if(textWidth(font, text, s) <= maxW) return { text, size: s };
-    s -= 0.3;
-  }
-  // If still too long, truncate with ellipsis at base size (minSize)
-  const ell = "…";
-  let t = text;
-  while(t.length > 0 && textWidth(font, t + ell, minSize) > maxW){
-    t = t.slice(0, -1);
-  }
-  return { text: (t ? t + ell : ""), size: minSize };
-}
-
-function wrapLines(font, text, size, maxW){
-  const words = safeStr(text).split(/\s+/).filter(Boolean);
-  if(words.length === 0) return [];
-  const lines = [];
-  let line = words[0];
-  for(let i=1;i<words.length;i++){
-    const test = line + " " + words[i];
-    if(textWidth(font, test, size) <= maxW){
-      line = test;
-    }else{
-      lines.push(line);
-      line = words[i];
-    }
-  }
-  lines.push(line);
-  return lines;
-}
-
-function drawNotesLimited({page, font, x, y, text, size, maxW, maxLines, lineH, color}){
-  const lines = wrapLines(font, text, size, maxW);
-  const use = lines.slice(0, maxLines);
-  // If trimmed, ellipsis on last line
-  if(lines.length > maxLines && use.length){
-    const last = use[use.length-1];
-    const fitted = fitTextOneLine({ font, text: last + " …", size, maxW, minSize: CONFIG.PDF.minCellFont });
-    use[use.length-1] = fitted.text;
-  }
-  for(const ln of use){
-    page.drawText(ln, { x, y, size, font, color });
-    y -= lineH;
-  }
-  return y;
-}
-
 // ====== PDF GENERATION ======
 async function buildPdfForGroup({entityName, rows, mode}){
-  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  assertLibsLoaded();
+
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -381,7 +388,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     "(806) 355-7505"
   ];
 
-  // Compact columns (tuned for 5 lots/page)
+  // Compact columns tuned to fit 5 lots/page more often
   const colDefs = [
     { key: "loads", label: "Loads", w: 44 },
     { key: "head",  label: "Head",  w: 44 },
@@ -402,11 +409,10 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
   let page = pdfDoc.addPage([W,H]);
   let pageIndex = 0;
-
-  // y cursor set per page
   let y = H - M;
 
-  const drawTopBar = () => {
+  const drawTopBarFirstPageOnly = () => {
+    if(pageIndex !== 0) return;
     page.drawRectangle({
       x: M,
       y: H - CONFIG.PDF.topBarH,
@@ -417,65 +423,42 @@ async function buildPdfForGroup({entityName, rows, mode}){
   };
 
   const drawHeaderFirstPageOnly = () => {
-    // ONLY on page 1
     if(pageIndex !== 0) return;
 
-    // Top bar at very top
-    drawTopBar();
+    drawTopBarFirstPageOnly();
 
-    // header block (not inside colored bar)
     let hy = H - CONFIG.PDF.topBarH - 10;
 
-    // Left side: Buyer/Consignor/Rep + auction info
+    // Left: label/name + auction info
     const leftX = M;
     page.drawText(`${leftLabel}: ${entityName}`, {
-      x: leftX,
-      y: hy,
-      size: 12,
-      font: fontBold,
-      color: BLACK
+      x: leftX, y: hy, size: 12, font: fontBold, color: BLACK
     });
     hy -= 14;
 
     page.drawText(auctionTitle, {
-      x: leftX,
-      y: hy,
-      size: 10,
-      font,
-      color: BLACK
+      x: leftX, y: hy, size: 10, font, color: BLACK
     });
     hy -= 12;
 
     if(aDate){
       page.drawText(aDate, {
-        x: leftX,
-        y: hy,
-        size: 10,
-        font,
-        color: BLACK
+        x: leftX, y: hy, size: 10, font, color: BLACK
       });
     }
 
-    // Right side: address
+    // Right: address
     const rightW = 250;
     const rx = M + contentW - rightW;
     let ry = H - CONFIG.PDF.topBarH - 10;
 
     page.drawText(addressLines[0], {
-      x: rx,
-      y: ry,
-      size: 10.5,
-      font: fontBold,
-      color: BLACK
+      x: rx, y: ry, size: 10.5, font: fontBold, color: BLACK
     });
     ry -= 12;
     for(let i=1;i<addressLines.length;i++){
       page.drawText(addressLines[i], {
-        x: rx,
-        y: ry,
-        size: 9.4,
-        font,
-        color: BLACK
+        x: rx, y: ry, size: 9.4, font, color: BLACK
       });
       ry -= 11;
     }
@@ -490,26 +473,20 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // move y start below header block
     y = H - CONFIG.PDF.topBarH - CONFIG.PDF.headerBlockH;
   };
 
   const newPage = () => {
     page = pdfDoc.addPage([W,H]);
     pageIndex += 1;
-    // NO top bar, NO header on later pages (per your request)
-    y = H - M;
+    y = H - M; // no header on later pages
   };
 
-  // Draw header on first page
   drawHeaderFirstPageOnly();
 
   const sorted = [...rows].sort(sortLots);
 
-  // Buyer total down money
   let buyerDownMoneyTotal = 0;
-
-  // REP: group by consignor with divider
   let currentConsignor = "";
 
   const drawRepConsignorDivider = (name) => {
@@ -556,20 +533,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const dmNum = toNumber(r[CONFIG.COLS.downMoney]);
     if(mode === "buyer") buyerDownMoneyTotal += dmNum;
 
-    // Block sizing (compact)
     const padX = 8;
-    const topY = y;
 
-    // Row 1: Lot/Seller + Breed
+    // Row 1
     const row1H = 18;
     page.drawRectangle({
-      x: M,
-      y: y - row1H,
-      width: contentW,
-      height: row1H,
-      color: WHITE,
-      borderWidth: 1,
-      borderColor: gridStroke
+      x: M, y: y - row1H, width: contentW, height: row1H,
+      color: WHITE, borderWidth: 1, borderColor: gridStroke
     });
 
     page.drawText(`${lot} - ${seller}`, {
@@ -580,7 +550,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // Breed right-aligned in row 1 (fitted)
     const breedMaxW = 300;
     const fittedBreed = fitTextOneLine({
       font,
@@ -589,6 +558,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       maxW: breedMaxW,
       minSize: CONFIG.PDF.minCellFont
     });
+
     page.drawText(fittedBreed.text, {
       x: M + contentW - padX - textWidth(font, fittedBreed.text, fittedBreed.size),
       y: y - 13,
@@ -599,31 +569,23 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= row1H;
 
-    // Row 2 + 3: Grid labels + values
+    // Grid rows
     const labelH = 14;
     const valueH = 18;
     const gridH = labelH + valueH;
 
-    // outer grid box
     page.drawRectangle({
-      x: gridX,
-      y: y - gridH,
-      width: gridW,
-      height: gridH,
-      color: WHITE,
-      borderWidth: 1,
-      borderColor: gridStroke
+      x: gridX, y: y - gridH, width: gridW, height: gridH,
+      color: WHITE, borderWidth: 1, borderColor: gridStroke
     });
 
-    // label/value separator
+    // separator
     page.drawLine({
       start: { x: gridX, y: y - labelH },
       end:   { x: gridX + gridW, y: y - labelH },
-      thickness: 0.8,
-      color: gridStroke
+      thickness: 0.8, color: gridStroke
     });
 
-    // vertical lines + cell contents
     let cx = gridX;
     for(let i=0;i<colDefs.length;i++){
       const c = colDefs[i];
@@ -632,12 +594,10 @@ async function buildPdfForGroup({entityName, rows, mode}){
         page.drawLine({
           start: { x: cx, y: y },
           end:   { x: cx, y: y - gridH },
-          thickness: 0.8,
-          color: gridStroke
+          thickness: 0.8, color: gridStroke
         });
       }
 
-      // label
       page.drawText(c.label, {
         x: cx + CONFIG.PDF.cellPadX,
         y: y - 11,
@@ -646,7 +606,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
         color: BLACK
       });
 
-      // value (fit to cell)
       const maxTextW = c.w - 2*CONFIG.PDF.cellPadX;
 
       let rawVal = "";
@@ -685,35 +644,26 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= gridH;
 
-    // Notes row (limited wrap; inline after "Notes:")
-    const notesPadY = 6;
+    // Notes row
     const notesLineH = 10;
     const notesBoxMinH = 18;
 
     const notesHeader = "Notes: ";
     const notesTextFull = notesHeader + notesText;
 
-    // estimate notes height (up to max lines)
     const notesLines = wrapLines(font, notesTextFull, CONFIG.PDF.tiny, contentW - 2*padX);
     const useLines = Math.min(notesLines.length, CONFIG.PDF.maxNotesLines);
-    const notesH = Math.max(notesBoxMinH, notesPadY + useLines*notesLineH + 2);
+    const notesH = Math.max(notesBoxMinH, 6 + useLines*notesLineH + 2);
 
     page.drawRectangle({
-      x: M,
-      y: y - notesH,
-      width: contentW,
-      height: notesH,
-      color: WHITE,
-      borderWidth: 1,
-      borderColor: gridStroke
+      x: M, y: y - notesH, width: contentW, height: notesH,
+      color: WHITE, borderWidth: 1, borderColor: gridStroke
     });
 
-    let ny = y - 10;
-    ny = drawNotesLimited({
-      page,
-      font,
+    drawNotesLimited({
+      page, font,
       x: M + padX,
-      y: ny,
+      y: y - 10,
       text: notesTextFull,
       size: CONFIG.PDF.tiny,
       maxW: contentW - 2*padX,
@@ -724,17 +674,12 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= notesH;
 
-    // Buyer: Down money due line (compact)
+    // Buyer down money line (compact)
     if(mode === "buyer"){
       const dmRowH = 16;
       page.drawRectangle({
-        x: M,
-        y: y - dmRowH,
-        width: contentW,
-        height: dmRowH,
-        color: gridFill,
-        borderWidth: 1,
-        borderColor: gridStroke
+        x: M, y: y - dmRowH, width: contentW, height: dmRowH,
+        color: gridFill, borderWidth: 1, borderColor: gridStroke
       });
 
       page.drawText(`Down Money Due: ${dm}`, {
@@ -748,30 +693,23 @@ async function buildPdfForGroup({entityName, rows, mode}){
       y -= dmRowH;
     }
 
-    // spacing after each lot
     y -= CONFIG.PDF.lotGap;
-
-    return topY;
   };
 
-  // main loop
   for(const r of sorted){
 
-    // REP: consignor separators
     if(mode === "rep"){
       const consignor = safeStr(r[CONFIG.COLS.consignor]);
       if(consignor && consignor !== currentConsignor){
-        // if too close to bottom, start new page first so divider doesn't orphan
         if(y < M + CONFIG.PDF.footerH + 40) newPage();
         currentConsignor = consignor;
         drawRepConsignorDivider(currentConsignor);
       }
     }
 
-    // if we don't have room for another lot block, new page
+    // room check (rough but safe)
     if(y < M + CONFIG.PDF.footerH + 110){
       newPage();
-      // For rep, repeat consignor divider at top of new page
       if(mode === "rep" && currentConsignor){
         drawRepConsignorDivider(currentConsignor);
       }
@@ -780,16 +718,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
     drawLotBlock(r);
   }
 
-  // Footer / totals (buyers only)
+  // Buyer footer
   if(mode === "buyer"){
-    // Ensure footer room
     if(y < M + CONFIG.PDF.footerH + 10){
       newPage();
     }
 
     const totalLine = `Total Down Money Due: ${formatMoney(buyerDownMoneyTotal)}`;
-
-    // total line (single line, with commas)
     page.drawText(totalLine, {
       x: M,
       y: y - 4,
@@ -797,13 +732,10 @@ async function buildPdfForGroup({entityName, rows, mode}){
       font: fontBold,
       color: BLACK
     });
-
     y -= 18;
 
-    // Footer two-column layout
     const colGap = 22;
     const colW = (contentW - colGap) / 2;
-
     const leftX = M;
     const rightX = M + colW + colGap;
 
@@ -825,24 +757,112 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
 
     const lineH = 10.5;
 
-    // Draw left column
     let ly = y;
-    const leftLines = leftFooter.split("\n");
-    for(const ln of leftLines){
+    for(const ln of leftFooter.split("\n")){
       page.drawText(ln, { x: leftX, y: ly, size: CONFIG.PDF.tiny, font, color: BLACK });
       ly -= lineH;
     }
 
-    // Draw right column
     let ry = y;
-    const rightLines = rightFooter.split("\n");
-    for(const ln of rightLines){
+    for(const ln of rightFooter.split("\n")){
       page.drawText(ln, { x: rightX, y: ry, size: CONFIG.PDF.tiny, font, color: BLACK });
       ry -= lineH;
     }
   }
 
   return await pdfDoc.save();
+}
+
+// ====== DOWNLOAD / ZIP ======
+function downloadBytes(bytes, filename){
+  const blob = new Blob([bytes], {type:"application/pdf"});
+  const url = URL.createObjectURL(blob);
+  blobUrls.push(url);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>{
+    try{ URL.revokeObjectURL(url); }catch{}
+    blobUrls = blobUrls.filter(u => u !== url);
+  }, 15000);
+}
+async function downloadZip(items, zipName){
+  const zip = new JSZip();
+  for(const it of items){
+    zip.file(it.filename, it.bytes);
+  }
+  const blob = await zip.generateAsync({type:"blob"});
+  const url = URL.createObjectURL(blob);
+  blobUrls.push(url);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = zipName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>{
+    try{ URL.revokeObjectURL(url); }catch{}
+    blobUrls = blobUrls.filter(u => u !== url);
+  }, 20000);
+}
+
+// ====== RESULTS UI ======
+function renderList(container, items){
+  container.innerHTML = "";
+  if(items.length === 0){
+    const div = document.createElement("div");
+    div.className = "muted small";
+    div.textContent = "None generated.";
+    container.appendChild(div);
+    return;
+  }
+
+  for(const it of items){
+    const row = document.createElement("div");
+    row.className = "listItem";
+
+    const left = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "listName";
+    name.textContent = it.filename;
+
+    const meta = document.createElement("div");
+    meta.className = "listMeta";
+    meta.textContent = `${it.count} lot line(s)`;
+
+    left.appendChild(name);
+    left.appendChild(meta);
+
+    const btn = document.createElement("button");
+    btn.className = "btn btnSmall";
+    btn.textContent = "Download";
+    btn.addEventListener("click", ()=> downloadBytes(it.bytes, it.filename));
+
+    row.appendChild(left);
+    row.appendChild(btn);
+
+    container.appendChild(row);
+  }
+}
+function renderResults(){
+  const total = generated.buyers.length + generated.consignors.length + generated.reps.length;
+  resultsMeta.textContent = `Generated ${total} PDF(s) from ${csvRows.length} row(s).`;
+
+  renderList(listBuyers, generated.buyers);
+  renderList(listConsignors, generated.consignors);
+  renderList(listReps, generated.reps);
+
+  zipBuyers.disabled = generated.buyers.length === 0;
+  zipConsignors.disabled = generated.consignors.length === 0;
+  zipReps.disabled = generated.reps.length === 0;
+  zipAll.disabled = total === 0;
 }
 
 // ====== Build PDFs ======
@@ -852,13 +872,19 @@ buildBtn.addEventListener("click", async ()=>{
   buildBtn.textContent = "Generating…";
 
   try{
+    assertLibsLoaded();
+
     if(csvRows.length === 0){
-      setError(builderError, "Upload a CSV first.");
-      return;
+      throw new Error("Upload a CSV first.");
     }
     if(!(chkBuyer.checked || chkConsignor.checked || chkRep.checked)){
-      setError(builderError, "Select at least one report type.");
-      return;
+      throw new Error("Select at least one report type.");
+    }
+
+    // Validate columns again right before build (helps if CSV changed)
+    const chk = requiredColsPresent(csvRows);
+    if(!chk.ok){
+      throw new Error(`CSV is missing required column(s): ${chk.missing.join(", ")}`);
     }
 
     generated = { buyers:[], consignors:[], reps:[] };
@@ -908,108 +934,20 @@ buildBtn.addEventListener("click", async ()=>{
 
     renderResults();
     goto(pageResults);
-  }catch(err){
+
+  } catch (err) {
+    // Show the REAL error on-screen
     console.error(err);
-    setError(builderError, "Something went wrong during PDF generation. Open DevTools Console for details.");
-  }finally{
+    const msg = (err && err.message) ? err.message : String(err);
+    setError(builderError, `PDF generation error: ${msg}`);
+  } finally {
     buildBtn.disabled = false;
     buildBtn.textContent = "Generate PDFs";
     setBuildEnabled();
   }
 });
 
-function renderResults(){
-  const total = generated.buyers.length + generated.consignors.length + generated.reps.length;
-  resultsMeta.textContent = `Generated ${total} PDF(s) from ${csvRows.length} row(s).`;
-
-  renderList(listBuyers, generated.buyers);
-  renderList(listConsignors, generated.consignors);
-  renderList(listReps, generated.reps);
-
-  zipBuyers.disabled = generated.buyers.length === 0;
-  zipConsignors.disabled = generated.consignors.length === 0;
-  zipReps.disabled = generated.reps.length === 0;
-  zipAll.disabled = total === 0;
-}
-
-function renderList(container, items){
-  container.innerHTML = "";
-  if(items.length === 0){
-    const div = document.createElement("div");
-    div.className = "muted small";
-    div.textContent = "None generated.";
-    container.appendChild(div);
-    return;
-  }
-
-  for(const it of items){
-    const row = document.createElement("div");
-    row.className = "listItem";
-
-    const left = document.createElement("div");
-    const name = document.createElement("div");
-    name.className = "listName";
-    name.textContent = it.filename;
-
-    const meta = document.createElement("div");
-    meta.className = "listMeta";
-    meta.textContent = `${it.count} lot line(s)`;
-
-    left.appendChild(name);
-    left.appendChild(meta);
-
-    const btn = document.createElement("button");
-    btn.className = "btn btnSmall";
-    btn.textContent = "Download";
-    btn.addEventListener("click", ()=> downloadBytes(it.bytes, it.filename));
-
-    row.appendChild(left);
-    row.appendChild(btn);
-
-    container.appendChild(row);
-  }
-}
-
-function downloadBytes(bytes, filename){
-  const blob = new Blob([bytes], {type:"application/pdf"});
-  const url = URL.createObjectURL(blob);
-  blobUrls.push(url);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(()=>{
-    try{ URL.revokeObjectURL(url); }catch{}
-    blobUrls = blobUrls.filter(u => u !== url);
-  }, 15000);
-}
-
-async function downloadZip(items, zipName){
-  const zip = new JSZip();
-  for(const it of items){
-    zip.file(it.filename, it.bytes);
-  }
-  const blob = await zip.generateAsync({type:"blob"});
-  const url = URL.createObjectURL(blob);
-  blobUrls.push(url);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = zipName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(()=>{
-    try{ URL.revokeObjectURL(url); }catch{}
-    blobUrls = blobUrls.filter(u => u !== url);
-  }, 20000);
-}
-
+// ====== ZIP BUTTONS ======
 zipBuyers.addEventListener("click", ()=> downloadZip(generated.buyers, "Buyer-Reports.zip"));
 zipConsignors.addEventListener("click", ()=> downloadZip(generated.consignors, "Consignor-Reports.zip"));
 zipReps.addEventListener("click", ()=> downloadZip(generated.reps, "Representative-Reports.zip"));
@@ -1017,9 +955,8 @@ zipAll.addEventListener("click", ()=>{
   const all = [...generated.buyers, ...generated.consignors, ...generated.reps];
   downloadZip(all, "All-Reports.zip");
 });
-
 backBtn.addEventListener("click", ()=> goto(pageBuilder));
 
-// Start
+// ====== INIT ======
 goto(pageAuth);
 setBuildEnabled();
