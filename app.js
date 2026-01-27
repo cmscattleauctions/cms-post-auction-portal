@@ -12,6 +12,10 @@ const CONFIG = {
     buyer: "Buyer",
     consignor: "Consignor",
     rep: "Representative",
+
+    // Optional: if present, will be used under Lot#-Seller
+    breed: "Breed",
+
     contract: "Contract #",
     lotNumber: "Lot Number",
     lotSeq: "Lot Sequence",
@@ -30,17 +34,26 @@ const CONFIG = {
   },
 
   PDF: {
-    pageSize: { width: 612, height: 792 }, // US Letter
-    margin: 36,
-    headerTopPad: 24,
-    fontSize: 10,
+    // LANDSCAPE US Letter:
+    pageSize: { width: 792, height: 612 }, // 11" x 8.5"
+    margin: 30,
+
+    headerHeight: 92,
+    headerPad: 12,
+
+    font: 10,
     small: 9,
     tiny: 8,
-    title: 12,
+    title: 14,
+
     lineGap: 12,
-    blockGap: 12,      // spacing between lots
-    blockInnerGap: 8,  // spacing within lot block
-    bottomGuard: 150
+    blockGap: 10,
+
+    // Grid styling
+    gridLine: 0.8,
+    boxLine: 1.0,
+
+    bottomGuard: 90
   }
 };
 
@@ -55,7 +68,6 @@ const authError = document.getElementById("authError");
 
 const auctionName = document.getElementById("auctionName");
 const auctionDate = document.getElementById("auctionDate");
-const contractLabel = document.getElementById("contractLabel"); // kept for UI but NOT printed in header now
 const auctionLabel = document.getElementById("auctionLabel");
 
 const dropZone = document.getElementById("dropZone");
@@ -123,8 +135,7 @@ function money2(n){
 // PO only for PRICE column:
 function priceDisplay(v){
   const n = toNumber(v);
-  if(n === 0) return "PO";
-  return "$" + n.toFixed(2);
+  return (n === 0) ? "PO" : ("$" + n.toFixed(2));
 }
 
 // Down money: if 0 => $0.00 (NOT PO)
@@ -162,10 +173,11 @@ function groupBy(rows, key){
 }
 
 function requiredColsPresent(rows){
-  const needed = Object.values(CONFIG.COLS);
+  // Note: Breed is optional; everything else here is required.
+  const required = Object.values(CONFIG.COLS).filter(c => c !== CONFIG.COLS.breed);
   const row0 = rows[0] || {};
   const keys = new Set(Object.keys(row0));
-  const missing = needed.filter(c => !keys.has(c));
+  const missing = required.filter(c => !keys.has(c));
   return { ok: missing.length === 0, missing };
 }
 
@@ -270,7 +282,6 @@ function wipeAll(){
 
   auctionName.value = "";
   auctionDate.value = "";
-  contractLabel.value = "";
   auctionLabel.value = "";
 
   listBuyers.innerHTML = "";
@@ -296,7 +307,7 @@ window.addEventListener("beforeunload", ()=>{
   }
 });
 
-// ====== PDF HELPERS ======
+// ====== TEXT WRAP ======
 function wrapText(font, text, size, maxWidth){
   const words = safeStr(text).split(/\s+/).filter(Boolean);
   if(words.length === 0) return [];
@@ -317,10 +328,10 @@ function wrapText(font, text, size, maxWidth){
   return lines;
 }
 
-function drawWrappedLines({page, font, color, x, y, text, size, maxWidth, lineHeight}){
+function drawWrapped({page, font, color, x, y, text, size, maxWidth, lineHeight}){
   const lines = wrapText(font, text, size, maxWidth);
   for(const ln of lines){
-    page.drawText(ln, { x, y, size, font, color, maxWidth });
+    page.drawText(ln, { x, y, size, font, color });
     y -= lineHeight;
   }
   return y;
@@ -329,11 +340,53 @@ function drawWrappedLines({page, font, color, x, y, text, size, maxWidth, lineHe
 // ====== PDF GENERATION ======
 async function buildPdfForGroup({entityName, rows, mode}){
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
-  const INK = rgb(0,0,0);
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Colors
+  const BLACK = rgb(0,0,0);
+  const WHITE = rgb(1,1,1);
+
+  const headerFill =
+    mode === "buyer" ? rgb(0.20, 0.39, 0.60) :      // blue
+    mode === "consignor" ? rgb(0.82, 0.82, 0.82) : // grey
+    rgb(0.15, 0.15, 0.15);                         // dark
+
+  const headerText =
+    mode === "consignor" ? BLACK : WHITE;
+
+  const gridStroke = rgb(0.55, 0.55, 0.55); // subtle grey
+
+  // Page geometry (LANDSCAPE)
+  const W = CONFIG.PDF.pageSize.width;
+  const H = CONFIG.PDF.pageSize.height;
+  const M = CONFIG.PDF.margin;
+  const contentW = W - 2*M;
+
+  // Header content
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate = safeStr(auctionDate.value) || "";
+
+  const centerTitle =
+    mode === "buyer" ? "Buyer Recap and Down Money Invoice" :
+    mode === "consignor" ? "Trade Confirmations" :
+    "Trade Confirmations";
+
+  const leftLabel =
+    mode === "buyer" ? "Buyer" :
+    mode === "consignor" ? "Consignor" :
+    "Rep";
+
+  const addressLines = [
+    "CMS Livestock Auction",
+    "6900 I-40 West, Suite 135",
+    "Amarillo, TX 79106",
+    "(806) 355-7505"
+  ];
 
   // Embed logo
   let logoImg = null;
@@ -341,131 +394,280 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const logoBytes = await getLogoBytes();
     logoImg = await pdfDoc.embedPng(logoBytes);
   }catch{
-    // If logo load fails, we continue without it (PDF still generates)
     logoImg = null;
   }
-
-  const W = CONFIG.PDF.pageSize.width;
-  const H = CONFIG.PDF.pageSize.height;
-  const M = CONFIG.PDF.margin;
-  const maxX = W - M;
 
   let page = pdfDoc.addPage([W, H]);
   let y = H - M;
 
-  const lineH = CONFIG.PDF.lineGap;
+  const drawHeader = () => {
+    // Header bar
+    const headerH = CONFIG.PDF.headerHeight;
+    const headerY = H - M - headerH;
 
-  const drawText = (text, x, y, opts={})=>{
-    page.drawText(safeStr(text), {
-      x,
-      y,
-      size: opts.size ?? CONFIG.PDF.fontSize,
-      font: opts.bold ? fontBold : font,
-      color: opts.color ?? INK,
-      maxWidth: opts.maxWidth
+    page.drawRectangle({
+      x: M,
+      y: headerY,
+      width: contentW,
+      height: headerH,
+      color: headerFill
     });
-  };
 
-  const drawLine = (x1,y1,x2,y2, thickness=1)=>{
-    page.drawLine({ start:{x:x1,y:y1}, end:{x:x2,y:y2}, thickness, color: INK });
-  };
+    // Layout inside header: LEFT = buyer/auction/date + centered title; RIGHT = address
+    const pad = CONFIG.PDF.headerPad;
 
-  const newPage = ()=>{
-    page = pdfDoc.addPage([W, H]);
-    y = H - M;
-    drawHeader(); // repeat header on new pages for clarity
-    y -= 10;
-  };
+    // Bigger logo
+    const logoW = 92; // bigger
+    const logoH = (logoImg ? (logoImg.height / logoImg.width) * logoW : 0);
 
-  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
-  const extra = safeStr(auctionLabel.value);
-  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
-  const aDate = safeStr(auctionDate.value) || "";
+    const leftX = M + pad;
+    const rightX = M + contentW - pad;
 
-  const centerTitle =
-    mode === "buyer"
-      ? "Buyer Recap and Down Money Invoice"
-      : "Trade Confirmations";
-
-  const rightLabel =
-    mode === "buyer" ? "Buyer" :
-    mode === "consignor" ? "Consignor" :
-    "Rep";
-
-  const headerLeftLines = [
-    "CMS Livestock Auction",
-    "6900 I-40 West, Suite 135",
-    "Amarillo, TX 79106",
-    "(806) 355-7505"
-  ];
-
-  function drawHeader(){
-    // logo + left block
-    const logoW = 58;
-    const logoH = logoImg ? (logoImg.height / logoImg.width) * logoW : 0;
-
-    const leftX = M;
-    let leftY = H - M;
+    // Left block text
+    let lx = leftX;
+    let ly = headerY + headerH - pad - 12;
 
     if(logoImg){
-      // draw logo slightly below top margin so it doesn't clip
       page.drawImage(logoImg, {
-        x: leftX,
-        y: leftY - logoH,
+        x: lx,
+        y: headerY + (headerH - logoH)/2,
         width: logoW,
         height: logoH
       });
+      lx += logoW + 12;
     }
 
-    const textStartX = logoImg ? (leftX + logoW + 10) : leftX;
-    let ty = leftY - 2; // top baseline
+    page.drawText(`${leftLabel}: ${entityName}`, {
+      x: lx,
+      y: ly,
+      size: 12,
+      font: fontBold,
+      color: headerText
+    });
+    ly -= 14;
 
-    // Left address (bold first line)
-    drawText(headerLeftLines[0], textStartX, ty, { bold:true, size: 11 });
-    ty -= 13;
-    drawText(headerLeftLines[1], textStartX, ty, { size: 10 }); ty -= 12;
-    drawText(headerLeftLines[2], textStartX, ty, { size: 10 }); ty -= 12;
-    drawText(headerLeftLines[3], textStartX, ty, { size: 10 });
+    // Auction title/date
+    const maxLeftW = contentW * 0.55;
+    ly = drawWrapped({
+      page,
+      font,
+      color: headerText,
+      x: lx,
+      y: ly,
+      text: auctionTitle,
+      size: 10,
+      maxWidth: maxLeftW,
+      lineHeight: 12
+    });
 
-    // Right block
-    const rightX = maxX - 250; // right column width
-    let ry = leftY - 2;
+    if(aDate){
+      page.drawText(aDate, {
+        x: lx,
+        y: ly,
+        size: 10,
+        font,
+        color: headerText
+      });
+    }
 
-    drawText(`${rightLabel}: ${entityName}`, rightX, ry, { bold:true, size: 11 });
-    ry -= 13;
-    drawText(auctionTitle, rightX, ry, { size: 10, maxWidth: 250 });
-    ry -= 12;
-    drawText(aDate, rightX, ry, { size: 10 });
+    // Centered title
+    const titleSize = CONFIG.PDF.title;
+    const titleW = fontBold.widthOfTextAtSize(centerTitle, titleSize);
+    const cx = M + (contentW - titleW)/2;
+    const cy = headerY + 10;
+    page.drawText(centerTitle, {
+      x: cx,
+      y: cy,
+      size: titleSize,
+      font: fontBold,
+      color: headerText
+    });
 
-    // Center title
-    const centerY = leftY - 60;
-    const titleWidth = fontBold.widthOfTextAtSize(centerTitle, 12);
-    const cx = (W - titleWidth) / 2;
-    drawText(centerTitle, cx, centerY, { bold:true, size: 12 });
+    // Right address block (on the right now)
+    const addrW = contentW * 0.34;
+    const addrX = rightX - addrW;
+    let ay = headerY + headerH - pad - 12;
 
-    // divider line
-    drawLine(M, centerY - 12, maxX, centerY - 12, 1);
+    // Address lines (first bold)
+    page.drawText(addressLines[0], {
+      x: addrX,
+      y: ay,
+      size: 11,
+      font: fontBold,
+      color: headerText
+    });
+    ay -= 13;
+    for(let i=1; i<addressLines.length; i++){
+      page.drawText(addressLines[i], {
+        x: addrX,
+        y: ay,
+        size: 10,
+        font,
+        color: headerText
+      });
+      ay -= 12;
+    }
 
-    // set y start for body
-    y = centerY - 24;
+    // body start
+    y = headerY - 14;
+  };
+
+  const newPage = () => {
+    page = pdfDoc.addPage([W, H]);
+    drawHeader();
+  };
+
+  // Column grid positions (aligned like an Excel header)
+  // These widths are tuned for landscape readability.
+  const colDefs = [
+    { key: "loads", label: "Loads", w: 60 },
+    { key: "head", label: "Head", w: 60 },
+    { key: "sex", label: "Sex", w: 55 },
+    { key: "bw", label: "Base Wt", w: 80 },
+    { key: "del", label: "Delivery", w: 120 },
+    { key: "loc", label: "Location", w: 160 },
+    { key: "shr", label: "Shrink", w: 65 },
+    { key: "sld", label: "Slide", w: 65 },
+    { key: "price", label: "Price", w: 85 },
+  ];
+
+  // Buyer only: show down money per lot and total
+  if(mode === "buyer"){
+    colDefs.push({ key: "dm", label: "Down $", w: 90 });
   }
+
+  const gridX = M;
+  const gridW = colDefs.reduce((s,c)=>s+c.w, 0);
+  const gridMaxW = Math.min(gridW, contentW); // safety
+  const labelRowH = 18;
+  const valueRowH = 22;
+
+  const drawGridRow = (topY, labels, values) => {
+    // Draw outer box
+    const totalH = labelRowH + valueRowH;
+    page.drawRectangle({
+      x: gridX,
+      y: topY - totalH,
+      width: gridMaxW,
+      height: totalH,
+      borderWidth: CONFIG.PDF.boxLine,
+      borderColor: gridStroke
+    });
+
+    // Vertical lines + text
+    let x = gridX;
+    for(let i=0; i<colDefs.length; i++){
+      const c = colDefs[i];
+      const cellW = c.w;
+
+      if(i !== 0){
+        page.drawLine({
+          start: { x, y: topY },
+          end: { x, y: topY - totalH },
+          thickness: CONFIG.PDF.gridLine,
+          color: gridStroke
+        });
+      }
+
+      // Label
+      page.drawText(labels[i], {
+        x: x + 6,
+        y: topY - 13,
+        size: 9,
+        font: fontBold,
+        color: BLACK
+      });
+
+      // Value (center-ish)
+      const v = values[i];
+      page.drawText(v, {
+        x: x + 6,
+        y: topY - 13 - labelRowH,
+        size: 10,
+        font,
+        color: BLACK
+      });
+
+      x += cellW;
+    }
+
+    // Horizontal line between label/value
+    page.drawLine({
+      start: { x: gridX, y: topY - labelRowH },
+      end: { x: gridX + gridMaxW, y: topY - labelRowH },
+      thickness: CONFIG.PDF.gridLine,
+      color: gridStroke
+    });
+
+    return topY - totalH;
+  };
 
   drawHeader();
 
   const sorted = [...rows].sort(sortLots);
 
-  // Buyer totals for invoice box
   let buyerDownMoneyTotal = 0;
+
+  // Rep mode: group by consignor with clear dividers
+  let repConsignorOrder = null;
+  if(mode === "rep"){
+    repConsignorOrder = sorted.map(r => safeStr(r[CONFIG.COLS.consignor]));
+  }
+
+  let currentConsignor = "";
+
+  const drawConsignorDivider = (consignorName) => {
+    // Shaded divider bar for rep PDFs
+    const barH = 18;
+    const barY = y - barH;
+
+    page.drawRectangle({
+      x: M,
+      y: barY,
+      width: contentW,
+      height: barH,
+      color: rgb(0.90, 0.90, 0.90),
+      borderWidth: 0.8,
+      borderColor: rgb(0.6,0.6,0.6)
+    });
+
+    page.drawText(`Consignor: ${consignorName}`, {
+      x: M + 10,
+      y: barY + 5,
+      size: 11,
+      font: fontBold,
+      color: BLACK
+    });
+
+    y = barY - 10;
+  };
 
   for(const r of sorted){
     if(y < M + CONFIG.PDF.bottomGuard){
       newPage();
+      // If rep, repeat consignor divider at top of new page for clarity
+      if(mode === "rep" && currentConsignor){
+        drawConsignorDivider(currentConsignor);
+      }
     }
 
     const lot = safeStr(r[CONFIG.COLS.lotNumber]);
     const seller = safeStr(r[CONFIG.COLS.consignor]);
 
-    // Description should pull “breed” — we use the Description column as the primary breed/description line.
+    // REP: consignor breaks
+    if(mode === "rep"){
+      const c = seller;
+      if(c && c !== currentConsignor){
+        currentConsignor = c;
+        // extra space before new consignor section
+        if(y < M + 140) newPage();
+        drawConsignorDivider(currentConsignor);
+      }
+    }
+
+    // Breed line (preferred). If no Breed column exists or blank, fall back to Description.
+    const breed = safeStr(r[CONFIG.COLS.breed]) || safeStr(r[CONFIG.COLS.description]);
+
     const desc = safeStr(r[CONFIG.COLS.description]);
     const desc2 = safeStr(r[CONFIG.COLS.secondDescription]);
 
@@ -479,120 +681,144 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const sld = safeStr(r[CONFIG.COLS.slide]);
     const price = priceDisplay(r[CONFIG.COLS.price]);
 
-    const dm = toNumber(r[CONFIG.COLS.downMoney]); // blank=>0
+    const dm = toNumber(r[CONFIG.COLS.downMoney]);
     if(mode === "buyer") buyerDownMoneyTotal += dm;
 
-    // ---- LOT BLOCK ----
+    // Lot block outer box (excel-like)
+    const blockTop = y;
+    const blockPad = 10;
+
     // Line 1: Lot # - Seller
-    drawText(`${lot} - ${seller}`, M, y, { bold:true, size: 11 });
-    y -= 14;
+    page.drawText(`${lot} - ${seller}`, {
+      x: M + blockPad,
+      y,
+      size: 12,
+      font: fontBold,
+      color: BLACK
+    });
+    y -= 16;
 
-    // Line 2: Description (wrapped)
-    y = drawWrappedLines({
+    // Line 2: Breed (not description)
+    y = drawWrapped({
       page,
       font,
-      color: INK,
-      x: M,
+      color: BLACK,
+      x: M + blockPad,
       y,
-      text: desc,
+      text: breed,
       size: 10,
-      maxWidth: maxX - M,
+      maxWidth: contentW - 2*blockPad,
       lineHeight: 12
     });
 
-    // small gap
-    y -= 2;
+    y -= 6;
 
-    // Labels row
-    const labels = "Loads: Head: Sex: Base Weight: Delivery: Location: Shrink: Slide: Price";
-    drawText(labels, M, y, { size: 9 });
-    y -= 12;
+    // Grid labels + values aligned
+    const labels = colDefs.map(c => c.label);
+    const values = colDefs.map(c => {
+      switch(c.key){
+        case "loads": return loads || "0";
+        case "head": return head || "0";
+        case "sex": return sex || "";
+        case "bw": return bw || "";
+        case "del": return del || "";
+        case "loc": return loc || "";
+        case "shr": return shr || "";
+        case "sld": return sld || "";
+        case "price": return price;
+        case "dm": return downMoneyDisplay(r[CONFIG.COLS.downMoney]);
+        default: return "";
+      }
+    });
 
-    // Values row (the colon-separated values)
-    const values = `${loads}:${head}:${sex}:${bw}:${del}:${loc}:${shr}:${sld}:${price}`;
-    y = drawWrappedLines({
+    const gridTopY = y;
+    y = drawGridRow(gridTopY, labels, values) - 8;
+
+    // Notes inline (no new line after Notes:)
+    const notesText = [desc, desc2].filter(Boolean).join("  |  ");
+    const notesLine = `Notes: ${notesText}`;
+    y = drawWrapped({
       page,
       font,
-      color: INK,
-      x: M,
+      color: BLACK,
+      x: M + blockPad,
       y,
-      text: values,
-      size: 10,
-      maxWidth: maxX - M,
+      text: notesLine,
+      size: 9.5,
+      maxWidth: contentW - 2*blockPad,
       lineHeight: 12
     });
 
-    // Notes (your rule: description then second description on a new row if it exists)
-    // Also: "A new line cannot be started until all letters/words used" -> enforced via wrapText()
-    const notesHeader = "Notes:";
-    drawText(notesHeader, M, y, { bold:true, size: 10 });
-    y -= 12;
-
-    // First notes line: Description
-    y = drawWrappedLines({
-      page,
-      font,
-      color: INK,
-      x: M + 36,
-      y,
-      text: desc,
-      size: 9,
-      maxWidth: (maxX - M) - 36,
-      lineHeight: 11
-    });
-
-    // Second notes line: Second Description if available
-    if(desc2){
-      y = drawWrappedLines({
-        page,
-        font,
-        color: INK,
-        x: M + 36,
-        y,
-        text: desc2,
-        size: 9,
-        maxWidth: (maxX - M) - 36,
-        lineHeight: 11
-      });
-    }
-
-    // Down money per lot (buyer only)
+    // Buyer: per-lot down money bold line (still useful even though grid has Down $)
     if(mode === "buyer"){
-      const dmLine = `Down Money Due: ${downMoneyDisplay(r[CONFIG.COLS.downMoney])}`;
-      drawText(dmLine, M, y, { bold:true, size: 11 });
+      y -= 2;
+      page.drawText(`Down Money Due: ${downMoneyDisplay(r[CONFIG.COLS.downMoney])}`, {
+        x: M + blockPad,
+        y,
+        size: 11,
+        font: fontBold,
+        color: BLACK
+      });
       y -= 14;
-    }else{
-      y -= 6;
+    } else {
+      y -= 8;
     }
 
-    // separator + spacing between lots
-    drawLine(M, y, maxX, y, 0.6);
+    // Draw block border (around everything for that lot)
+    const blockBottom = y;
+    const blockH = blockTop - blockBottom + 6;
+
+    page.drawRectangle({
+      x: M,
+      y: blockBottom - 2,
+      width: contentW,
+      height: blockH,
+      borderWidth: 1,
+      borderColor: gridStroke
+    });
+
     y -= CONFIG.PDF.blockGap;
   }
 
-  // Buyer total box + footer remittance instructions
+  // Buyer: totals + remittance footer
   if(mode === "buyer"){
-    if(y < M + 220) newPage();
+    if(y < M + 130){
+      newPage();
+    }
 
     // Total box
-    const boxW = 240;
-    const boxH = 46;
-    const boxX = maxX - boxW;
+    const boxW = 280;
+    const boxH = 42;
+    const boxX = M + contentW - boxW;
     const boxY = y - boxH;
 
     page.drawRectangle({
-      x: boxX, y: boxY,
-      width: boxW, height: boxH,
+      x: boxX,
+      y: boxY,
+      width: boxW,
+      height: boxH,
       borderWidth: 1,
-      borderColor: INK,
+      borderColor: gridStroke
     });
 
-    drawText("Total Down Money Due:", boxX + 10, boxY + 26, { bold:true, size: 11 });
-    drawText(money2(buyerDownMoneyTotal), boxX + 10, boxY + 8, { bold:true, size: 13 });
+    page.drawText("Total Down Money Due:", {
+      x: boxX + 10,
+      y: boxY + 24,
+      size: 11,
+      font: fontBold,
+      color: BLACK
+    });
 
-    y = boxY - 18;
+    page.drawText(money2(buyerDownMoneyTotal), {
+      x: boxX + 10,
+      y: boxY + 8,
+      size: 13,
+      font: fontBold,
+      color: BLACK
+    });
 
-    // Remit / wiring footer block (as you provided)
+    y = boxY - 10;
+
     const footerText =
 `REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK
 PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
@@ -609,35 +835,20 @@ Happy State Bank
 Canadian, Tx 79014
 Routing Number: 082902757
 CMS Orita Calf Auction LLC-Wire Account
-Account Number: 504831484`;
+Account Number: 504831484
 
-    y = drawWrappedLines({
+We appreciate your business. Please call our office if you have any questions regarding lots, delivery, or payment.`;
+
+    y = drawWrapped({
       page,
       font,
-      color: INK,
+      color: BLACK,
       x: M,
       y,
       text: footerText,
-      size: 8.5,
-      maxWidth: maxX - M,
+      size: 8.7,
+      maxWidth: contentW,
       lineHeight: 11
-    });
-
-    y -= 6;
-
-    // Your “something else here”
-    const closing =
-      "We appreciate your business. If you have any questions regarding lots, delivery, or payment, please call our office.";
-    y = drawWrappedLines({
-      page,
-      font,
-      color: INK,
-      x: M,
-      y,
-      text: closing,
-      size: 9,
-      maxWidth: maxX - M,
-      lineHeight: 12
     });
   }
 
@@ -669,10 +880,9 @@ buildBtn.addEventListener("click", async ()=>{
     zipConsignors.disabled = true;
     zipReps.disabled = true;
     zipAll.disabled = true;
-
     resultsMeta.textContent = "";
 
-    // Buyers (one PDF per buyer includes all their rows)
+    // Buyers (one PDF per buyer)
     if(chkBuyer.checked){
       const buyers = groupBy(csvRows, CONFIG.COLS.buyer);
       for(const [buyer, rows] of buyers.entries()){
@@ -684,7 +894,7 @@ buildBtn.addEventListener("click", async ()=>{
       generated.buyers.sort((a,b)=> a.name.localeCompare(b.name));
     }
 
-    // Consignors
+    // Consignors (one PDF per consignor)
     if(chkConsignor.checked){
       const consignors = groupBy(csvRows, CONFIG.COLS.consignor);
       for(const [consignor, rows] of consignors.entries()){
@@ -696,7 +906,7 @@ buildBtn.addEventListener("click", async ()=>{
       generated.consignors.sort((a,b)=> a.name.localeCompare(b.name));
     }
 
-    // Reps (ignore blanks)
+    // Reps (ignore blank reps)
     if(chkRep.checked){
       const repRows = csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== "");
       const reps = groupBy(repRows, CONFIG.COLS.rep);
