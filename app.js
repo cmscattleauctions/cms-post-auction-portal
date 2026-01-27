@@ -1,9 +1,22 @@
 /* CMS Post-Auction Portal (client-only)
-   Robust version:
-   - Shows the REAL error on-screen (no DevTools needed)
-   - Validates libraries are loaded
-   - Validates CSV columns and prints missing columns clearly
-   - Landscape PDF, compact lots, header only on first page, thin top bar only
+   FULL app.js — includes newline/control-character sanitization to fix:
+   "WinAnsi cannot encode ... (0x000a)"
+
+   Features in this version (per your requests):
+   - Password gate (PIN 0623)
+   - Upload CSV (drag/drop or file pick)
+   - Generate Buyer / Consignor / Rep PDFs
+   - Landscape PDFs
+   - Thin color bar ONLY on page 1 (blue/gray/dark), not covering header text
+   - Header block ONLY on page 1
+   - No logo in the header (logo not used)
+   - Compact “boxed” lot blocks aimed at ~5 lots/page (depending on notes length)
+   - Boxes always fit content: auto-shrink text; truncate with ellipsis if needed
+   - Notes inline after "Notes:" (wrapped, limited)
+   - Rep PDFs: clear consignor divider blocks
+   - Buyer total line: ONE LINE + commas (e.g. $21,150.00)
+   - Footer: two-column layout exactly as specified
+   - Shows real error message on-screen (no DevTools)
 */
 
 const CONFIG = {
@@ -52,7 +65,7 @@ const CONFIG = {
     lotGap: 8,
     cellPadX: 5,
 
-    // limits to keep lots compact
+    // compacting
     maxNotesLines: 2,
 
     // footer area
@@ -116,10 +129,30 @@ function setError(el, msg){
   el.textContent = msg;
   show(el);
 }
+
+/**
+ * CRITICAL: sanitize text for pdf-lib StandardFonts (WinAnsi).
+ * - Removes newlines/tabs/control chars (fixes 0x000a error)
+ * - Collapses whitespace
+ * - Converts common “smart” punctuation to ASCII
+ */
 function safeStr(v){
   if(v === null || v === undefined) return "";
-  return String(v).trim();
+  return String(v)
+    // normalize linebreaks/tabs to spaces (pdf-lib can't encode \n with WinAnsi)
+    .replace(/[\r\n\t]+/g, " ")
+    // remove other control characters
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    // smart punctuation -> ascii
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/…/g, "...")
+    // collapse whitespace
+    .replace(/\s+/g, " ")
+    .trim();
 }
+
 function toNumber(v){
   const s = safeStr(v);
   if(!s) return 0;
@@ -169,7 +202,7 @@ function assertLibsLoaded(){
   if(!window.JSZip) throw new Error("ZIP library not loaded (JSZip). Check index.html script tag for jszip.");
 }
 function requiredColsPresent(rows){
-  // Breed is optional; everything else required.
+  // Breed optional, everything else required
   const required = Object.values(CONFIG.COLS).filter(c => c !== CONFIG.COLS.breed);
   const row0 = rows[0] || {};
   const keys = new Set(Object.keys(row0));
@@ -271,6 +304,16 @@ function handleFile(file){
         setError(builderError, "CSV parsed, but it contains no rows.");
         return;
       }
+
+      // sanitize all fields up front (extra-safe)
+      csvRows = csvRows.map(row => {
+        const cleaned = {};
+        for(const k of Object.keys(row)){
+          cleaned[k] = safeStr(row[k]);
+        }
+        return cleaned;
+      });
+
       const chk = requiredColsPresent(csvRows);
       if(!chk.ok){
         setError(builderError, `CSV is missing required column(s): ${chk.missing.join(", ")}`);
@@ -278,6 +321,7 @@ function handleFile(file){
         setBuildEnabled();
         return;
       }
+
       setBuildEnabled();
     },
     error: () => {
@@ -388,7 +432,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     "(806) 355-7505"
   ];
 
-  // Compact columns tuned to fit 5 lots/page more often
+  // Compact columns tuned for density
   const colDefs = [
     { key: "loads", label: "Loads", w: 44 },
     { key: "head",  label: "Head",  w: 44 },
@@ -431,18 +475,18 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     // Left: label/name + auction info
     const leftX = M;
-    page.drawText(`${leftLabel}: ${entityName}`, {
+    page.drawText(`${leftLabel}: ${safeStr(entityName)}`, {
       x: leftX, y: hy, size: 12, font: fontBold, color: BLACK
     });
     hy -= 14;
 
-    page.drawText(auctionTitle, {
+    page.drawText(safeStr(auctionTitle), {
       x: leftX, y: hy, size: 10, font, color: BLACK
     });
     hy -= 12;
 
     if(aDate){
-      page.drawText(aDate, {
+      page.drawText(safeStr(aDate), {
         x: leftX, y: hy, size: 10, font, color: BLACK
       });
     }
@@ -500,7 +544,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       borderWidth: 0.8,
       borderColor: gridStroke
     });
-    page.drawText(`Consignor: ${name}`, {
+    page.drawText(`Consignor: ${safeStr(name)}`, {
       x: M + 8,
       y: y - barH + 3.5,
       size: 9.8,
@@ -535,7 +579,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     const padX = 8;
 
-    // Row 1
+    // Row 1 (Lot/Seller + Breed)
     const row1H = 18;
     page.drawRectangle({
       x: M, y: y - row1H, width: contentW, height: row1H,
@@ -569,7 +613,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= row1H;
 
-    // Grid rows
+    // Grid labels + values
     const labelH = 14;
     const valueH = 18;
     const gridH = labelH + valueH;
@@ -579,7 +623,6 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: WHITE, borderWidth: 1, borderColor: gridStroke
     });
 
-    // separator
     page.drawLine({
       start: { x: gridX, y: y - labelH },
       end:   { x: gridX + gridW, y: y - labelH },
@@ -587,10 +630,8 @@ async function buildPdfForGroup({entityName, rows, mode}){
     });
 
     let cx = gridX;
-    for(let i=0;i<colDefs.length;i++){
-      const c = colDefs[i];
-
-      if(i !== 0){
+    for(const c of colDefs){
+      if(cx !== gridX){
         page.drawLine({
           start: { x: cx, y: y },
           end:   { x: cx, y: y - gridH },
@@ -620,8 +661,9 @@ async function buildPdfForGroup({entityName, rows, mode}){
         case "sld":   rawVal = sld; break;
         case "price": rawVal = price; break;
         case "dm":    rawVal = dm; break;
-        default: rawVal = "";
       }
+
+      rawVal = safeStr(rawVal);
 
       const fitted = fitTextOneLine({
         font,
@@ -644,14 +686,13 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     y -= gridH;
 
-    // Notes row
+    // Notes row (inline)
     const notesLineH = 10;
     const notesBoxMinH = 18;
 
-    const notesHeader = "Notes: ";
-    const notesTextFull = notesHeader + notesText;
+    const notesFull = safeStr(`Notes: ${notesText}`);
 
-    const notesLines = wrapLines(font, notesTextFull, CONFIG.PDF.tiny, contentW - 2*padX);
+    const notesLines = wrapLines(font, notesFull, CONFIG.PDF.tiny, contentW - 2*padX);
     const useLines = Math.min(notesLines.length, CONFIG.PDF.maxNotesLines);
     const notesH = Math.max(notesBoxMinH, 6 + useLines*notesLineH + 2);
 
@@ -664,7 +705,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       page, font,
       x: M + padX,
       y: y - 10,
-      text: notesTextFull,
+      text: notesFull,
       size: CONFIG.PDF.tiny,
       maxW: contentW - 2*padX,
       maxLines: CONFIG.PDF.maxNotesLines,
@@ -707,7 +748,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       }
     }
 
-    // room check (rough but safe)
+    // room check (safe)
     if(y < M + CONFIG.PDF.footerH + 110){
       newPage();
       if(mode === "rep" && currentConsignor){
@@ -718,7 +759,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     drawLotBlock(r);
   }
 
-  // Buyer footer
+  // Buyer footer/totals
   if(mode === "buyer"){
     if(y < M + CONFIG.PDF.footerH + 10){
       newPage();
@@ -734,6 +775,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     });
     y -= 18;
 
+    // Footer: two columns (exact layout requested)
     const colGap = 22;
     const colW = (contentW - colGap) / 2;
     const leftX = M;
@@ -758,13 +800,13 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
     const lineH = 10.5;
 
     let ly = y;
-    for(const ln of leftFooter.split("\n")){
+    for(const ln of leftFooter.split("\n").map(safeStr).filter(Boolean)){
       page.drawText(ln, { x: leftX, y: ly, size: CONFIG.PDF.tiny, font, color: BLACK });
       ly -= lineH;
     }
 
     let ry = y;
-    for(const ln of rightFooter.split("\n")){
+    for(const ln of rightFooter.split("\n").map(safeStr).filter(Boolean)){
       page.drawText(ln, { x: rightX, y: ry, size: CONFIG.PDF.tiny, font, color: BLACK });
       ry -= lineH;
     }
@@ -865,7 +907,7 @@ function renderResults(){
   zipAll.disabled = total === 0;
 }
 
-// ====== Build PDFs ======
+// ====== BUILD PDFs ======
 buildBtn.addEventListener("click", async ()=>{
   setError(builderError, "");
   buildBtn.disabled = true;
@@ -874,18 +916,13 @@ buildBtn.addEventListener("click", async ()=>{
   try{
     assertLibsLoaded();
 
-    if(csvRows.length === 0){
-      throw new Error("Upload a CSV first.");
-    }
+    if(csvRows.length === 0) throw new Error("Upload a CSV first.");
     if(!(chkBuyer.checked || chkConsignor.checked || chkRep.checked)){
       throw new Error("Select at least one report type.");
     }
 
-    // Validate columns again right before build (helps if CSV changed)
     const chk = requiredColsPresent(csvRows);
-    if(!chk.ok){
-      throw new Error(`CSV is missing required column(s): ${chk.missing.join(", ")}`);
-    }
+    if(!chk.ok) throw new Error(`CSV is missing required column(s): ${chk.missing.join(", ")}`);
 
     generated = { buyers:[], consignors:[], reps:[] };
     listBuyers.innerHTML = "";
@@ -936,7 +973,6 @@ buildBtn.addEventListener("click", async ()=>{
     goto(pageResults);
 
   } catch (err) {
-    // Show the REAL error on-screen
     console.error(err);
     const msg = (err && err.message) ? err.message : String(err);
     setError(builderError, `PDF generation error: ${msg}`);
