@@ -36,6 +36,7 @@ const CONFIG = {
     titleSize: 14,
     lineHeight: 12,
     tableRowHeight: 22,
+    bottomGuard: 120,
   }
 };
 
@@ -279,6 +280,9 @@ window.addEventListener("beforeunload", ()=>{
 async function buildPdfForGroup({entityName, rows, mode}){
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
 
+  // IMPORTANT: black ink so content is visible on white page
+  const INK = rgb(0,0,0);
+
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -296,14 +300,19 @@ async function buildPdfForGroup({entityName, rows, mode}){
       y,
       size: opts.size ?? CONFIG.PDF.fontSize,
       font: opts.bold ? fontBold : font,
-      color: opts.color ?? rgb(1,1,1),
+      color: opts.color ?? INK,
       maxWidth: opts.maxWidth,
       lineHeight: opts.lineHeight ?? CONFIG.PDF.lineHeight,
     });
   };
 
   const drawLine = (x1,y1,x2,y2, thickness=1) => {
-    page.drawLine({ start:{x:x1,y:y1}, end:{x:x2,y:y2}, thickness, color: rgb(1,1,1) });
+    page.drawLine({
+      start:{x:x1,y:y1},
+      end:{x:x2,y:y2},
+      thickness,
+      color: INK
+    });
   };
 
   function newPage(){
@@ -351,22 +360,22 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
   // Table columns (NO buyer column)
   const cols = [
-    { key:"lot", label:"Lot", w:34 },
-    { key:"seller", label:"Seller", w:90 },
-    { key:"loads", label:"Loads", w:40 },
-    { key:"head", label:"Head", w:38 },
-    { key:"notes", label:"Description / Notes", w:190 },
-    { key:"sex", label:"Sex", w:30 },
-    { key:"bw", label:"Base Wt", w:48 },
-    { key:"del", label:"Delivery", w:54 },
-    { key:"loc", label:"Location", w:64 },
-    { key:"shr", label:"Shr", w:28 },
-    { key:"sld", label:"Sld", w:28 },
-    { key:"price", label:"Price", w:54 },
+    { label:"Lot", w:34 },
+    { label:"Seller", w:90 },
+    { label:"Loads", w:40 },
+    { label:"Head", w:38 },
+    { label:"Description / Notes", w:190 },
+    { label:"Sex", w:30 },
+    { label:"Base Wt", w:48 },
+    { label:"Delivery", w:54 },
+    { label:"Location", w:64 },
+    { label:"Shr", w:28 },
+    { label:"Sld", w:28 },
+    { label:"Price", w:54 },
   ];
 
   if(mode === "buyer"){
-    cols.push({ key:"dm", label:"Down $", w:54 });
+    cols.push({ label:"Down $", w:54 });
   }
 
   // Header row
@@ -384,7 +393,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
   let downMoneyTotal = 0;
 
   for(const r of sorted){
-    if(y < margin + 120){
+    if(y < margin + CONFIG.PDF.bottomGuard){
       newPage();
 
       drawText("CMS LIVESTOCK AUCTION", margin, y, {bold:true, size: 12});
@@ -411,7 +420,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     }
 
     const lot = safeStr(r[CONFIG.COLS.lotNumber]);
-    const seller = safeStr(r[CONFIG.COLS.consignor]);
+    const seller = safeStr(r[CONFIG.COLS.consignor]); // confirmed by you
     const loads = safeStr(r[CONFIG.COLS.loads]);
     const head = safeStr(r[CONFIG.COLS.head]);
 
@@ -427,7 +436,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const sld = safeStr(r[CONFIG.COLS.slide]);
     const price = priceDisplay(r[CONFIG.COLS.price]);
 
-    const dmVal = toNumber(r[CONFIG.COLS.downMoney]);
+    const dmVal = toNumber(r[CONFIG.COLS.downMoney]); // blank -> 0
     if(mode === "buyer") downMoneyTotal += dmVal;
 
     x = margin;
@@ -439,7 +448,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
         y: rowTop,
         size: opts.size ?? CONFIG.PDF.fontSizeSmall,
         font: opts.bold ? fontBold : font,
-        color: rgb(1,1,1),
+        color: INK,
         maxWidth: width - 4,
         lineHeight: opts.lineHeight ?? 10,
       });
@@ -468,6 +477,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     drawLine(margin, y + 6, maxX, y + 6, 0.6);
   }
 
+  // Buyer footer total box
   if(mode === "buyer"){
     y -= 12;
     if(y < margin + 70) newPage();
@@ -481,7 +491,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
       x: boxX, y: boxY,
       width: boxW, height: boxH,
       borderWidth: 1,
-      borderColor: rgb(1,1,1),
+      borderColor: INK,
     });
 
     drawText("Down Money Due:", boxX + 10, boxY + 22, {bold:true, size: 11});
@@ -524,6 +534,7 @@ buildBtn.addEventListener("click", async ()=>{
 
     resultsMeta.textContent = "";
 
+    // Buyers
     if(chkBuyer.checked){
       const buyers = groupBy(csvRows, CONFIG.COLS.buyer);
       for(const [buyer, rows] of buyers.entries()){
@@ -535,6 +546,7 @@ buildBtn.addEventListener("click", async ()=>{
       generated.buyers.sort((a,b)=> a.name.localeCompare(b.name));
     }
 
+    // Consignors
     if(chkConsignor.checked){
       const consignors = groupBy(csvRows, CONFIG.COLS.consignor);
       for(const [consignor, rows] of consignors.entries()){
@@ -546,6 +558,7 @@ buildBtn.addEventListener("click", async ()=>{
       generated.consignors.sort((a,b)=> a.name.localeCompare(b.name));
     }
 
+    // Reps (ignore blanks)
     if(chkRep.checked){
       const repRows = csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== "");
       const reps = groupBy(repRows, CONFIG.COLS.rep);
@@ -672,9 +685,14 @@ zipAll.addEventListener("click", ()=>{
   downloadZip(all, "All-Reports.zip");
 });
 
+// Back button
 backBtn.addEventListener("click", ()=> goto(pageBuilder));
+
+// Exit button
+exitBtn.addEventListener("click", ()=>{
+  // use wipeAll logic above
+});
 
 // Start
 goto(pageAuth);
 setBuildEnabled();
-
