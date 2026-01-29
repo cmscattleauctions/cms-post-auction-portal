@@ -83,6 +83,16 @@
               <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
             </div>
           </div>
+          <div class="row" style="margin-top:12px;">
+  <label class="small muted">Buyer Contract Template (.docx)</label>
+  <input type="file" id="buyerTemplateInput" accept=".docx" />
+</div>
+
+<div class="row" style="margin-top:10px;">
+  <label class="small muted">Seller Contract Template (.docx)</label>
+  <input type="file" id="sellerTemplateInput" accept=".docx" />
+</div>
+
 
           <div id="fileMeta" class="muted small hidden"></div>
         </div>
@@ -96,6 +106,10 @@
             <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports</label>
             <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports</label>
             <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports</label>
+            <label class="checkRow"><input type="checkbox" id="chkLotByLot"> Lot-by-lot PDFs</label>
+            <label class="checkRow"><input type="checkbox" id="chkBuyerContracts"> Buyer Contract DOCX (per lot)</label>
+            <label class="checkRow"><input type="checkbox" id="chkSellerContracts"> Seller Contract DOCX (per lot)</label>
+
           </div>
 
           <div class="muted small">
