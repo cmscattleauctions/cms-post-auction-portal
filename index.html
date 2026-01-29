@@ -4,48 +4,64 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>CMS Post-Auction Report Builder</title>
+
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Client-only libraries -->
+  <!-- Core client-only libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
+
 <body>
   <div class="app">
+
+    <!-- TOP BAR -->
     <header class="topbar">
       <div class="brand">
         <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
         <div class="brandText">
           <div class="brandTitle">CMS Post-Auction Reporting</div>
-          <div class="brandSub">Internal PDF Builder</div>
+          <div class="brandSub">Internal PDF & Contract Builder</div>
         </div>
       </div>
 
       <div class="topbarActions">
-        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">Exit / Clear</button>
+        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
+          Exit / Clear
+        </button>
       </div>
     </header>
 
     <main class="main">
-      <!-- PAGE 1: Password -->
+
+      <!-- PAGE 1: AUTH -->
       <section id="pageAuth" class="card">
         <h1>Enter PIN</h1>
-        <p class="muted">Data is processed in your browser only. Nothing is stored by the site.</p>
+        <p class="muted">
+          Data is processed in your browser only. Nothing is uploaded or stored.
+        </p>
 
         <div class="row">
           <label class="label">PIN</label>
-          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+          <input
+            id="pinInput"
+            class="input"
+            type="password"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="••••"
+          />
         </div>
 
         <div class="row">
           <button id="pinSubmit" class="btn">Enter</button>
         </div>
 
-        <div id="authError" class="error hidden">Incorrect PIN.</div>
+        <div id="authError" class="error hidden"></div>
       </section>
 
-      <!-- PAGE 2: Builder -->
+      <!-- PAGE 2: BUILDER -->
       <section id="pageBuilder" class="card hidden">
         <h1>Report Builder</h1>
 
@@ -62,17 +78,17 @@
 
           <div class="row">
             <label class="label">Auction Label (optional)</label>
-            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
-          </div>
-
-          <div class="row">
-            <label class="label">Contract # (optional label)</label>
-            <input id="contractLabel" class="input" placeholder="(not printed in headers now; optional for your reference)" />
+            <input
+              id="auctionLabel"
+              class="input"
+              placeholder="e.g., Calftech Special (optional)"
+            />
           </div>
         </div>
 
         <hr class="divider" />
 
+        <!-- CSV UPLOAD -->
         <div class="row">
           <label class="label">Upload CSV</label>
 
@@ -80,76 +96,115 @@
             <div class="dropTitle">Drag & drop CSV here</div>
             <div class="dropSub">or</div>
             <div>
-              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
+              <input
+                id="fileInput"
+                type="file"
+                accept=".csv,text/csv"
+                class="file"
+              />
             </div>
           </div>
-          <div class="row" style="margin-top:12px;">
-  <label class="small muted">Buyer Contract Template (.docx)</label>
-  <input type="file" id="buyerTemplateInput" accept=".docx" />
-</div>
 
-<div class="row" style="margin-top:10px;">
-  <label class="small muted">Seller Contract Template (.docx)</label>
-  <input type="file" id="sellerTemplateInput" accept=".docx" />
-</div>
+          <!-- DOCX TEMPLATE UPLOADS -->
+          <div class="row" style="margin-top:14px;">
+            <label class="small muted">Buyer Contract Template (.docx)</label>
+            <input type="file" id="buyerTemplateInput" accept=".docx" />
+          </div>
 
+          <div class="row" style="margin-top:10px;">
+            <label class="small muted">Seller Contract Template (.docx)</label>
+            <input type="file" id="sellerTemplateInput" accept=".docx" />
+          </div>
 
           <div id="fileMeta" class="muted small hidden"></div>
         </div>
 
         <hr class="divider" />
 
+        <!-- OPTIONS -->
         <div class="row">
           <label class="label">Reports to Generate</label>
 
           <div class="pillRow">
-            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports</label>
-            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports</label>
-            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports</label>
-            <label class="checkRow"><input type="checkbox" id="chkLotByLot"> Lot-by-lot PDFs</label>
-            <label class="checkRow"><input type="checkbox" id="chkBuyerContracts"> Buyer Contract DOCX (per lot)</label>
-            <label class="checkRow"><input type="checkbox" id="chkSellerContracts"> Seller Contract DOCX (per lot)</label>
+            <label class="pill">
+              <input type="checkbox" id="chkBuyer" checked />
+              Buyer Reports
+            </label>
 
+            <label class="pill">
+              <input type="checkbox" id="chkConsignor" checked />
+              Consignor Reports
+            </label>
+
+            <label class="pill">
+              <input type="checkbox" id="chkRep" checked />
+              Representative Reports
+            </label>
+
+            <label class="pill">
+              <input type="checkbox" id="chkLotByLot" />
+              Lot-by-lot PDFs
+            </label>
+
+            <label class="pill">
+              <input type="checkbox" id="chkBuyerContracts" />
+              Buyer Contract DOCX (per lot)
+            </label>
+
+            <label class="pill">
+              <input type="checkbox" id="chkSellerContracts" />
+              Seller Contract DOCX (per lot)
+            </label>
           </div>
 
-          <div class="muted small">
+          <div class="muted small" style="margin-top:6px;">
             Rep PDFs ignore rows where <b>Representative</b> is blank.
           </div>
         </div>
 
         <div class="row">
-          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
+          <button id="buildBtn" class="btn" disabled>
+            Generate Files
+          </button>
         </div>
 
         <div id="builderError" class="error hidden"></div>
       </section>
 
-      <!-- PAGE 3: Results -->
+      <!-- PAGE 3: RESULTS -->
       <section id="pageResults" class="card hidden">
-        <h1>Generated PDFs</h1>
-        <p class="muted">Download individually or as ZIP files. Nothing persists after refresh/exit.</p>
+        <h1>Generated Files</h1>
+        <p class="muted">
+          Download individually or as ZIPs. Nothing persists after refresh or exit.
+        </p>
 
         <div class="resultsGrid">
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Buyer Reports</h2>
-              <button id="zipBuyers" class="btn btnSmall btnGhost" disabled>Download Buyers ZIP</button>
+              <h2>Buyer Outputs</h2>
+              <button id="zipBuyers" class="btn btnSmall btnGhost" disabled>
+                Download ZIP
+              </button>
             </div>
             <div id="listBuyers" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Consignor Reports</h2>
-              <button id="zipConsignors" class="btn btnSmall btnGhost" disabled>Download Consignors ZIP</button>
+              <h2>Consignor Outputs</h2>
+              <button id="zipConsignors" class="btn btnSmall btnGhost" disabled>
+                Download ZIP
+              </button>
             </div>
             <div id="listConsignors" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Representative Reports</h2>
-              <button id="zipReps" class="btn btnSmall btnGhost" disabled>Download Reps ZIP</button>
+              <h2>Representative Outputs</h2>
+              <button id="zipReps" class="btn btnSmall btnGhost" disabled>
+                Download ZIP
+              </button>
             </div>
             <div id="listReps" class="list"></div>
           </div>
@@ -159,7 +214,9 @@
 
         <div class="row spaceBetween">
           <button id="backBtn" class="btn btnGhost">Back</button>
-          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+          <button id="zipAll" class="btn" disabled>
+            Download ALL as ZIP
+          </button>
         </div>
 
         <div id="resultsMeta" class="muted small"></div>
@@ -167,11 +224,15 @@
     </main>
 
     <footer class="footer muted small">
-      Client-only app. No CSVs or PDFs are uploaded or stored by the website.
+      Client-only app. No CSVs, PDFs, or contracts are uploaded or stored.
     </footer>
   </div>
+
+  <!-- DOCX libraries -->
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.5/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.46.0/build/docxtemplater.min.js"></script>
+
+  <!-- App -->
   <script src="app.js"></script>
 </body>
 </html>
