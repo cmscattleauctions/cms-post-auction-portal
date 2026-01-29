@@ -1,28 +1,35 @@
-/* CMS Post-Auction Portal (client-only) — FULL app.js (UPDATED)
+/* CMS Post-Auction Portal (client-only) — FULL app.js (UPDATED to your latest notes)
 
-Changes in this revision:
-1) Column widths updated (Sex wider, others narrower as requested)
-   - Sex doubled
-   - Base Wt smaller
-   - Location ~ half
-   - Shrink slightly smaller
-   - Slide slightly smaller
-   - Price ~ half
-   NOTE: To keep the grid full-width, Delivery absorbs the remaining width.
+APPLIES to ALL PDF types (Buyer / Consignor / Rep):
 
-2) Printing safety + more lots/page
-   - On pages AFTER page 1: Buyer/Consignor/Rep name moved DOWN more
-   - Boxes start LOWER on pages after page 1 (printing cutoff protection)
-   - Lots are allowed down to within ~0.25" of bottom (18pt)
+1) FIRST PAGE ONLY: adds top-right address block:
+   CMS Livestock Auction
+   6900 I-40 West, Suite 135
+   Amarillo, TX 79106
+   (806) 355-7505
 
-3) Total Down Money box goes immediately after the last lot (no extra spacing)
+2) PAGES AFTER FIRST: moves Auction Title + Auction Date to TOP RIGHT.
+   (Left side still shows Buyer/Consignor/Rep.)
 
-4) Footer header line stands alone (no other text on that line)
+3) Lot grid widths adjusted:
+   - Delivery box narrower
+   - Location wider
+   - Others adjusted to keep total width full-page.
 
-5) Rep page: reduced padding between consignor divider and first lot
+4) Bottom whitespace reduced significantly (more lots per page).
 
-Requires in index.html BEFORE app.js:
-  papaparse, pdf-lib, jszip
+5) REP PDFs:
+   - Top bar/header color changed to a CMS-friendly TEAL (not buyer blue or consignor gray)
+   - Each consignor divider uses a rotating palette of CMS-friendly colors so it’s obvious when consignor changes.
+
+6) CONSIGNOR PDFs:
+   - If CSV has a "Type" column AND multiple types exist in that consignor’s rows,
+     inserts colored "Type" headers (divider bars) when type changes (CMS-friendly palette).
+
+Dependencies in index.html before app.js:
+  - papaparse
+  - pdf-lib
+  - jszip
 */
 
 const CONFIG = {
@@ -33,6 +40,7 @@ const CONFIG = {
     consignor: "Consignor",
     rep: "Representative",
     breed: "Breed", // optional; fallback to Description
+    type: "Type",  // optional; used for consignor type headers
 
     lotNumber: "Lot Number",
     lotSeq: "Lot Sequence",
@@ -51,53 +59,54 @@ const CONFIG = {
   },
 
   PDF: {
-    // LANDSCAPE letter
-    pageSize: { width: 792, height: 612 },
+    pageSize: { width: 792, height: 612 }, // landscape letter
 
-    // Keep side margins for layout, but allow content to run close to bottom.
     margin: 26,
-    bottomLimit: 18, // ~0.25" from bottom (more lots/page)
 
-    // full-width top bar
+    // SIGNIFICANTLY reduce bottom whitespace:
+    // allow lots down to ~0.12" from bottom (printing-dependent but you asked to push it)
+    bottomLimit: 9,
+
     topBarH: 8,
 
-    // header heights
     headerHFirst: 74,
-    headerHOther: 54, // push boxes down on pages after page 1 (print-safe)
+    headerHOther: 44, // tighter than before to fit more lots/page
 
-    // typography
     buyerNameSize: 13.8,
     otherNameSize: 12.3,
     headerSmall: 10.0,
     title: 12.2,
 
-    // lot typography
     lotTitle: 10.4,
     lotBreed: 9.4,
     gridLabel: 7.7,
     gridValue: 8.6,
     notes: 7.8,
 
-    // line heights
     gridLineH: 10.2,
     notesLineH: 10.0,
 
-    // spacing
-    lotGap: 10,
+    lotGap: 8, // slightly tighter -> more lots/page
 
-    // padding
     padX: 8,
     cellPadX: 5,
     cellPadY: 4,
 
-    // footer
-    footerLineH: 10.8,
-    footerMinH: 98,
+    footerLineH: 10.6,
+    footerMinH: 92,
 
-    // boxes
     borderW: 1.0,
     innerW: 0.8,
-  }
+  },
+
+  // CMS-friendly palette for Rep consignor dividers and Consignor Type dividers
+  PALETTE: [
+    { fill: [0.86, 0.93, 0.98], stroke: [0.20, 0.39, 0.60] }, // light CMS blue
+    { fill: [0.88, 0.96, 0.94], stroke: [0.12, 0.55, 0.55] }, // teal
+    { fill: [0.90, 0.96, 0.90], stroke: [0.20, 0.55, 0.25] }, // green
+    { fill: [0.93, 0.94, 0.98], stroke: [0.34, 0.34, 0.70] }, // indigo-ish
+    { fill: [0.94, 0.94, 0.94], stroke: [0.45, 0.45, 0.45] }, // neutral gray
+  ]
 };
 
 // ====== DOM ======
@@ -154,11 +163,6 @@ function setError(el, msg){
   show(el);
 }
 
-/**
- * Critical: sanitize for pdf-lib StandardFonts (WinAnsi)
- * - removes newlines/control chars (fixes 0x000a)
- * - normalizes smart punctuation
- */
 function safeStr(v){
   if(v === null || v === undefined) return "";
   return String(v)
@@ -220,14 +224,25 @@ function assertLibsLoaded(){
   if(!window.JSZip) throw new Error("ZIP library not loaded (JSZip). Check index.html script tag for jszip.");
 }
 function requiredColsPresent(rows){
-  const required = Object.values(CONFIG.COLS).filter(c => c !== CONFIG.COLS.breed);
+  const required = Object.values(CONFIG.COLS).filter(c => c !== CONFIG.COLS.breed && c !== CONFIG.COLS.type);
   const row0 = rows[0] || {};
   const keys = new Set(Object.keys(row0));
   const missing = required.filter(c => !keys.has(c));
   return { ok: missing.length === 0, missing };
 }
 
-// ====== TEXT + WRAP HELPERS ======
+// stable hash -> palette index
+function hashIndex(str, mod){
+  let h = 0;
+  const s = safeStr(str);
+  for(let i=0;i<s.length;i++){
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h) % mod;
+}
+
+// ====== TEXT HELPERS ======
 function textWidth(font, text, size){
   return font.widthOfTextAtSize(text || "", size);
 }
@@ -304,7 +319,6 @@ function handleFile(file){
         return;
       }
 
-      // sanitize everything immediately
       csvRows = csvRows.map(row => {
         const cleaned = {};
         for(const k of Object.keys(row)) cleaned[k] = safeStr(row[k]);
@@ -391,10 +405,12 @@ async function buildPdfForGroup({entityName, rows, mode}){
   const GRID = rgb(0.55, 0.55, 0.55);
   const FILL = rgb(0.98, 0.98, 0.98);
 
+  // Header/topbar colors:
+  // buyer = CMS blue, consignor = gray, rep = teal (easier to see than black, distinct from others)
   const topBarColor =
     mode === "buyer" ? rgb(0.20, 0.39, 0.60) :
     mode === "consignor" ? rgb(0.55, 0.55, 0.55) :
-    rgb(0.15, 0.15, 0.15);
+    rgb(0.12, 0.55, 0.55); // rep teal
 
   const W = CONFIG.PDF.pageSize.width;
   const H = CONFIG.PDF.pageSize.height;
@@ -402,20 +418,18 @@ async function buildPdfForGroup({entityName, rows, mode}){
   const bottomLimit = CONFIG.PDF.bottomLimit;
   const contentW = W - 2*M;
 
-  // UPDATED widths (sum MUST equal contentW = 740)
-  // loads 45, head 45, sex 100 (doubled), bw 40 (smaller),
-  // delivery 205 (absorbs remaining), location 65 (~half),
-  // shrink 50 (slightly smaller), slide 135 (slightly smaller), price 55 (~half)
+  // UPDATED widths (sum = 740 = contentW)
+  // Delivery narrower, Location wider, adjust others to keep full width.
   const colDefs = [
     { key: "loads", label: "Loads",   w: 45 },
     { key: "head",  label: "Head",    w: 45 },
     { key: "sex",   label: "Sex",     w: 100 },
-    { key: "bw",    label: "Base Wt", w: 40 },
-    { key: "del",   label: "Delivery",w: 205 },
-    { key: "loc",   label: "Location",w: 65 },
-    { key: "shr",   label: "Shrink",  w: 50 },
-    { key: "sld",   label: "Slide",   w: 135 },
-    { key: "price", label: "Price",   w: 55 },
+    { key: "bw",    label: "Base Wt", w: 38 },
+    { key: "del",   label: "Delivery",w: 170 }, // narrower
+    { key: "loc",   label: "Location",w: 110 }, // wider
+    { key: "shr",   label: "Shrink",  w: 48 },
+    { key: "sld",   label: "Slide",   w: 134 },
+    { key: "price", label: "Price",   w: 50 },
   ];
   const gridX = M;
   const gridW = colDefs.reduce((s,c)=>s+c.w,0); // 740
@@ -434,13 +448,30 @@ async function buildPdfForGroup({entityName, rows, mode}){
   const nameSize =
     mode === "buyer" ? CONFIG.PDF.buyerNameSize : CONFIG.PDF.otherNameSize;
 
+  // Address block lines for first page top-right
+  const addrLines = [
+    "CMS Livestock Auction",
+    "6900 I-40 West, Suite 135",
+    "Amarillo, TX 79106",
+    "(806) 355-7505"
+  ];
+
+  // For consignor PDFs: check whether multiple Types exist for this consignor group
+  const typeColExists = rows.length > 0 && Object.prototype.hasOwnProperty.call(rows[0], CONFIG.COLS.type);
+  const typesInGroup = new Set();
+  if(mode === "consignor" && typeColExists){
+    for(const r of rows){
+      const t = safeStr(r[CONFIG.COLS.type]) || "Other";
+      typesInGroup.add(t);
+    }
+  }
+  const useTypeHeaders = (mode === "consignor" && typeColExists && typesInGroup.size > 1);
+
   let page = pdfDoc.addPage([W,H]);
   let pageIndex = 0;
-
   let y = H - M;
 
   function drawTopBar(){
-    // FULL width edge-to-edge
     page.drawRectangle({
       x: 0,
       y: H - CONFIG.PDF.topBarH,
@@ -455,14 +486,14 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
     const headerH = (pageIndex === 0) ? CONFIG.PDF.headerHFirst : CONFIG.PDF.headerHOther;
 
-    // Move down more on pages after first to avoid print cutoff
+    // Print-safe: move down slightly on all pages; a touch more on later pages
     const topY = (pageIndex === 0)
       ? (H - CONFIG.PDF.topBarH - 18)
-      : (H - CONFIG.PDF.topBarH - 26);
+      : (H - CONFIG.PDF.topBarH - 24);
 
     const lx = M;
 
-    // Buyer/Consignor/Rep line
+    // LEFT: Buyer/Consignor/Rep
     page.drawText(`${leftLabel}: ${safeStr(entityName)}`, {
       x: lx,
       y: topY,
@@ -471,27 +502,29 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // Auction name + date on EVERY page
-    page.drawText(safeStr(auctionTitle), {
-      x: lx,
-      y: topY - 14,
-      size: CONFIG.PDF.headerSmall,
-      font,
-      color: BLACK
-    });
-
-    if(aDate){
-      page.drawText(safeStr(aDate), {
+    // FIRST PAGE:
+    // - Keep auction title/date on left (as you had)
+    // - Add address block on top-right
+    if(pageIndex === 0){
+      // auction title/date left
+      page.drawText(safeStr(auctionTitle), {
         x: lx,
-        y: topY - 26,
+        y: topY - 14,
         size: CONFIG.PDF.headerSmall,
         font,
         color: BLACK
       });
-    }
+      if(aDate){
+        page.drawText(safeStr(aDate), {
+          x: lx,
+          y: topY - 26,
+          size: CONFIG.PDF.headerSmall,
+          font,
+          color: BLACK
+        });
+      }
 
-    // Center title only on page 1 (keeps later pages tighter)
-    if(pageIndex === 0){
+      // center title only on page 1
       const tW = textWidth(fontBold, centerTitle, CONFIG.PDF.title);
       page.drawText(centerTitle, {
         x: M + (contentW - tW)/2,
@@ -500,8 +533,47 @@ async function buildPdfForGroup({entityName, rows, mode}){
         font: fontBold,
         color: BLACK
       });
+
+      // address block top-right
+      const blockW = 240;
+      const rx = M + contentW - blockW;
+      let ry = topY + 2; // slightly above the buyer line for best fit
+
+      page.drawText(addrLines[0], { x: rx, y: ry, size: 10.2, font: fontBold, color: BLACK });
+      ry -= 12;
+      for(let i=1;i<addrLines.length;i++){
+        page.drawText(addrLines[i], { x: rx, y: ry, size: 9.3, font, color: BLACK });
+        ry -= 11;
+      }
+
+    } else {
+      // PAGES AFTER FIRST:
+      // Move auction title + date to TOP RIGHT
+      const blockW = 310;
+      const rx = M + contentW - blockW;
+      let ry = topY;
+
+      page.drawText(safeStr(auctionTitle), {
+        x: rx,
+        y: ry,
+        size: CONFIG.PDF.headerSmall,
+        font: font,
+        color: BLACK
+      });
+      ry -= 13;
+
+      if(aDate){
+        page.drawText(safeStr(aDate), {
+          x: rx,
+          y: ry,
+          size: CONFIG.PDF.headerSmall,
+          font: font,
+          color: BLACK
+        });
+      }
     }
 
+    // where lots start
     y = H - CONFIG.PDF.topBarH - headerH;
   }
 
@@ -514,20 +586,28 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
   drawHeader();
 
-  // rep group separator
+  // Rep: per-consignor divider colors (CMS palette), clear transitions
   let currentConsignor = "";
-  function drawRepConsignorDivider(name){
-    const barH = 16;
+  let repConsignorColorIndex = 0;
+
+  // Consignor: optional Type divider colors (CMS palette)
+  let currentType = "";
+
+  function drawColoredDivider({label, value, colorSpec, height=16, gapAfter=3}){
+    const fill = rgb(colorSpec.fill[0], colorSpec.fill[1], colorSpec.fill[2]);
+    const stroke = rgb(colorSpec.stroke[0], colorSpec.stroke[1], colorSpec.stroke[2]);
+
     page.drawRectangle({
       x: M,
-      y: y - barH,
+      y: y - height,
       width: contentW,
-      height: barH,
-      color: rgb(0.92,0.92,0.92),
+      height: height,
+      color: fill,
       borderWidth: CONFIG.PDF.innerW,
-      borderColor: GRID
+      borderColor: stroke
     });
-    page.drawText(`Consignor: ${safeStr(name)}`, {
+
+    page.drawText(`${label}: ${safeStr(value)}`, {
       x: M + 8,
       y: y - 12,
       size: 10.0,
@@ -535,10 +615,10 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // UPDATED: reduced padding below divider (was +8)
-    y -= (barH + 3);
+    y -= (height + gapAfter);
   }
 
+  // Buyer totals
   let buyerDownMoneyTotal = 0;
 
   function computeGridValueLines(record){
@@ -573,7 +653,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const notesFull = safeStr(`Notes: ${notesText}`);
     const maxW = contentW - 2*CONFIG.PDF.padX;
     const lines = wrapLinesByWords(font, notesFull, CONFIG.PDF.notes, maxW);
-    return { notesFull, lines };
+    return { lines };
   }
 
   function lotBlockHeight(record){
@@ -596,8 +676,17 @@ async function buildPdfForGroup({entityName, rows, mode}){
     const need = lotBlockHeight(record);
     if((y - need) < footerReserve){
       newPage();
+
+      // Rep: repeat current consignor divider at top of a new page
       if(mode === "rep" && currentConsignor){
-        drawRepConsignorDivider(currentConsignor);
+        const idx = hashIndex(currentConsignor, CONFIG.PALETTE.length);
+        drawColoredDivider({ label: "Consignor", value: currentConsignor, colorSpec: CONFIG.PALETTE[idx], height: 16, gapAfter: 2 });
+      }
+
+      // Consignor: repeat current type divider at top of a new page (if enabled)
+      if(mode === "consignor" && useTypeHeaders && currentType){
+        const idx = hashIndex(currentType, CONFIG.PALETTE.length);
+        drawColoredDivider({ label: "Type", value: currentType, colorSpec: CONFIG.PALETTE[idx], height: 14, gapAfter: 2 });
       }
     }
   }
@@ -684,7 +773,7 @@ async function buildPdfForGroup({entityName, rows, mode}){
         color: BLACK
       });
 
-      // centered wrapped value lines
+      // centered wrapped value lines (no truncation)
       const lines = wrapped[c.key] || [""];
       const startY = y - labelH - 11;
       drawCenteredLines(page, font, lines, cellCenter, startY, CONFIG.PDF.gridLineH, CONFIG.PDF.gridValue, BLACK);
@@ -743,20 +832,50 @@ async function buildPdfForGroup({entityName, rows, mode}){
 
   const sorted = [...rows].sort(sortLots);
 
-  // Reserve only what we truly need
-  // - Buyer pages: reserve footer area near bottomLimit
-  // - Others: very small reserve
+  // Reserve space to pack lots lower on page:
+  // buyer: keep enough room for total box + footer near bottom
+  // others: minimal reserve near bottomLimit
   const footerReserve = (mode === "buyer")
-    ? (bottomLimit + CONFIG.PDF.footerMinH + 24)
-    : (bottomLimit + 16);
+    ? (bottomLimit + CONFIG.PDF.footerMinH + 18)
+    : (bottomLimit + 6);
 
   for(const r of sorted){
+    // REP: colored consignor divider whenever consignor changes
     if(mode === "rep"){
       const consignor = safeStr(r[CONFIG.COLS.consignor]);
       if(consignor && consignor !== currentConsignor){
-        if(y < footerReserve + 60) newPage();
+        // ensure room for divider + next lot
+        if(y < footerReserve + 40) newPage();
+
         currentConsignor = consignor;
-        drawRepConsignorDivider(currentConsignor);
+
+        // choose a stable palette color based on consignor name
+        const idx = hashIndex(currentConsignor, CONFIG.PALETTE.length);
+        drawColoredDivider({
+          label: "Consignor",
+          value: currentConsignor,
+          colorSpec: CONFIG.PALETTE[idx],
+          height: 16,
+          gapAfter: 2 // keep tight; you wanted less padding
+        });
+      }
+    }
+
+    // CONSIGNOR: type headers if enabled and type changes
+    if(mode === "consignor" && useTypeHeaders){
+      const t = safeStr(r[CONFIG.COLS.type]) || "Other";
+      if(t !== currentType){
+        if(y < footerReserve + 32) newPage();
+        currentType = t;
+
+        const idx = hashIndex(currentType, CONFIG.PALETTE.length);
+        drawColoredDivider({
+          label: "Type",
+          value: currentType,
+          colorSpec: CONFIG.PALETTE[idx],
+          height: 14,
+          gapAfter: 2
+        });
       }
     }
 
@@ -764,14 +883,15 @@ async function buildPdfForGroup({entityName, rows, mode}){
     drawLotBlock(r);
   }
 
-  // ===== Buyer footer =====
+  // ===== Buyer footer (same across all buyer PDFs) =====
   if(mode === "buyer"){
-    // Total Down Money box goes immediately after last lot (no extra blank spacer)
-    if(y < bottomLimit + CONFIG.PDF.footerMinH + 40){
+    // If footer won't fit, move to new page
+    if(y < bottomLimit + CONFIG.PDF.footerMinH + 34){
       newPage();
     }
 
-    const totalBoxW = 260;
+    // Total Down Money box immediately after last lot
+    const totalBoxW = 270;
     const totalBoxH = 22;
     const totalX = M + contentW - totalBoxW;
     const totalY = y - totalBoxH;
@@ -799,10 +919,9 @@ async function buildPdfForGroup({entityName, rows, mode}){
       color: BLACK
     });
 
-    // move below total box
     y = totalY - 10;
 
-    // Footer header line MUST be alone
+    // Footer header line alone
     const footerHeader = "REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK";
     const footerLeft =
 `PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
@@ -828,14 +947,14 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
     const rightLines = footerRight.split("\n").map(safeStr).filter(Boolean);
 
     const neededLines = Math.max(leftLines.length, rightLines.length);
-    const footerNeedH = 16 + (neededLines * CONFIG.PDF.footerLineH) + 22; // header + body
+    const footerNeedH = 16 + (neededLines * CONFIG.PDF.footerLineH) + 22;
 
     if(y < bottomLimit + footerNeedH){
       newPage();
       y = H - CONFIG.PDF.topBarH - CONFIG.PDF.headerHOther - 10;
     }
 
-    // Header line (alone)
+    // header alone
     page.drawText(footerHeader, {
       x: M,
       y: y,
@@ -845,7 +964,7 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
     });
     y -= (CONFIG.PDF.footerLineH + 4);
 
-    // Two columns
+    // columns
     let ly = y;
     for(const ln of leftLines){
       page.drawText(ln, { x: leftX, y: ly, size: 7.9, font, color: BLACK });
