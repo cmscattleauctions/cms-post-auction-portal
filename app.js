@@ -79,9 +79,9 @@ const CONFIG = {
     innerW: 0.8,
   },
 
-  COLORS: {
+  : {
     cmsBlue: "#336699",   // buyer top bar
-    native: "#3FA796",    // consignor top bar  ✅ (your request)
+    native: "#C9A66B",    // consignor top bar  ✅ (your request)
     repBar: "#6F8FAF",    // rep top bar
     textWhite: [1,1,1],
     textBlack: [0,0,0],
@@ -315,7 +315,7 @@ function pickTypeColorHex(row){
   if(hay.includes("native")) return "#3FA796";
   if(hay.includes("holstein")) return "#6F8FAF";
 
-  return CONFIG.COLORS.cmsBlue;
+  return CONFIG..cmsBlue;
 }
 
 /* ---------------- FILE HELPERS ---------------- */
