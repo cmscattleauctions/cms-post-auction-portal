@@ -105,18 +105,54 @@
             </div>
           </div>
 
-          <!-- DOCX TEMPLATE UPLOADS -->
-          <div class="row" style="margin-top:14px;">
-            <label class="small muted">Buyer Contract Template (.docx)</label>
-            <input type="file" id="buyerTemplateInput" accept=".docx" />
-          </div>
-
-          <div class="row" style="margin-top:10px;">
-            <label class="small muted">Seller Contract Template (.docx)</label>
-            <input type="file" id="sellerTemplateInput" accept=".docx" />
-          </div>
-
           <div id="fileMeta" class="muted small hidden"></div>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- DOCX TEMPLATE UPLOADS (DRAG & DROP) -->
+        <div class="grid2">
+
+          <!-- Buyer template -->
+          <div class="row">
+            <label class="label">Buyer Contract Template (.docx)</label>
+
+            <div id="buyerTplDropZone" class="dropZone">
+              <div class="dropTitle">Drag & drop Buyer Contract template here</div>
+              <div class="dropSub">or</div>
+              <div>
+                <input
+                  id="buyerTemplateInput"
+                  type="file"
+                  accept=".docx"
+                  class="file"
+                />
+              </div>
+            </div>
+
+            <div id="buyerTplMeta" class="muted small hidden"></div>
+          </div>
+
+          <!-- Seller template -->
+          <div class="row">
+            <label class="label">Seller Contract Template (.docx)</label>
+
+            <div id="sellerTplDropZone" class="dropZone">
+              <div class="dropTitle">Drag & drop Seller Contract template here</div>
+              <div class="dropSub">or</div>
+              <div>
+                <input
+                  id="sellerTemplateInput"
+                  type="file"
+                  accept=".docx"
+                  class="file"
+                />
+              </div>
+            </div>
+
+            <div id="sellerTplMeta" class="muted small hidden"></div>
+          </div>
+
         </div>
 
         <hr class="divider" />
@@ -128,22 +164,22 @@
           <div class="pillRow">
             <label class="pill">
               <input type="checkbox" id="chkBuyer" checked />
-              Buyer Reports
+              Buyer Reports (PDF)
             </label>
 
             <label class="pill">
               <input type="checkbox" id="chkConsignor" checked />
-              Consignor Reports
+              Consignor Reports (PDF)
             </label>
 
             <label class="pill">
               <input type="checkbox" id="chkRep" checked />
-              Representative Reports
+              Representative Reports (PDF)
             </label>
 
             <label class="pill">
               <input type="checkbox" id="chkLotByLot" />
-              Lot-by-lot PDFs
+              Lot-by-lot PDFs (one lot each)
             </label>
 
             <label class="pill">
@@ -178,36 +214,64 @@
           Download individually or as ZIPs. Nothing persists after refresh or exit.
         </p>
 
+        <!-- PDFs -->
+        <h2 style="margin-top:14px;">PDF Reports</h2>
         <div class="resultsGrid">
+
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Buyer Outputs</h2>
-              <button id="zipBuyers" class="btn btnSmall btnGhost" disabled>
-                Download ZIP
-              </button>
+              <h3>Buyer Reports</h3>
+              <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listBuyers" class="list"></div>
+            <div id="listBuyerReports" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Consignor Outputs</h2>
-              <button id="zipConsignors" class="btn btnSmall btnGhost" disabled>
-                Download ZIP
-              </button>
+              <h3>Lot-by-lot</h3>
+              <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listConsignors" class="list"></div>
+            <div id="listLotByLot" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h2>Representative Outputs</h2>
-              <button id="zipReps" class="btn btnSmall btnGhost" disabled>
-                Download ZIP
-              </button>
+              <h3>Consignor Reports</h3>
+              <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listReps" class="list"></div>
+            <div id="listConsignorReports" class="list"></div>
           </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Representative Reports</h3>
+              <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listRepReports" class="list"></div>
+          </div>
+
+        </div>
+
+        <!-- DOCX -->
+        <h2 style="margin-top:18px;">Editable Contracts (Word Docs)</h2>
+        <div class="resultsGrid">
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Buyer Contracts (DOCX)</h3>
+              <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listBuyerContracts" class="list"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Seller Contracts (DOCX)</h3>
+              <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listSellerContracts" class="list"></div>
+          </div>
+
         </div>
 
         <hr class="divider" />
