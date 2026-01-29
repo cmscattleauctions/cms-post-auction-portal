@@ -1,22 +1,10 @@
-/* CMS Post-Auction Portal (client-only) — FULL app.js (UPDATED FOR NEW HTML)
-
-Matches new index.html IDs:
-- Separate results sections (Buyer Reports, Lot-by-lot, Consignor, Rep, Buyer DOCX, Seller DOCX)
-- Separate ZIP buttons per section
-- Drag/drop zones for Buyer/Seller template uploads
-
-Fixes:
-1) Header overlap: center title placed below auction date (4-line layout)
-2) Lots on pages after first start after header (no overlap)
-3) Lot-by-lot: Buyer shown correctly (not contract #)
-4) Lot-by-lot: separate results section + ZIP
-5) CharolaisX Beef on Dairy -> gold color (#C9A66B)
-6) Consignor top bar uses Native color (#3FA796)
-7) Template uploads are drag/drop + click, with confirmations
-
-DOCX “Multi error” now returns readable messages:
-- Missing tags / unmatched braces / missing placeholders, etc.
+/* CMS Post-Auction Portal (client-only) — FULL app.js
+   - Matches current index.html IDs (zipBuyerReports, listBuyerReports, etc.)
+   - CSV + PDF + ZIP + DOCX (docxtemplater) support
+   - Drag/drop zones for CSV + buyer/seller templates
 */
+
+console.log("CMS Post-Auction app.js loaded ✅");
 
 const CONFIG = {
   PIN: "0623",
@@ -59,13 +47,11 @@ const CONFIG = {
     bottomLimit: 9,
     topBarH: 8,
 
-    // Increased header blocks to prevent overlap & ensure lots start below header
     headerHFirst: 92,
     headerHOther: 56,
 
     buyerNameSize: 14.4,
     otherNameSize: 12.6,
-    headerSmall: 10.0,
     title: 12.0,
 
     lotTitle: 10.4,
@@ -91,77 +77,102 @@ const CONFIG = {
   },
 
   COLORS: {
-    cmsBlue: "#336699",       // Buyer bar
-    native: "#3FA796",        // Consignor bar (per your request)
-    repBar: "#6F8FAF",        // Rep bar (distinct + readable)
+    cmsBlue: "#336699", // buyer
+    native: "#3FA796",  // consignor
+    repBar: "#6F8FAF",  // rep
     textWhite: [1,1,1],
     textBlack: [0,0,0],
   },
 
-  // Rep top lot box: stable per consignor palette
   REP_CONSIGNOR_PALETTE: [
-    "#202E4A", // navy
-    "#336699", // CMS blue
-    "#3FA796", // teal
-    "#6F8FAF", // steel blue
-    "#C9A66B", // gold
+    "#202E4A",
+    "#336699",
+    "#3FA796",
+    "#6F8FAF",
+    "#C9A66B",
   ],
 };
 
-// ====== DOM (AUTH/BUILDER/RESULTS) ======
-const pageAuth = document.getElementById("pageAuth");
-const pageBuilder = document.getElementById("pageBuilder");
-const pageResults = document.getElementById("pageResults");
+/* ---------------- DOM ---------------- */
+function mustGet(id){
+  const el = document.getElementById(id);
+  if(!el) throw new Error(`Missing element in HTML: #${id}`);
+  return el;
+}
 
-const pinInput = document.getElementById("pinInput");
-const pinSubmit = document.getElementById("pinSubmit");
-const authError = document.getElementById("authError");
+let pageAuth, pageBuilder, pageResults;
+let pinInput, pinSubmit, authError;
 
-const auctionName = document.getElementById("auctionName");
-const auctionDate = document.getElementById("auctionDate");
-const auctionLabel = document.getElementById("auctionLabel");
+let auctionName, auctionDate, auctionLabel;
 
-const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("fileInput");
-const fileMeta = document.getElementById("fileMeta");
+let dropZone, fileInput, fileMeta;
 
-const buyerTplDropZone = document.getElementById("buyerTplDropZone");
-const sellerTplDropZone = document.getElementById("sellerTplDropZone");
-const buyerTemplateInput = document.getElementById("buyerTemplateInput");
-const sellerTemplateInput = document.getElementById("sellerTemplateInput");
-const buyerTplMeta = document.getElementById("buyerTplMeta");
-const sellerTplMeta = document.getElementById("sellerTplMeta");
+let buyerTplDropZone, sellerTplDropZone, buyerTemplateInput, sellerTemplateInput, buyerTplMeta, sellerTplMeta;
 
-const chkBuyer = document.getElementById("chkBuyer");
-const chkConsignor = document.getElementById("chkConsignor");
-const chkRep = document.getElementById("chkRep");
-const chkLotByLot = document.getElementById("chkLotByLot");
-const chkBuyerContracts = document.getElementById("chkBuyerContracts");
-const chkSellerContracts = document.getElementById("chkSellerContracts");
+let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 
-const buildBtn = document.getElementById("buildBtn");
-const builderError = document.getElementById("builderError");
+let buildBtn, builderError;
 
-const listBuyerReports = document.getElementById("listBuyerReports");
-const listLotByLot = document.getElementById("listLotByLot");
-const listConsignorReports = document.getElementById("listConsignorReports");
-const listRepReports = document.getElementById("listRepReports");
-const listBuyerContracts = document.getElementById("listBuyerContracts");
-const listSellerContracts = document.getElementById("listSellerContracts");
+let listBuyerReports, listLotByLot, listConsignorReports, listRepReports, listBuyerContracts, listSellerContracts;
+let zipBuyerReports, zipLotByLot, zipConsignorReports, zipRepReports, zipBuyerContracts, zipSellerContracts, zipAll;
 
-const zipBuyerReports = document.getElementById("zipBuyerReports");
-const zipLotByLot = document.getElementById("zipLotByLot");
-const zipConsignorReports = document.getElementById("zipConsignorReports");
-const zipRepReports = document.getElementById("zipRepReports");
-const zipBuyerContracts = document.getElementById("zipBuyerContracts");
-const zipSellerContracts = document.getElementById("zipSellerContracts");
-const zipAll = document.getElementById("zipAll");
+let backBtn, exitBtn, resultsMeta;
 
-const backBtn = document.getElementById("backBtn");
-const exitBtn = document.getElementById("exitBtn");
-const resultsMeta = document.getElementById("resultsMeta");
+function bindDom(){
+  pageAuth = mustGet("pageAuth");
+  pageBuilder = mustGet("pageBuilder");
+  pageResults = mustGet("pageResults");
 
-// ====== STATE ======
+  pinInput = mustGet("pinInput");
+  pinSubmit = mustGet("pinSubmit");
+  authError = mustGet("authError");
+
+  auctionName = mustGet("auctionName");
+  auctionDate = mustGet("auctionDate");
+  auctionLabel = mustGet("auctionLabel");
+
+  dropZone = mustGet("dropZone");
+  fileInput = mustGet("fileInput");
+  fileMeta = mustGet("fileMeta");
+
+  buyerTplDropZone = mustGet("buyerTplDropZone");
+  sellerTplDropZone = mustGet("sellerTplDropZone");
+  buyerTemplateInput = mustGet("buyerTemplateInput");
+  sellerTemplateInput = mustGet("sellerTemplateInput");
+  buyerTplMeta = mustGet("buyerTplMeta");
+  sellerTplMeta = mustGet("sellerTplMeta");
+
+  chkBuyer = mustGet("chkBuyer");
+  chkConsignor = mustGet("chkConsignor");
+  chkRep = mustGet("chkRep");
+  chkLotByLot = mustGet("chkLotByLot");
+  chkBuyerContracts = mustGet("chkBuyerContracts");
+  chkSellerContracts = mustGet("chkSellerContracts");
+
+  buildBtn = mustGet("buildBtn");
+  builderError = mustGet("builderError");
+
+  listBuyerReports = mustGet("listBuyerReports");
+  listLotByLot = mustGet("listLotByLot");
+  listConsignorReports = mustGet("listConsignorReports");
+  listRepReports = mustGet("listRepReports");
+  listBuyerContracts = mustGet("listBuyerContracts");
+  listSellerContracts = mustGet("listSellerContracts");
+
+  zipBuyerReports = mustGet("zipBuyerReports");
+  zipLotByLot = mustGet("zipLotByLot");
+  zipConsignorReports = mustGet("zipConsignorReports");
+  zipRepReports = mustGet("zipRepReports");
+  zipBuyerContracts = mustGet("zipBuyerContracts");
+  zipSellerContracts = mustGet("zipSellerContracts");
+  zipAll = mustGet("zipAll");
+
+  backBtn = mustGet("backBtn");
+  exitBtn = mustGet("exitBtn");
+  resultsMeta = mustGet("resultsMeta");
+}
+
+/* ---------------- STATE ---------------- */
 let csvRows = [];
 let contractColName = null;
 
@@ -178,7 +189,7 @@ let generated = {
   sellerDocs: [],
 };
 
-// ====== UTIL ======
+/* ---------------- UTIL ---------------- */
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
 function goto(page){
@@ -268,9 +279,9 @@ function sortLots(a,b){
   return getContract(a).localeCompare(getContract(b), undefined, {numeric:true});
 }
 function assertLibsLoaded(){
-  if(!window.PDFLib) throw new Error("PDF library not loaded (pdf-lib).");
-  if(!window.Papa) throw new Error("CSV parser not loaded (PapaParse).");
-  if(!window.JSZip) throw new Error("ZIP library not loaded (JSZip).");
+  if(!window.PDFLib) throw new Error("pdf-lib not loaded.");
+  if(!window.Papa) throw new Error("PapaParse not loaded.");
+  if(!window.JSZip) throw new Error("JSZip not loaded.");
 }
 function ensureDocxLibs(){
   if(!window.PizZip) throw new Error("PizZip not loaded (pizzip).");
@@ -291,15 +302,7 @@ function hashIndex(str, mod){
   return Math.abs(h) % mod;
 }
 
-// ====== TYPE COLOR (Consignor lot box) ======
-// Your colors:
-// BlackX/Beef on Dairy: #202E4A
-// CharolaisX: #C9A66B
-// Natives: #3FA796
-// Holsteins: #6F8FAF
-//
-// Fix request #5:
-// If it’s "CharolaisX Beef on Dairy" (both present), use gold (#C9A66B).
+/* ---------------- TYPE COLOR ---------------- */
 function pickTypeColorHex(row){
   const type = safeStr(row[CONFIG.COLS.type]).toLowerCase();
   const desc = safeStr(row[CONFIG.COLS.description]).toLowerCase();
@@ -309,8 +312,7 @@ function pickTypeColorHex(row){
   const hasChar = hay.includes("charolais");
   const hasBod = hay.includes("beef on dairy") || hay.includes("beefx dairy") || hay.includes("beef x dairy");
 
-  if(hasChar && hasBod) return "#C9A66B"; // CharolaisX Beef on Dairy -> GOLD
-
+  if(hasChar && hasBod) return "#C9A66B";
   if(hasChar) return "#C9A66B";
   if(hasBod || hay.includes("blackx") || hay.includes("black x")) return "#202E4A";
   if(hay.includes("native")) return "#3FA796";
@@ -319,30 +321,14 @@ function pickTypeColorHex(row){
   return CONFIG.COLORS.cmsBlue;
 }
 
-// ====== AUTH ======
-pinSubmit.addEventListener("click", () => {
-  const entered = safeStr(pinInput.value);
-  if(entered === CONFIG.PIN){
-    setError(authError, "");
-    pinInput.value = "";
-    goto(pageBuilder);
-  } else {
-    setError(authError, "Incorrect PIN.");
-  }
-});
-pinInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") pinSubmit.click(); });
-
-// ====== FILE READERS ======
+/* ---------------- FILE HELPERS ---------------- */
 async function readFileBytes(file){
   if(!file) return null;
   const buf = await file.arrayBuffer();
   return new Uint8Array(buf);
 }
 
-// ====== DRAG & DROP HELPERS ======
 function wireDropZone({zoneEl, inputEl, onFile, metaEl}){
-  if(!zoneEl || !inputEl) return;
-
   zoneEl.addEventListener("dragover", (e)=>{
     e.preventDefault();
     zoneEl.classList.add("dragover");
@@ -371,7 +357,7 @@ function wireDropZone({zoneEl, inputEl, onFile, metaEl}){
   }
 }
 
-// ====== CSV UPLOAD ======
+/* ---------------- ENABLE BUILD ---------------- */
 function setBuildEnabled(){
   const anyChecked =
     chkBuyer.checked || chkConsignor.checked || chkRep.checked ||
@@ -380,6 +366,7 @@ function setBuildEnabled(){
   buildBtn.disabled = !(csvRows.length > 0 && anyChecked);
 }
 
+/* ---------------- CSV HANDLER ---------------- */
 function handleCsvFile(file){
   setError(builderError, "");
   if(!file) return;
@@ -387,9 +374,8 @@ function handleCsvFile(file){
   fileMeta.textContent = `CSV loaded: ${file.name || "uploaded.csv"}`;
   show(fileMeta);
 
-  try{
-    assertLibsLoaded();
-  }catch(err){
+  try{ assertLibsLoaded(); }
+  catch(err){
     setError(builderError, err.message);
     csvRows = [];
     setBuildEnabled();
@@ -439,15 +425,7 @@ function handleCsvFile(file){
   });
 }
 
-// Wire CSV drop zone
-wireDropZone({
-  zoneEl: dropZone,
-  inputEl: fileInput,
-  onFile: handleCsvFile,
-  metaEl: fileMeta
-});
-
-// ====== TEMPLATE UPLOADS (DRAG/DROP) ======
+/* ---------------- TEMPLATE HANDLERS ---------------- */
 async function handleBuyerTemplate(file){
   setError(builderError, "");
   if(!file) return;
@@ -466,79 +444,22 @@ async function handleSellerTemplate(file){
   setBuildEnabled();
 }
 
-wireDropZone({
-  zoneEl: buyerTplDropZone,
-  inputEl: buyerTemplateInput,
-  onFile: (f)=>handleBuyerTemplate(f),
-  metaEl: buyerTplMeta
-});
-
-wireDropZone({
-  zoneEl: sellerTplDropZone,
-  inputEl: sellerTemplateInput,
-  onFile: (f)=>handleSellerTemplate(f),
-  metaEl: sellerTplMeta
-});
-
-// checkbox changes enable/disable button
-[chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts].forEach(el => el?.addEventListener("change", setBuildEnabled));
-
-// ====== EXIT / WIPE ======
-function wipeAll(){
-  for(const u of blobUrls){
-    try{ URL.revokeObjectURL(u); }catch{}
-  }
-  blobUrls = [];
-
-  csvRows = [];
-  contractColName = null;
-
-  buyerTemplateBytes = null;
-  sellerTemplateBytes = null;
-
-  fileInput.value = "";
-  fileMeta.textContent = "";
-  hide(fileMeta);
-
-  buyerTemplateInput.value = "";
-  sellerTemplateInput.value = "";
-  buyerTplMeta.textContent = "";
-  sellerTplMeta.textContent = "";
-  hide(buyerTplMeta);
-  hide(sellerTplMeta);
-
-  auctionName.value = "";
-  auctionDate.value = "";
-  auctionLabel.value = "";
-
-  listBuyerReports.innerHTML = "";
-  listLotByLot.innerHTML = "";
-  listConsignorReports.innerHTML = "";
-  listRepReports.innerHTML = "";
-  listBuyerContracts.innerHTML = "";
-  listSellerContracts.innerHTML = "";
-
-  zipBuyerReports.disabled = true;
-  zipLotByLot.disabled = true;
-  zipConsignorReports.disabled = true;
-  zipRepReports.disabled = true;
-  zipBuyerContracts.disabled = true;
-  zipSellerContracts.disabled = true;
-  zipAll.disabled = true;
-
-  resultsMeta.textContent = "";
-
-  setBuildEnabled();
-  goto(pageAuth);
+/* ---------------- AUTH ---------------- */
+function wireAuth(){
+  pinSubmit.addEventListener("click", () => {
+    const entered = safeStr(pinInput.value);
+    if(entered === CONFIG.PIN){
+      setError(authError, "");
+      pinInput.value = "";
+      goto(pageBuilder);
+    } else {
+      setError(authError, "Incorrect PIN.");
+    }
+  });
+  pinInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") pinSubmit.click(); });
 }
-exitBtn.addEventListener("click", wipeAll);
-window.addEventListener("beforeunload", ()=>{
-  for(const u of blobUrls){
-    try{ URL.revokeObjectURL(u); }catch{}
-  }
-});
 
-// ====== PDF GENERATION ======
+/* ---------------- PDF GENERATION ---------------- */
 async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
@@ -548,13 +469,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   const BLACK = rgb(0,0,0);
-  const WHITE = rgb(1,1,1);
   const FILL = rgb(0.98,0.98,0.98);
 
-  // Top bar colors:
-  // Buyer: CMS Blue
-  // Consignor: Native (per request #6)
-  // Rep: RepBar
   const topBarHex =
     mode === "buyer" ? CONFIG.COLORS.cmsBlue :
     mode === "consignor" ? CONFIG.COLORS.native :
@@ -568,7 +484,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const bottomLimit = CONFIG.PDF.bottomLimit;
   const contentW = W - 2*M;
 
-  // Column widths (sum = 740)
+  // Column widths (sum ~ 740; must fit within contentW)
   const colDefs = [
     { key: "loads", label: "Loads",   w: 45 },
     { key: "head",  label: "Head",    w: 45 },
@@ -591,9 +507,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const leftLabel =
     mode === "buyer" ? "Buyer" : (mode === "consignor" ? "Consignor" : "Rep");
 
-  // The document title:
-  // Buyer: "Buyer Recap and Down Money Invoice"
-  // Others: "Trade Confirmations"
   const docTitle =
     mode === "buyer" ? "Buyer Recap and Down Money Invoice" : "Trade Confirmations";
 
@@ -643,28 +556,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     });
   }
 
-  // ===== HEADER LAYOUT (FIXES #1, #2) =====
-  // First page:
-  // LEFT block (4 lines):
-  // 1) Buyer/Consignor/Rep: NAME
-  // 2) Auction Title
-  // 3) Auction Date
-  // 4) Document Title (centered but placed on its own line)
-  //
-  // RIGHT block (4 lines):
-  // 1) CMS Livestock Auction
-  // 2) 6900...
-  // 3) Amarillo...
-  // 4) phone
-  //
-  // Other pages:
-  // LEFT:
-  // 1) Buyer/Consignor/Rep: NAME
-  // RIGHT:
-  // 1) CMS Livestock Auction
-  // 2) Auction Title
-  // 3) Auction Date
-  //
   function drawHeader(){
     drawTopBar();
 
@@ -678,8 +569,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const rightBlockW = 300;
     const rx = M + contentW - rightBlockW;
 
-    // LEFT line 1: entity label
     const leftName = forceBuyerName ? safeStr(forceBuyerName) : safeStr(entityName);
+
     page.drawText(`${leftLabel}: ${leftName}`, {
       x: lx,
       y: topY,
@@ -689,7 +580,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     });
 
     if(pageIndex === 0){
-      // LEFT line 2-3: auction title/date
       page.drawText(safeStr(auctionTitle), {
         x: lx,
         y: topY - 14,
@@ -708,7 +598,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         });
       }
 
-      // DOC TITLE on its own line, centered across page, BELOW auction date (fix overlap)
       const titleY = topY - 42;
       const titleW = textWidthLocal(docTitle, CONFIG.PDF.title, true);
       page.drawText(docTitle, {
@@ -719,14 +608,12 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         color: BLACK
       });
 
-      // RIGHT 4-line CMS block
       page.drawText(addrLines[0], { x: rx, y: topY,      size: 10.0, font: fontBold, color: BLACK });
       page.drawText(addrLines[1], { x: rx, y: topY - 12, size:  9.2, font,         color: BLACK });
       page.drawText(addrLines[2], { x: rx, y: topY - 24, size:  9.2, font,         color: BLACK });
       page.drawText(addrLines[3], { x: rx, y: topY - 36, size:  9.2, font,         color: BLACK });
 
     } else {
-      // Other pages: move auction title/date to top-right (fix #2)
       page.drawText("CMS Livestock Auction", {
         x: rx,
         y: topY,
@@ -754,7 +641,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       }
     }
 
-    // Critical: start lots BELOW header area (fix #2)
     y = H - CONFIG.PDF.topBarH - headerH;
   }
 
@@ -767,7 +653,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
   drawHeader();
 
-  // ===== LOT BLOCKS =====
   let buyerDownMoneyTotal = 0;
 
   function computeGridWrapped(record){
@@ -867,10 +752,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       buyerDownMoneyTotal += toNumber(r[CONFIG.COLS.downMoney]);
     }
 
-    // TOP LOT BOX coloring rules:
-    // - Rep: color by consignor
-    // - Consignor: color by Type mapping
-    // - Buyer: none
     let headerFillHex = null;
     if(mode === "rep"){
       const idx = hashIndex(consignor, CONFIG.REP_CONSIGNOR_PALETTE.length);
@@ -879,11 +760,9 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       headerFillHex = pickTypeColorHex(r);
     }
 
-    // Use Contract # anywhere lot# would appear
     const topLine = `Contract # ${contract} - ${consignor}`;
     const row1H = drawLotHeaderRow({textLeft: topLine, fillHex: headerFillHex});
 
-    // Breed line inside the same top box
     const { rgb } = window.PDFLib;
     const breedColor = headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : rgb(0,0,0);
     page.drawText(safeStr(breed), {
@@ -896,7 +775,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= row1H;
 
-    // Grid box
     const labelH = 14;
     const { wrapped, maxLines } = computeGridWrapped(r);
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
@@ -930,8 +808,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       }
 
       const cellCenter = cx + c.w/2;
-
       const lw = fontBold.widthOfTextAtSize(c.label, CONFIG.PDF.gridLabel);
+
       page.drawText(c.label, {
         x: cellCenter - lw/2,
         y: y - 11,
@@ -949,7 +827,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= gridH;
 
-    // Notes box
     const notesLines = computeNotesLines(r);
     const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
 
@@ -974,7 +851,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= notesH;
 
-    // Buyer down money row per lot
     if(mode === "buyer"){
       const dmRowH = 18;
       const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
@@ -1003,14 +879,13 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     drawLotBlock(r);
   }
 
-  // Buyer footer only when not single-lot mode
+  // Buyer footer (skip in single-lot mode)
   if(mode === "buyer" && !singleLotMode){
     const footerNeed = CONFIG.PDF.footerMinH + 36;
     if(y < bottomLimit + footerNeed){
       newPage();
     }
 
-    // Total box immediately after last lot
     const { rgb } = window.PDFLib;
     const totalBoxW = 270;
     const totalBoxH = 22;
@@ -1042,7 +917,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y = totalY - 10;
 
-    // Footer (no overlapping)
     const footerHeader = "REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK";
     const footerLeft =
 `PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
@@ -1100,13 +974,12 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
   return await pdfDoc.save();
 }
 
-// ====== DOCX GENERATION ======
+/* ---------------- DOCX ---------------- */
 function yearFromRow(row){
   const y = safeStr(row[CONFIG.COLS.year]);
   if(y) return y;
   return String(new Date().getFullYear());
 }
-
 function contractTemplateData(row){
   const contract = safeStr(getContract(row));
   const consignor = safeStr(row[CONFIG.COLS.consignor]);
@@ -1129,13 +1002,11 @@ function contractTemplateData(row){
   const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
   const downMoney = downMoneyDisplay(row[CONFIG.COLS.downMoney]);
 
-  // Keys must match your template placeholders EXACTLY.
-  // If templates differ, we’ll map them later — but this will now show readable errors.
   return {
     "Contract #": contract,
     "Consignor": consignor,
     "Buyer": buyer,
-    "Lot Number #2": contract, // you want contract where lot # shows
+    "Lot Number #2": contract,
     "Head Count": headCount,
     "Breed": breed,
     "Sex": sex,
@@ -1153,12 +1024,10 @@ function contractTemplateData(row){
   };
 }
 
-// Convert docxtemplater errors into readable text
 function formatDocxError(err){
   if(!err) return "Unknown DOCX error.";
   if(err.message && err.name !== "MultiError") return err.message;
 
-  // MultiError: err.properties.errors is usually present
   const lines = [];
   lines.push("DOCX template error(s):");
 
@@ -1168,8 +1037,6 @@ function formatDocxError(err){
     const id = e.properties?.id ? ` (${e.properties.id})` : "";
     lines.push(`- ${explanation}${id}`);
   }
-
-  // Common: unmatched braces or malformed tags
   const raw = err.message ? `\n${err.message}` : "";
   return lines.join("\n") + raw;
 }
@@ -1181,18 +1048,17 @@ function buildDocxFromTemplate(templateBytes, data){
     const doc = new window.docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
-      nullGetter: () => "" // prevents "undefined" in output, reduces template errors
+      nullGetter: () => ""
     });
     doc.setData(data);
     doc.render();
     return doc.getZip().generate({ type: "uint8array" });
   } catch (e) {
-    // Re-throw as readable error
     throw new Error(formatDocxError(e));
   }
 }
 
-// ====== DOWNLOAD / ZIP ======
+/* ---------------- DOWNLOAD / ZIP ---------------- */
 function downloadBytes(bytes, filename, mime="application/pdf"){
   const blob = new Blob([bytes], {type:mime});
   const url = URL.createObjectURL(blob);
@@ -1233,7 +1099,7 @@ async function downloadZip(items, zipName){
   }, 25000);
 }
 
-// ====== RESULTS RENDER ======
+/* ---------------- RESULTS RENDER ---------------- */
 function renderList(container, items, mimeHint="pdf"){
   container.innerHTML = "";
   if(items.length === 0){
@@ -1304,224 +1170,298 @@ function renderResults(){
   zipAll.disabled = total === 0;
 }
 
-// ====== BUILD ======
-buildBtn.addEventListener("click", async ()=>{
-  setError(builderError, "");
-  buildBtn.disabled = true;
-  buildBtn.textContent = "Generating…";
+/* ---------------- BUILD ---------------- */
+function wireBuild(){
+  buildBtn.addEventListener("click", async ()=>{
+    setError(builderError, "");
+    buildBtn.disabled = true;
+    buildBtn.textContent = "Generating…";
 
+    try{
+      assertLibsLoaded();
+
+      if(csvRows.length === 0) throw new Error("Upload a CSV first.");
+
+      const anyChecked =
+        chkBuyer.checked || chkConsignor.checked || chkRep.checked ||
+        chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked;
+
+      if(!anyChecked) throw new Error("Select at least one output option.");
+
+      const chk = requiredColsPresent(csvRows);
+      if(!chk.ok) throw new Error(`CSV missing required column(s): ${chk.missing.join(", ")}`);
+
+      if(!contractColName) throw new Error("Contract column not detected. Re-upload CSV.");
+
+            if(chkBuyerContracts.checked){
+        ensureDocxLibs();
+        if(!buyerTemplateBytes) throw new Error("Buyer Contract template is required. Upload the Buyer .docx template first.");
+      }
+      if(chkSellerContracts.checked){
+        ensureDocxLibs();
+        if(!sellerTemplateBytes) throw new Error("Seller Contract template is required. Upload the Seller .docx template first.");
+      }
+
+      // Reset previous run
+      generated = {
+        buyerReports: [],
+        lotByLot: [],
+        consignorReports: [],
+        repReports: [],
+        buyerDocs: [],
+        sellerDocs: [],
+      };
+
+      // Groupings
+      const buyerGroups = groupBy(csvRows, CONFIG.COLS.buyer);
+      const consignorGroups = groupBy(csvRows, CONFIG.COLS.consignor);
+      const repGroups = groupBy(csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== ""), CONFIG.COLS.rep);
+
+      // ---------- BUYER REPORTS ----------
+      if(chkBuyer.checked){
+        for(const [buyerName, rows] of buyerGroups.entries()){
+          const clean = fileSafeName(buyerName || "Unknown Buyer");
+          const pdfBytes = await buildPdfForGroup({
+            entityName: buyerName || "Unknown Buyer",
+            rows,
+            mode: "buyer",
+            singleLotMode: false
+          });
+          generated.buyerReports.push({
+            filename: `${clean}-Contract.pdf`,
+            bytes: pdfBytes,
+            count: rows.length
+          });
+        }
+      }
+
+      // ---------- CONSIGNOR REPORTS ----------
+      if(chkConsignor.checked){
+        for(const [consName, rows] of consignorGroups.entries()){
+          const clean = fileSafeName(consName || "Unknown Consignor");
+          const pdfBytes = await buildPdfForGroup({
+            entityName: consName || "Unknown Consignor",
+            rows,
+            mode: "consignor",
+            singleLotMode: false
+          });
+          generated.consignorReports.push({
+            filename: `Contract-${clean}.pdf`,
+            bytes: pdfBytes,
+            count: rows.length
+          });
+        }
+      }
+
+      // ---------- REP REPORTS ----------
+      if(chkRep.checked){
+        for(const [repName, rows] of repGroups.entries()){
+          const clean = fileSafeName(repName || "Unknown Rep");
+          const pdfBytes = await buildPdfForGroup({
+            entityName: repName || "Unknown Rep",
+            rows,
+            mode: "rep",
+            singleLotMode: false
+          });
+          generated.repReports.push({
+            filename: `Rep-${clean}-Contract.pdf`,
+            bytes: pdfBytes,
+            count: rows.length
+          });
+        }
+      }
+
+      // ---------- LOT-BY-LOT ----------
+      if(chkLotByLot.checked){
+        const sortedAll = [...csvRows].sort(sortLots);
+        for(const r of sortedAll){
+          const contract = safeStr(getContract(r)) || "Unknown";
+          const buyer = safeStr(r[CONFIG.COLS.buyer]) || "Unknown Buyer";
+
+          const pdfBytes = await buildPdfForGroup({
+            entityName: buyer,
+            rows: [r],
+            mode: "buyer",
+            singleLotMode: true,
+            forceBuyerName: buyer
+          });
+
+          generated.lotByLot.push({
+            filename: `Contract-${fileSafeName(contract)}.pdf`,
+            bytes: pdfBytes,
+            count: 1
+          });
+        }
+      }
+
+      // ---------- BUYER DOCX (per lot) ----------
+      if(chkBuyerContracts.checked){
+        const sortedAll = [...csvRows].sort(sortLots);
+        for(const r of sortedAll){
+          const contract = safeStr(getContract(r)) || "Unknown";
+          const data = contractTemplateData(r);
+          const docBytes = buildDocxFromTemplate(buyerTemplateBytes, data);
+          generated.buyerDocs.push({
+            filename: `Buyer-Contract-${fileSafeName(contract)}.docx`,
+            bytes: docBytes,
+            count: 1
+          });
+        }
+      }
+
+      // ---------- SELLER DOCX (per lot) ----------
+      if(chkSellerContracts.checked){
+        const sortedAll = [...csvRows].sort(sortLots);
+        for(const r of sortedAll){
+          const contract = safeStr(getContract(r)) || "Unknown";
+          const data = contractTemplateData(r);
+          const docBytes = buildDocxFromTemplate(sellerTemplateBytes, data);
+          generated.sellerDocs.push({
+            filename: `Seller-Contract-${fileSafeName(contract)}.docx`,
+            bytes: docBytes,
+            count: 1
+          });
+        }
+      }
+
+      // Show results
+      goto(pageResults);
+      renderResults();
+
+    } catch(err){
+      console.error(err);
+      setError(builderError, err?.message || "Generation error.");
+    } finally {
+      buildBtn.disabled = false;
+      buildBtn.textContent = "Generate Files";
+      setBuildEnabled();
+    }
+  });
+
+  // ZIP buttons
+  zipBuyerReports.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.buyerReports, "Buyer-Reports.zip"); } catch(e){ console.error(e); }
+  });
+  zipLotByLot.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.lotByLot, "Lot-by-Lot.zip"); } catch(e){ console.error(e); }
+  });
+  zipConsignorReports.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.consignorReports, "Consignor-Reports.zip"); } catch(e){ console.error(e); }
+  });
+  zipRepReports.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.repReports, "Rep-Reports.zip"); } catch(e){ console.error(e); }
+  });
+  zipBuyerContracts.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.buyerDocs, "Buyer-Contracts.zip"); } catch(e){ console.error(e); }
+  });
+  zipSellerContracts.addEventListener("click", async ()=> {
+    try{ await downloadZip(generated.sellerDocs, "Seller-Contracts.zip"); } catch(e){ console.error(e); }
+  });
+  zipAll.addEventListener("click", async ()=> {
+    try{
+      const all = [
+        ...generated.buyerReports,
+        ...generated.lotByLot,
+        ...generated.consignorReports,
+        ...generated.repReports,
+        ...generated.buyerDocs,
+        ...generated.sellerDocs,
+      ];
+      await downloadZip(all, "CMS-PostAuction-All.zip");
+    } catch(e){
+      console.error(e);
+    }
+  });
+
+  // Nav
+  backBtn.addEventListener("click", ()=> goto(pageBuilder));
+}
+
+/* ---------------- EXIT / WIPE ---------------- */
+function wipeAll(){
+  for(const u of blobUrls){
+    try{ URL.revokeObjectURL(u); }catch{}
+  }
+  blobUrls = [];
+
+  csvRows = [];
+  contractColName = null;
+
+  buyerTemplateBytes = null;
+  sellerTemplateBytes = null;
+
+  fileInput.value = "";
+  fileMeta.textContent = "";
+  hide(fileMeta);
+
+  buyerTemplateInput.value = "";
+  sellerTemplateInput.value = "";
+  buyerTplMeta.textContent = "";
+  sellerTplMeta.textContent = "";
+  hide(buyerTplMeta);
+  hide(sellerTplMeta);
+
+  auctionName.value = "";
+  auctionDate.value = "";
+  auctionLabel.value = "";
+
+  listBuyerReports.innerHTML = "";
+  listLotByLot.innerHTML = "";
+  listConsignorReports.innerHTML = "";
+  listRepReports.innerHTML = "";
+  listBuyerContracts.innerHTML = "";
+  listSellerContracts.innerHTML = "";
+
+  zipBuyerReports.disabled = true;
+  zipLotByLot.disabled = true;
+  zipConsignorReports.disabled = true;
+  zipRepReports.disabled = true;
+  zipBuyerContracts.disabled = true;
+  zipSellerContracts.disabled = true;
+  zipAll.disabled = true;
+
+  resultsMeta.textContent = "";
+
+  setBuildEnabled();
+  goto(pageAuth);
+}
+
+/* ---------------- WIRE EVERYTHING ---------------- */
+function wireEverything(){
+  // Drag/drop wiring
+  wireDropZone({ zoneEl: dropZone, inputEl: fileInput, onFile: handleCsvFile, metaEl: fileMeta });
+  wireDropZone({ zoneEl: buyerTplDropZone, inputEl: buyerTemplateInput, onFile: handleBuyerTemplate, metaEl: buyerTplMeta });
+  wireDropZone({ zoneEl: sellerTplDropZone, inputEl: sellerTemplateInput, onFile: handleSellerTemplate, metaEl: sellerTplMeta });
+
+  // Checkbox enable logic
+  [chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts].forEach(el=>{
+    el.addEventListener("change", setBuildEnabled);
+  });
+
+  // Exit
+  exitBtn.addEventListener("click", wipeAll);
+  window.addEventListener("beforeunload", ()=>{
+    for(const u of blobUrls){
+      try{ URL.revokeObjectURL(u); }catch{}
+    }
+  });
+
+  wireAuth();
+  wireBuild();
+
+  // Start
+  goto(pageAuth);
+  setBuildEnabled();
+}
+
+/* ---------------- BOOT ---------------- */
+document.addEventListener("DOMContentLoaded", ()=>{
   try{
-    assertLibsLoaded();
-
-    if(csvRows.length === 0) throw new Error("Upload a CSV first.");
-
-    const anyChecked =
-      chkBuyer.checked || chkConsignor.checked || chkRep.checked ||
-      chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked;
-
-    if(!anyChecked) throw new Error("Select at least one output option.");
-
-    const chk = requiredColsPresent(csvRows);
-    if(!chk.ok) throw new Error(`CSV missing required column(s): ${chk.missing.join(", ")}`);
-
-    if(!contractColName) throw new Error("Contract column not detected. Re-upload CSV.");
-
-    // DOCX requirements
-    if(chkBuyerContracts.checked){
-      ensureDocx
-          // DOCX requirements
-    if(chkBuyerContracts.checked){
-      ensureDocxLibs();
-      if(!buyerTemplateBytes) throw new Error("Buyer Contract template is required for Buyer Contract DOCX. Upload the .docx template first.");
-    }
-    if(chkSellerContracts.checked){
-      ensureDocxLibs();
-      if(!sellerTemplateBytes) throw new Error("Seller Contract template is required for Seller Contract DOCX. Upload the .docx template first.");
-    }
-
-    // Reset prior generated state
-    generated = {
-      buyerReports: [],
-      lotByLot: [],
-      consignorReports: [],
-      repReports: [],
-      buyerDocs: [],
-      sellerDocs: [],
-    };
-
-    // ===== PDF GROUPS =====
-    // Buyer: group by Buyer (one PDF per buyer, includes all their contracts)
-    // Consignor: group by Consignor (one PDF per consignor, includes all their contracts)
-    // Rep: group by Representative (one PDF per rep, includes all their consignors/lots; skip blank reps)
-    const buyerGroups = groupBy(csvRows, CONFIG.COLS.buyer);
-    const consignorGroups = groupBy(csvRows, CONFIG.COLS.consignor);
-    const repGroups = groupBy(csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== ""), CONFIG.COLS.rep);
-
-    // Buyer PDFs
-    if(chkBuyer.checked){
-      for(const [buyerName, rows] of buyerGroups.entries()){
-        const cleanName = fileSafeName(buyerName || "Unknown Buyer");
-        const pdfBytes = await buildPdfForGroup({
-          entityName: buyerName || "Unknown Buyer",
-          rows,
-          mode: "buyer",
-          singleLotMode: false
-        });
-        generated.buyerReports.push({
-          filename: `${cleanName}-Contract.pdf`,
-          bytes: pdfBytes,
-          count: rows.length
-        });
-      }
-    }
-
-    // Consignor PDFs
-    if(chkConsignor.checked){
-      for(const [consName, rows] of consignorGroups.entries()){
-        const cleanName = fileSafeName(consName || "Unknown Consignor");
-        const pdfBytes = await buildPdfForGroup({
-          entityName: consName || "Unknown Consignor",
-          rows,
-          mode: "consignor",
-          singleLotMode: false
-        });
-        generated.consignorReports.push({
-          filename: `Contract-${cleanName}.pdf`,
-          bytes: pdfBytes,
-          count: rows.length
-        });
-      }
-    }
-
-    // Rep PDFs (skip blanks already done)
-    if(chkRep.checked){
-      for(const [repName, rows] of repGroups.entries()){
-        const cleanName = fileSafeName(repName || "Unknown Rep");
-        const pdfBytes = await buildPdfForGroup({
-          entityName: repName || "Unknown Rep",
-          rows,
-          mode: "rep",
-          singleLotMode: false
-        });
-        generated.repReports.push({
-          filename: `Rep-${cleanName}-Contract.pdf`,
-          bytes: pdfBytes,
-          count: rows.length
-        });
-      }
-    }
-
-    // ===== LOT-BY-LOT PDFS =====
-    // One PDF per row/lot. Looks like buyer report layout, but with a single lot.
-    // IMPORTANT: Buyer must be shown as Buyer (not contract number).
-    if(chkLotByLot.checked){
-      const sortedAll = [...csvRows].sort(sortLots);
-      for(const r of sortedAll){
-        const contract = safeStr(getContract(r)) || "Unknown";
-        const buyer = safeStr(r[CONFIG.COLS.buyer]) || "Unknown Buyer";
-
-        const pdfBytes = await buildPdfForGroup({
-          entityName: buyer,
-          rows: [r],
-          mode: "buyer",
-          singleLotMode: true,
-          forceBuyerName: buyer
-        });
-
-        generated.lotByLot.push({
-          filename: `Contract-${fileSafeName(contract)}.pdf`,
-          bytes: pdfBytes,
-          count: 1
-        });
-      }
-    }
-
-    // ===== DOCX CONTRACTS (PER LOT) =====
-    // Buyer Contract DOCX: one per lot
-    if(chkBuyerContracts.checked){
-      for(const r of [...csvRows].sort(sortLots)){
-        const contract = safeStr(getContract(r)) || "Unknown";
-        const data = contractTemplateData(r);
-        const docBytes = buildDocxFromTemplate(buyerTemplateBytes, data);
-
-        generated.buyerDocs.push({
-          filename: `Buyer-Contract-${fileSafeName(contract)}.docx`,
-          bytes: docBytes,
-          count: 1
-        });
-      }
-    }
-
-    // Seller Contract DOCX: one per lot
-    if(chkSellerContracts.checked){
-      for(const r of [...csvRows].sort(sortLots)){
-        const contract = safeStr(getContract(r)) || "Unknown";
-        const data = contractTemplateData(r);
-        const docBytes = buildDocxFromTemplate(sellerTemplateBytes, data);
-
-        generated.sellerDocs.push({
-          filename: `Seller-Contract-${fileSafeName(contract)}.docx`,
-          bytes: docBytes,
-          count: 1
-        });
-      }
-    }
-
-    // Show results
-    goto(pageResults);
-    renderResults();
-
+    bindDom();
+    wireEverything();
+    console.log("CMS Post-Auction app initialized ✅");
   } catch(err){
     console.error(err);
-    setError(builderError, err?.message || "Generation error.");
-  } finally {
-    buildBtn.disabled = false;
-    buildBtn.textContent = "Generate Files";
-    setBuildEnabled();
+    alert(err.message || String(err));
   }
 });
-
-// ====== ZIP BUTTONS ======
-zipBuyerReports.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.buyerReports, "Buyer-Reports.zip"); } catch(e){ console.error(e); }
-});
-zipLotByLot.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.lotByLot, "Lot-by-Lot.zip"); } catch(e){ console.error(e); }
-});
-zipConsignorReports.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.consignorReports, "Consignor-Reports.zip"); } catch(e){ console.error(e); }
-});
-zipRepReports.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.repReports, "Rep-Reports.zip"); } catch(e){ console.error(e); }
-});
-zipBuyerContracts.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.buyerDocs, "Buyer-Contracts.zip"); } catch(e){ console.error(e); }
-});
-zipSellerContracts.addEventListener("click", async ()=>{
-  try{ await downloadZip(generated.sellerDocs, "Seller-Contracts.zip"); } catch(e){ console.error(e); }
-});
-
-zipAll.addEventListener("click", async ()=>{
-  try{
-    const all = [
-      ...generated.buyerReports,
-      ...generated.lotByLot,
-      ...generated.consignorReports,
-      ...generated.repReports,
-      ...generated.buyerDocs,
-      ...generated.sellerDocs
-    ];
-    await downloadZip(all, "CMS-PostAuction-All.zip");
-  } catch(e){
-    console.error(e);
-  }
-});
-
-// ====== NAV ======
-backBtn.addEventListener("click", ()=>{
-  goto(pageBuilder);
-});
-
-// Initialize
-goto(pageAuth);
-setBuildEnabled();
