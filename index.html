@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Core client-only libraries -->
+  <!-- Client-only libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -22,7 +22,7 @@
         <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
         <div class="brandText">
           <div class="brandTitle">CMS Post-Auction Reporting</div>
-          <div class="brandSub">Internal PDF & Contract Builder</div>
+          <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
 
@@ -92,52 +92,15 @@
 
         <hr class="divider" />
 
-        <!-- DOCX TEMPLATE UPLOADS -->
-        <div class="grid2">
-
-          <div class="row">
-            <label class="label">Buyer Contract Template (.docx)</label>
-
-            <div id="buyerTplDropZone" class="dropZone">
-              <div class="dropTitle">Drag & drop Buyer template here</div>
-              <div class="dropSub">or</div>
-              <div>
-                <input id="buyerTemplateInput" type="file" accept=".docx" class="file" />
-              </div>
-            </div>
-
-            <div id="buyerTplMeta" class="muted small hidden"></div>
-          </div>
-
-          <div class="row">
-            <label class="label">Seller Contract Template (.docx)</label>
-
-            <div id="sellerTplDropZone" class="dropZone">
-              <div class="dropTitle">Drag & drop Seller template here</div>
-              <div class="dropSub">or</div>
-              <div>
-                <input id="sellerTemplateInput" type="file" accept=".docx" class="file" />
-              </div>
-            </div>
-
-            <div id="sellerTplMeta" class="muted small hidden"></div>
-          </div>
-
-        </div>
-
-        <hr class="divider" />
-
         <!-- OPTIONS -->
         <div class="row">
-          <label class="label">Reports to Generate</label>
+          <label class="label">PDFs to Generate</label>
 
           <div class="pillRow">
             <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
             <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
             <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
             <label class="pill"><input type="checkbox" id="chkLotByLot" /> Lot-by-lot PDFs (one lot each)</label>
-            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contract DOCX (per lot)</label>
-            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contract DOCX (per lot)</label>
           </div>
 
           <div class="muted small" style="margin-top:6px;">
@@ -146,7 +109,7 @@
         </div>
 
         <div class="row">
-          <button id="buildBtn" class="btn" disabled>Generate Files</button>
+          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
         </div>
 
         <div id="builderError" class="error hidden"></div>
@@ -154,10 +117,8 @@
 
       <!-- PAGE 3: RESULTS -->
       <section id="pageResults" class="card hidden">
-        <h1>Generated Files</h1>
+        <h1>Generated PDFs</h1>
         <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
-
-        <h2 style="margin-top:14px;">PDF Reports</h2>
 
         <div class="resultsGrid">
           <div class="resultsCol">
@@ -193,26 +154,6 @@
           </div>
         </div>
 
-        <h2 style="margin-top:18px;">Editable Contracts (Word Docs)</h2>
-
-        <div class="resultsGrid">
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Buyer Contracts (DOCX)</h3>
-              <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listBuyerContracts" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Seller Contracts (DOCX)</h3>
-              <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listSellerContracts" class="list"></div>
-          </div>
-        </div>
-
         <hr class="divider" />
 
         <div class="row spaceBetween">
@@ -225,13 +166,9 @@
     </main>
 
     <footer class="footer muted small">
-      Client-only app. No CSVs, PDFs, or contracts are uploaded or stored.
+      Client-only app. No CSVs or PDFs are uploaded or stored.
     </footer>
   </div>
-
-  <!-- DOCX libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.5/dist/pizzip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.46.0/build/docxtemplater.min.js"></script>
 
   <!-- App -->
   <script src="app.js"></script>
