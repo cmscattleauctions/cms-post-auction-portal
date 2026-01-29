@@ -38,20 +38,11 @@
       <!-- PAGE 1: AUTH -->
       <section id="pageAuth" class="card">
         <h1>Enter PIN</h1>
-        <p class="muted">
-          Data is processed in your browser only. Nothing is uploaded or stored.
-        </p>
+        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
 
         <div class="row">
           <label class="label">PIN</label>
-          <input
-            id="pinInput"
-            class="input"
-            type="password"
-            inputmode="numeric"
-            autocomplete="off"
-            placeholder="••••"
-          />
+          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
         </div>
 
         <div class="row">
@@ -78,11 +69,7 @@
 
           <div class="row">
             <label class="label">Auction Label (optional)</label>
-            <input
-              id="auctionLabel"
-              class="input"
-              placeholder="e.g., Calftech Special (optional)"
-            />
+            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
           </div>
         </div>
 
@@ -96,12 +83,7 @@
             <div class="dropTitle">Drag & drop CSV here</div>
             <div class="dropSub">or</div>
             <div>
-              <input
-                id="fileInput"
-                type="file"
-                accept=".csv,text/csv"
-                class="file"
-              />
+              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
             </div>
           </div>
 
@@ -110,43 +92,31 @@
 
         <hr class="divider" />
 
-        <!-- DOCX TEMPLATE UPLOADS (DRAG & DROP) -->
+        <!-- DOCX TEMPLATE UPLOADS -->
         <div class="grid2">
 
-          <!-- Buyer template -->
           <div class="row">
             <label class="label">Buyer Contract Template (.docx)</label>
 
             <div id="buyerTplDropZone" class="dropZone">
-              <div class="dropTitle">Drag & drop Buyer Contract template here</div>
+              <div class="dropTitle">Drag & drop Buyer template here</div>
               <div class="dropSub">or</div>
               <div>
-                <input
-                  id="buyerTemplateInput"
-                  type="file"
-                  accept=".docx"
-                  class="file"
-                />
+                <input id="buyerTemplateInput" type="file" accept=".docx" class="file" />
               </div>
             </div>
 
             <div id="buyerTplMeta" class="muted small hidden"></div>
           </div>
 
-          <!-- Seller template -->
           <div class="row">
             <label class="label">Seller Contract Template (.docx)</label>
 
             <div id="sellerTplDropZone" class="dropZone">
-              <div class="dropTitle">Drag & drop Seller Contract template here</div>
+              <div class="dropTitle">Drag & drop Seller template here</div>
               <div class="dropSub">or</div>
               <div>
-                <input
-                  id="sellerTemplateInput"
-                  type="file"
-                  accept=".docx"
-                  class="file"
-                />
+                <input id="sellerTemplateInput" type="file" accept=".docx" class="file" />
               </div>
             </div>
 
@@ -162,35 +132,12 @@
           <label class="label">Reports to Generate</label>
 
           <div class="pillRow">
-            <label class="pill">
-              <input type="checkbox" id="chkBuyer" checked />
-              Buyer Reports (PDF)
-            </label>
-
-            <label class="pill">
-              <input type="checkbox" id="chkConsignor" checked />
-              Consignor Reports (PDF)
-            </label>
-
-            <label class="pill">
-              <input type="checkbox" id="chkRep" checked />
-              Representative Reports (PDF)
-            </label>
-
-            <label class="pill">
-              <input type="checkbox" id="chkLotByLot" />
-              Lot-by-lot PDFs (one lot each)
-            </label>
-
-            <label class="pill">
-              <input type="checkbox" id="chkBuyerContracts" />
-              Buyer Contract DOCX (per lot)
-            </label>
-
-            <label class="pill">
-              <input type="checkbox" id="chkSellerContracts" />
-              Seller Contract DOCX (per lot)
-            </label>
+            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Lot-by-lot PDFs (one lot each)</label>
+            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contract DOCX (per lot)</label>
+            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contract DOCX (per lot)</label>
           </div>
 
           <div class="muted small" style="margin-top:6px;">
@@ -199,9 +146,7 @@
         </div>
 
         <div class="row">
-          <button id="buildBtn" class="btn" disabled>
-            Generate Files
-          </button>
+          <button id="buildBtn" class="btn" disabled>Generate Files</button>
         </div>
 
         <div id="builderError" class="error hidden"></div>
@@ -210,14 +155,11 @@
       <!-- PAGE 3: RESULTS -->
       <section id="pageResults" class="card hidden">
         <h1>Generated Files</h1>
-        <p class="muted">
-          Download individually or as ZIPs. Nothing persists after refresh or exit.
-        </p>
+        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
 
-        <!-- PDFs -->
         <h2 style="margin-top:14px;">PDF Reports</h2>
-        <div class="resultsGrid">
 
+        <div class="resultsGrid">
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Reports</h3>
@@ -249,13 +191,11 @@
             </div>
             <div id="listRepReports" class="list"></div>
           </div>
-
         </div>
 
-        <!-- DOCX -->
         <h2 style="margin-top:18px;">Editable Contracts (Word Docs)</h2>
-        <div class="resultsGrid">
 
+        <div class="resultsGrid">
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Contracts (DOCX)</h3>
@@ -271,16 +211,13 @@
             </div>
             <div id="listSellerContracts" class="list"></div>
           </div>
-
         </div>
 
         <hr class="divider" />
 
         <div class="row spaceBetween">
           <button id="backBtn" class="btn btnGhost">Back</button>
-          <button id="zipAll" class="btn" disabled>
-            Download ALL as ZIP
-          </button>
+          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
         </div>
 
         <div id="resultsMeta" class="muted small"></div>
