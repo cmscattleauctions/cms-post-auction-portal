@@ -307,120 +307,6 @@ function pickTypeColorHex(row){
   return CONFIG.COLORS.cmsBlue;
 }
 
-/* ---------------- FILE HELPERS ---------------- */
-async function readFileBytes(file){
-  if(!file) return null;
-  const buf = await file.arrayBuffer();
-  return new Uint8Array(buf);
-}
-
-function wireDropZone({zoneEl, inputEl, onFile, metaEl}){
-  zoneEl.addEventListener("dragover", (e)=>{
-    e.preventDefault();
-    zoneEl.classList.add("dragover");
-  });
-  zoneEl.addEventListener("dragleave", ()=> zoneEl.classList.remove("dragover"));
-  zoneEl.addEventListener("drop", (e)=>{
-    e.preventDefault();
-    zoneEl.classList.remove("dragover");
-    const f = e.dataTransfer.files?.[0];
-    if(f){
-      inputEl.value = "";
-      onFile(f);
-    }
-  });
-
-  inputEl.addEventListener("change", (e)=>{
-    const f = e.target.files?.[0];
-    if(f) onFile(f);
-  });
-
-  if(metaEl){
-    metaEl.textContent = "";
-    metaEl.classList.add("hidden");
-  }
-}
-
-/* ---------------- ENABLE BUILD ---------------- */
-function setBuildEnabled(){
-  const anyChecked = chkBuyer.checked || chkConsignor.checked || chkRep.checked || chkLotByLot.checked;
-  buildBtn.disabled = !(csvRows.length > 0 && anyChecked);
-}
-
-/* ---------------- CSV HANDLER ---------------- */
-function handleCsvFile(file){
-  setError(builderError, "");
-  if(!file) return;
-
-  fileMeta.textContent = `CSV loaded: ${file.name || "uploaded.csv"}`;
-  show(fileMeta);
-
-  try{ assertLibsLoaded(); }
-  catch(err){
-    setError(builderError, err.message);
-    csvRows = [];
-    setBuildEnabled();
-    return;
-  }
-
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: (results) => {
-      csvRows = (results.data || []).filter(r => Object.values(r).some(v => safeStr(v) !== ""));
-      if(csvRows.length === 0){
-        setError(builderError, "CSV parsed, but it contains no rows.");
-        setBuildEnabled();
-        return;
-      }
-
-      csvRows = csvRows.map(row => {
-        const cleaned = {};
-        for(const k of Object.keys(row)) cleaned[k] = safeStr(row[k]);
-        return cleaned;
-      });
-
-      const chk = requiredColsPresent(csvRows);
-      if(!chk.ok){
-        setError(builderError, `CSV is missing required column(s): ${chk.missing.join(", ")}`);
-        csvRows = [];
-        setBuildEnabled();
-        return;
-      }
-
-      contractColName = detectContractColumn(csvRows);
-      if(!contractColName){
-        setError(builderError, `CSV is missing a Contract column. Expected one of: ${CONFIG.CONTRACT_COL_CANDIDATES.join(", ")}`);
-        csvRows = [];
-        setBuildEnabled();
-        return;
-      }
-
-      setBuildEnabled();
-    },
-    error: () => {
-      setError(builderError, "Could not parse CSV. Make sure it's a valid CSV export.");
-      csvRows = [];
-      setBuildEnabled();
-    }
-  });
-}
-
-/* ---------------- AUTH ---------------- */
-function wireAuth(){
-  pinSubmit.addEventListener("click", () => {
-    const entered = safeStr(pinInput.value);
-    if(entered === CONFIG.PIN){
-      setError(authError, "");
-      pinInput.value = "";
-      goto(pageBuilder);
-    } else {
-      setError(authError, "Incorrect PIN.");
-    }
-  });
-  pinInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") pinSubmit.click(); });
-}
-
 /* ---------------- PDF GENERATION (continues in Part 2) ---------------- */
 async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null}){
   assertLibsLoaded();
@@ -435,7 +321,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
   const topBarHex =
     mode === "buyer" ? CONFIG.COLORS.cmsBlue :
-    mode === "consignor" ? CONFIG.COLORS.native :
+    mode === "consignor" ? "#1569a6" :  // Updated line for consignor
     CONFIG.COLORS.repBar;
 
   const topBarColor = rgb(...hexToRgb01(topBarHex));
