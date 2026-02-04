@@ -159,13 +159,11 @@ p{margin:8px 0}
   user-select:none;
 }
 
+/* Supports more columns gracefully */
 .resultsGrid{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap:14px
-}
-@media (max-width:1100px){
-  .resultsGrid{grid-template-columns:1fr}
 }
 
 .resultsCol{
