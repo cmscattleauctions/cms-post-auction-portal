@@ -1,7 +1,7 @@
 /* ==========================================================
-   CMS Post-Auction Portal (client-only) — FULL app.js (PART 1/2)
-   - PDF only (NO contract DOCX options)
-   - CSV -> Buyer Recaps, Lot-by-lot, Consignor Confirmations, Rep Confirmations
+   CMS Post-Auction Portal (client-only) — app.js
+   - PDF only
+   - CSV -> Buyer, Consignor, Rep, Contract Details (lot), Buyer Contracts, Seller Contracts
    - Drag/drop CSV
    - ZIP downloads
    - PIN gate (0623)
@@ -16,6 +16,7 @@ const CONFIG = {
     buyer: "Buyer",
     consignor: "Consignor",
     rep: "Representative",
+
     breed: "Breed", // optional; fallback to Description
     type: "Type",  // optional; used for consignor lot color
     year: "Year",  // optional
@@ -34,6 +35,8 @@ const CONFIG = {
     slide: "Slide",
     price: "Calculated High Bid",
     downMoney: "Down Money Due",
+
+    cmsInternalNotes: "CMS Internal Notes", // optional
   },
 
   CONTRACT_COL_CANDIDATES: [
@@ -43,6 +46,24 @@ const CONFIG = {
     "Contract No",
     "Contract No."
   ],
+
+  // EASY-EDIT TERMS (update here anytime)
+  CONTRACT_TERMS: {
+    buyer: `All cattle shall be in good physical condition and shall be free of any defects including to but not limited to lameness, crippled, bad eyes, and lump jaws.
+Seller does hereby warrant that all cattle shall have clear title and be free of any and all encumbrances.  Buyer hereby grants a purchase money security interest in the above-described cattle to CMS Orita Calf Auctions, LLC to secure full payment and collection of the purchase price. 
+Buyer does hereby agree to a down payment of $30.00 Per head ({{Down Money Due}} of Down Money Due) if delivery date is more than 30 days past the auction date as good faith money to be applied at the time of delivery.
+Buyer does hereby agree to payment by wire transfer the day following delivery of the cattle or by overnight carrier at Buyer’s expense. Payments if sent overnight shall be sent to: 
+CMS Livestock Auction 
+6900 I-40 West, Suite 135 
+Amarillo, TX 79106. 
+The CMS Livestock Auction Video Auction Terms of Service Agreement as stated in auction registration and participation are incorporated by reference into this contract. If a discrepancy between this contract and the CMS Livestock Auction Video Auction Terms of Service Agreement arises, the CMS Livestock Auction Video Auction Terms of Service Agreement  shall take priority.`,
+
+    seller: `All cattle shall be in good physical condition and shall be free of any defects including to but not limited to lameness, crippled, bad eyes, and lump jaws.
+Seller agrees to deliver the above-described cattle to Buyer as sold through CMS Livestock Auction on the agreed-upon delivery date. Seller further agrees that once the cattle are sold through CMS Livestock Auction, Seller shall not sell, transfer, or otherwise dispose of the cattle to any party other than the Buyer prior to the delivery date without written consent from CMS Livestock Auction.
+Seller represents and warrants that all information provided regarding the cattle, including weight, breed, age, and health status, is accurate to the best of Seller’s knowledge.
+Seller does hereby warrant that all cattle shall have clear title and be free of any and all encumbrances.  
+The CMS Livestock Auction Seller’s Terms of Service Agreement as signed prior to the auction are incorporated by reference into this contract. If a discrepancy between this contract and the CMS Livestock Auction Seller’s Terms of Service Agreement arises, the CMS Livestock Auction Seller’s Terms of Service Agreement shall take priority.`
+  },
 
   PDF: {
     pageSize: { width: 792, height: 612 }, // landscape letter
@@ -80,19 +101,19 @@ const CONFIG = {
   },
 
   COLORS: {
-    cmsBlue: "#336699",  // buyer top bar
+    cmsBlue: "#336699",        // buyer top bar
     consignorColor: "#818589", // consignor top bar color
-    repBar: "#6F8FAF",    // rep top bar
+    repBar: "#6F8FAF",         // rep top bar
     textWhite: [1,1,1],
     textBlack: [0,0,0],
   },
 
   REP_CONSIGNOR_PALETTE: [
-    "#202E4A", // navy
-    "#336699", // CMS blue
-    "#3FA796", // teal
-    "#6F8FAF", // steel blue
-    "#C9A66B", // gold
+    "#202E4A",
+    "#336699",
+    "#3FA796",
+    "#6F8FAF",
+    "#C9A66B",
   ],
 };
 
@@ -110,11 +131,14 @@ let auctionName, auctionDate, auctionLabel;
 
 let dropZone, fileInput, fileMeta;
 
-let chkBuyer, chkConsignor, chkRep, chkLotByLot;
+let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let buildBtn, builderError;
 
 let listBuyerReports, listLotByLot, listConsignorReports, listRepReports;
+let listBuyerContracts, listSellerContracts;
+
 let zipBuyerReports, zipLotByLot, zipConsignorReports, zipRepReports, zipAll;
+let zipBuyerContracts, zipSellerContracts;
 
 let backBtn, exitBtn, resultsMeta;
 
@@ -139,6 +163,8 @@ function bindDom(){
   chkConsignor = mustGet("chkConsignor");
   chkRep = mustGet("chkRep");
   chkLotByLot = mustGet("chkLotByLot");
+  chkBuyerContracts = mustGet("chkBuyerContracts");
+  chkSellerContracts = mustGet("chkSellerContracts");
 
   buildBtn = mustGet("buildBtn");
   builderError = mustGet("builderError");
@@ -147,9 +173,13 @@ function bindDom(){
   listLotByLot = mustGet("listLotByLot");
   listConsignorReports = mustGet("listConsignorReports");
   listRepReports = mustGet("listRepReports");
+  listBuyerContracts = mustGet("listBuyerContracts");
+  listSellerContracts = mustGet("listSellerContracts");
 
   zipBuyerReports = mustGet("zipBuyerReports");
   zipLotByLot = mustGet("zipLotByLot");
+  zipBuyerContracts = mustGet("zipBuyerContracts");
+  zipSellerContracts = mustGet("zipSellerContracts");
   zipConsignorReports = mustGet("zipConsignorReports");
   zipRepReports = mustGet("zipRepReports");
   zipAll = mustGet("zipAll");
@@ -167,6 +197,8 @@ let blobUrls = [];
 let generated = {
   buyerReports: [],
   lotByLot: [],
+  buyerContracts: [],
+  sellerContracts: [],
   consignorReports: [],
   repReports: [],
 };
@@ -241,7 +273,12 @@ function groupBy(rows, key){
 }
 
 function requiredColsPresent(rows){
-  const required = Object.values(CONFIG.COLS).filter(c => ![CONFIG.COLS.breed, CONFIG.COLS.type, CONFIG.COLS.year].includes(c));
+  const required = Object.values(CONFIG.COLS).filter(c => ![
+    CONFIG.COLS.breed,
+    CONFIG.COLS.type,
+    CONFIG.COLS.year,
+    CONFIG.COLS.cmsInternalNotes
+  ].includes(c));
   const row0 = rows[0] || {};
   const keys = new Set(Object.keys(row0));
   const missing = required.filter(c => !keys.has(c));
@@ -307,7 +344,6 @@ function pickTypeColorHex(row){
   const hasChar = hay.includes("charolais");
   const hasBod = hay.includes("beef on dairy") || hay.includes("beefx dairy") || hay.includes("beef x dairy");
 
-  // CharolaisX Beef on Dairy -> GOLD
   if(hasChar && hasBod) return "#C9A66B";
   if(hasChar) return "#C9A66B";
   if(hasBod || hay.includes("blackx") || hay.includes("black x")) return "#202E4A";
@@ -316,6 +352,7 @@ function pickTypeColorHex(row){
 
   return CONFIG.COLORS.cmsBlue;
 }
+
 /* ---------------- FILE HELPERS ---------------- */
 function wireDropZone({zoneEl, inputEl, onFile, metaEl}){
   zoneEl.addEventListener("dragover", (e)=>{
@@ -348,7 +385,14 @@ function wireDropZone({zoneEl, inputEl, onFile, metaEl}){
 
 /* ---------------- ENABLE BUILD ---------------- */
 function setBuildEnabled(){
-  const anyChecked = chkBuyer.checked || chkConsignor.checked || chkRep.checked || chkLotByLot.checked;
+  const anyChecked =
+    chkBuyer.checked ||
+    chkConsignor.checked ||
+    chkRep.checked ||
+    chkLotByLot.checked ||
+    chkBuyerContracts.checked ||
+    chkSellerContracts.checked;
+
   buildBtn.disabled = !(csvRows.length > 0 && anyChecked);
 }
 
@@ -429,7 +473,26 @@ function wireAuth(){
   });
 }
 
-/* ---------------- PDF GENERATION ---------------- */
+/* ---------------- SHARED TEXT WRAP ---------------- */
+function wrapLines(fontObj, text, size, maxW){
+  const words = safeStr(text).split(/\s+/).filter(Boolean);
+  if(words.length === 0) return [""];
+  const lines = [];
+  let line = words[0];
+  for(let i=1;i<words.length;i++){
+    const test = line + " " + words[i];
+    if(fontObj.widthOfTextAtSize(test, size) <= maxW){
+      line = test;
+    } else {
+      lines.push(line);
+      line = words[i];
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
+/* ---------------- PDF GENERATION: GROUP REPORTS + CONTRACT DETAILS ---------------- */
 async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
@@ -441,10 +504,9 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const BLACK = rgb(0,0,0);
   const FILL = rgb(0.98,0.98,0.98);
 
-  // Updated consignor top bar color: #818589
   const topBarHex =
     mode === "buyer" ? CONFIG.COLORS.cmsBlue :
-    mode === "consignor" ? CONFIG.COLORS.consignorColor : // Change here
+    mode === "consignor" ? CONFIG.COLORS.consignorColor :
     CONFIG.COLORS.repBar;
 
   const topBarColor = rgb(...hexToRgb01(topBarHex));
@@ -455,7 +517,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const bottomLimit = CONFIG.PDF.bottomLimit;
   const contentW = W - 2*M;
 
-  // Column widths (fit within landscape content width)
   const colDefs = [
     { key: "loads", label: "Loads",   w: 45 },
     { key: "head",  label: "Head",    w: 45 },
@@ -479,7 +540,9 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     mode === "buyer" ? "Buyer" : (mode === "consignor" ? "Consignor" : "Rep");
 
   const docTitle =
-    mode === "buyer" ? "Buyer Recap and Down Money Invoice" : "Trade Confirmations";
+    (mode === "buyer")
+      ? (singleLotMode ? "Contract Details" : "Buyer Recap and Down Money Invoice")
+      : "Trade Confirmations";
 
   const nameSize = (mode === "buyer") ? CONFIG.PDF.buyerNameSize : CONFIG.PDF.otherNameSize;
 
@@ -494,24 +557,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   let pageIndex = 0;
   let y = H - M;
 
-  function wrapLines(fontObj, text, size, maxW){
-    const words = safeStr(text).split(/\s+/).filter(Boolean);
-    if(words.length === 0) return [""];
-    const lines = [];
-    let line = words[0];
-    for(let i=1;i<words.length;i++){
-      const test = line + " " + words[i];
-      if(fontObj.widthOfTextAtSize(test, size) <= maxW){
-        line = test;
-      } else {
-        lines.push(line);
-        line = words[i];
-      }
-    }
-    lines.push(line);
-    return lines;
-  }
-
   function drawTopBar(){
     page.drawRectangle({
       x: 0,
@@ -522,7 +567,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     });
   }
 
-  // Buyer title moved under auction date on LEFT (not centered)
   function drawHeader(){
     drawTopBar();
 
@@ -536,19 +580,19 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const rightBlockW = 300;
     const rx = M + contentW - rightBlockW;
 
-    const leftName = forceBuyerName ? safeStr(forceBuyerName) : safeStr(entityName);
-
-    // LEFT line 1
-    page.drawText(`${leftLabel}: ${leftName}`, {
-      x: lx,
-      y: topY,
-      size: nameSize,
-      font: fontBold,
-      color: BLACK
-    });
+    // IMPORTANT: for single-lot mode, do NOT show Buyer at top
+    if(!singleLotMode){
+      const leftName = forceBuyerName ? safeStr(forceBuyerName) : safeStr(entityName);
+      page.drawText(`${leftLabel}: ${leftName}`, {
+        x: lx,
+        y: topY,
+        size: nameSize,
+        font: fontBold,
+        color: BLACK
+      });
+    }
 
     if(pageIndex === 0){
-      // LEFT line 2
       page.drawText(safeStr(auctionTitle), {
         x: lx,
         y: topY - 14,
@@ -557,7 +601,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         color: BLACK
       });
 
-      // LEFT line 3
       if(aDate){
         page.drawText(safeStr(aDate), {
           x: lx,
@@ -568,7 +611,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         });
       }
 
-      // LEFT line 4 (doc title) moved here
+      // doc title on left
       page.drawText(docTitle, {
         x: lx,
         y: topY - 40,
@@ -577,14 +620,12 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         color: BLACK
       });
 
-      // RIGHT block 4 lines
       page.drawText(addrLines[0], { x: rx, y: topY,      size: 10.0, font: fontBold, color: BLACK });
       page.drawText(addrLines[1], { x: rx, y: topY - 12, size:  9.2, font,         color: BLACK });
       page.drawText(addrLines[2], { x: rx, y: topY - 24, size:  9.2, font,         color: BLACK });
       page.drawText(addrLines[3], { x: rx, y: topY - 36, size:  9.2, font,         color: BLACK });
 
     } else {
-      // Other pages: top-right shows CMS + auction title/date
       page.drawText("CMS Livestock Auction", {
         x: rx,
         y: topY,
@@ -612,7 +653,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       }
     }
 
-    // Start lots BELOW header
     y = H - CONFIG.PDF.topBarH - headerH;
   }
 
@@ -625,9 +665,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
   drawHeader();
 
-  // =========================
-  // PART 2 STARTS AFTER THIS
-  // =========================
   let buyerDownMoneyTotal = 0;
 
   function computeGridWrapped(record){
@@ -675,7 +712,11 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
 
     const dmRowH = (mode === "buyer") ? 18 : 0;
-    return row1H + gridH + notesH + dmRowH + CONFIG.PDF.lotGap;
+
+    const preLinesH = singleLotMode ? 28 : 0;
+    const internalNotesH = (singleLotMode && safeStr(record[CONFIG.COLS.cmsInternalNotes])) ? 14 : 0;
+
+    return preLinesH + row1H + gridH + notesH + dmRowH + internalNotesH + CONFIG.PDF.lotGap;
   }
 
   function ensureRoom(record){
@@ -728,6 +769,59 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     }
   }
 
+  function drawSingleLotBuyerAndRepBlock(r){
+    const buyer = safeStr(r[CONFIG.COLS.buyer]);
+    const rep = safeStr(r[CONFIG.COLS.rep]);
+    let used = 0;
+
+    if(buyer){
+      page.drawText(`Buyer: ${buyer}`, {
+        x: M,
+        y: y - 12,
+        size: 12.2,
+        font: fontBold,
+        color: window.PDFLib.rgb(0,0,0)
+      });
+      used += 14;
+    }
+    if(rep){
+      page.drawText(rep, {
+        x: M,
+        y: y - 12 - used,
+        size: 10.6,
+        font: font,
+        color: window.PDFLib.rgb(0,0,0)
+      });
+      used += 14;
+    }
+    y -= Math.max(0, used);
+  }
+
+  function drawCmsInternalNotesIfAny(r){
+    const n = safeStr(r[CONFIG.COLS.cmsInternalNotes]);
+    if(!n) return;
+
+    const { rgb } = window.PDFLib;
+    const label = "CMS Internal Notes: ";
+    const labelW = fontBold.widthOfTextAtSize(label, 9.8);
+
+    const maxW = (W - 2*M) - labelW;
+    const lines = wrapLines(font, n, 9.8, maxW);
+
+    let yy = y - 10;
+
+    page.drawText(label, { x: M, y: yy, size: 9.8, font: fontBold, color: rgb(0,0,0) });
+    page.drawText(lines[0] || "", { x: M + labelW, y: yy, size: 9.8, font, color: rgb(0,0,0) });
+    yy -= 12;
+
+    for(let i=1;i<lines.length;i++){
+      page.drawText(lines[i], { x: M + labelW, y: yy, size: 9.8, font, color: rgb(0,0,0) });
+      yy -= 12;
+    }
+
+    y = yy;
+  }
+
   function drawLotBlock(r){
     const contract = safeStr(getContract(r));
     const consignor = safeStr(r[CONFIG.COLS.consignor]);
@@ -737,10 +831,10 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       buyerDownMoneyTotal += toNumber(r[CONFIG.COLS.downMoney]);
     }
 
-    // Header box color rules:
-    // - Rep: color by consignor palette
-    // - Consignor: color by Type mapping
-    // - Buyer: no lot header color
+    if(mode === "buyer" && singleLotMode){
+      drawSingleLotBuyerAndRepBlock(r);
+    }
+
     let headerFillHex = null;
     if(mode === "rep"){
       const idx = hashIndex(consignor, CONFIG.REP_CONSIGNOR_PALETTE.length);
@@ -749,14 +843,12 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       headerFillHex = pickTypeColorHex(r);
     }
 
-    // "Anywhere Lot# shows up" -> show Contract #
     const topLine = `Contract # ${contract} - ${consignor}`;
     const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
 
     const { rgb } = window.PDFLib;
     const breedColor = headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : rgb(0,0,0);
 
-    // Breed line inside header box
     page.drawText(safeStr(breed), {
       x: M + CONFIG.PDF.padX,
       y: y - 27,
@@ -767,7 +859,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= row1H;
 
-    // Grid box
     const labelH = 14;
     const { wrapped, maxLines } = computeGridWrapped(r);
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
@@ -823,7 +914,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= gridH;
 
-    // Notes box
     const notesLines = computeNotesLines(r);
     const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
 
@@ -851,7 +941,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= notesH;
 
-    // Buyer down money row per lot
     if(mode === "buyer"){
       const dmRowH = 18;
       const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
@@ -877,17 +966,20 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       y -= dmRowH;
     }
 
+    if(mode === "buyer" && singleLotMode){
+      drawCmsInternalNotesIfAny(r);
+    }
+
     y -= CONFIG.PDF.lotGap;
   }
 
-  // Draw all lots
   const sorted = [...rows].sort(sortLots);
   for(const r of sorted){
     ensureRoom(r);
     drawLotBlock(r);
   }
 
-  // Buyer footer (skip in single-lot mode)
+  // footer (skip in single-lot mode)
   if(mode === "buyer" && !singleLotMode){
     const footerNeed = CONFIG.PDF.footerMinH + 36;
     if(y < bottomLimit + footerNeed){
@@ -896,7 +988,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     const { rgb } = window.PDFLib;
 
-    // Total box after last lot
     const totalBoxW = 270;
     const totalBoxH = 22;
     const totalX = M + contentW - totalBoxW;
@@ -927,7 +1018,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y = totalY - 10;
 
-    // Footer
     const footerHeader = "REMIT TO CMS LIVESTOCK AUCTION VIA WIRE TRANSFER, ACH, OR OVERNIGHT DELIVERY OF A CHECK";
     const footerLeft =
 `PLEASE INCLUDE BUYER NAME AND LOT NUMBERS ON PAYMENT
@@ -981,6 +1071,260 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
       ry -= CONFIG.PDF.footerLineH;
     }
   }
+
+  return await pdfDoc.save();
+}
+
+/* ---------------- PDF GENERATION: BUYER/SELLER CONTRACTS (ONE LOT) ---------------- */
+async function buildSalesContractPdf({row, side}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const W = CONFIG.PDF.pageSize.width;
+  const H = CONFIG.PDF.pageSize.height;
+  const M = CONFIG.PDF.margin;
+  const contentW = W - 2*M;
+
+  const topBarColor = rgb(...hexToRgb01(CONFIG.COLORS.cmsBlue));
+  const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.55, 0.55, 0.55);
+
+  const page = pdfDoc.addPage([W,H]);
+
+  page.drawRectangle({ x:0, y:H-CONFIG.PDF.topBarH, width:W, height:CONFIG.PDF.topBarH, color: topBarColor });
+
+  const contract = safeStr(getContract(row));
+  const buyer = safeStr(row[CONFIG.COLS.buyer]);
+  const consignor = safeStr(row[CONFIG.COLS.consignor]);
+  const rep = safeStr(row[CONFIG.COLS.rep]);
+  const downMoney = downMoneyDisplay(row[CONFIG.COLS.downMoney]);
+
+  const headerY = H - CONFIG.PDF.topBarH - 34;
+
+  page.drawText("Cattle Sales Contract", {
+    x: M,
+    y: headerY,
+    size: 18,
+    font: fontBold,
+    color: BLACK
+  });
+
+  const cnText = `Contract #: ${contract || ""}`.trim();
+  const cnSize = 18;
+  const cnW = fontBold.widthOfTextAtSize(cnText, cnSize);
+  page.drawText(cnText, {
+    x: M + contentW - cnW,
+    y: headerY,
+    size: cnSize,
+    font: fontBold,
+    color: BLACK
+  });
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate = safeStr(auctionDate.value) || "";
+
+  const subY = headerY - 18;
+  page.drawText(`${auctionTitle}${aDate ? " — " + aDate : ""}`, {
+    x: M,
+    y: subY,
+    size: 9.8,
+    font,
+    color: BLACK
+  });
+
+  let y = subY - 18;
+
+  if(side === "buyer"){
+    const pre = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
+    const lines = wrapLines(font, pre, 10.4, contentW);
+    for(const ln of lines){
+      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
+      y -= 12;
+    }
+    y -= 6;
+
+    page.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
+    y -= 14;
+
+    if(rep){
+      page.drawText(rep, { x:M, y, size:10.6, font, color:BLACK });
+      y -= 14;
+    }
+
+  } else {
+    const pre = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
+    const lines = wrapLines(font, pre, 10.4, contentW);
+    for(const ln of lines){
+      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
+      y -= 12;
+    }
+    y -= 8;
+  }
+
+  const breed = safeStr(row[CONFIG.COLS.breed]) || safeStr(row[CONFIG.COLS.description]);
+  const loads = safeStr(row[CONFIG.COLS.loads]) || "0";
+  const head  = safeStr(row[CONFIG.COLS.head])  || "0";
+  const sex   = safeStr(row[CONFIG.COLS.sex]);
+  const bw    = safeStr(row[CONFIG.COLS.baseWeight]);
+  const del   = safeStr(row[CONFIG.COLS.delivery]);
+  const loc   = safeStr(row[CONFIG.COLS.location]);
+  const shr   = safeStr(row[CONFIG.COLS.shrink]);
+  const sld   = safeStr(row[CONFIG.COLS.slide]);
+  const price = priceDisplay(row[CONFIG.COLS.price]);
+
+  const colDefs = [
+    { label:"Loads",   value:loads, w: 45 },
+    { label:"Head",    value:head,  w: 45 },
+    { label:"Sex",     value:sex,   w: 100 },
+    { label:"Base Wt", value:bw,    w: 38 },
+    { label:"Delivery",value:del,   w: 170 },
+    { label:"Location",value:loc,   w: 110 },
+    { label:"Shrink",  value:shr,   w: 48 },
+    { label:"Slide",   value:sld,   w: 134 },
+    { label:"Price",   value:price, w: 50 },
+  ];
+  const gridW = colDefs.reduce((s,c)=>s+c.w,0);
+
+  const bandH = 32;
+  page.drawRectangle({
+    x: M,
+    y: y - bandH,
+    width: contentW,
+    height: bandH,
+    color: rgb(1,1,1),
+    borderWidth: 1.0,
+    borderColor: GRAY
+  });
+
+  const bandText = `Seller: ${consignor}`;
+  page.drawText(bandText, { x:M+8, y:y-14, size:10.6, font:fontBold, color:BLACK });
+  page.drawText(safeStr(breed), { x:M+8, y:y-27, size:9.4, font, color:BLACK });
+
+  y -= bandH;
+
+  const labelH = 14;
+
+  const maxCellW = (w)=> w - 2*CONFIG.PDF.cellPadX;
+  const wrapped = colDefs.map(c => wrapLines(font, c.value, 8.6, maxCellW(c.w)));
+  const maxLines = Math.max(...wrapped.map(a=>a.length), 1);
+  const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
+  const gridH = labelH + valueH;
+
+  page.drawRectangle({
+    x: M,
+    y: y - gridH,
+    width: gridW,
+    height: gridH,
+    color: rgb(1,1,1),
+    borderWidth: 1.0,
+    borderColor: GRAY
+  });
+
+  page.drawLine({ start:{x:M, y:y-labelH}, end:{x:M+gridW, y:y-labelH}, thickness:0.8, color:GRAY });
+
+  let cx = M;
+  for(let i=0;i<colDefs.length;i++){
+    const c = colDefs[i];
+    if(i !== 0){
+      page.drawLine({ start:{x:cx, y:y}, end:{x:cx, y:y-gridH}, thickness:0.8, color:GRAY });
+    }
+
+    const cellCenter = cx + c.w/2;
+    const lw = fontBold.widthOfTextAtSize(c.label, 7.7);
+    page.drawText(c.label, { x:cellCenter - lw/2, y:y-11, size:7.7, font:fontBold, color:BLACK });
+
+    let ty = y - labelH - 11;
+    for(const ln of wrapped[i]){
+      const tw = font.widthOfTextAtSize(ln || "", 8.6);
+      page.drawText(ln, { x:cellCenter - tw/2, y:ty, size:8.6, font, color:BLACK });
+      ty -= CONFIG.PDF.gridLineH;
+    }
+
+    cx += c.w;
+  }
+
+  y -= gridH;
+
+  const desc = safeStr(row[CONFIG.COLS.description]);
+  const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
+  const notesText = [desc, desc2].filter(Boolean).join("  |  ");
+  const notesLine = safeStr(`Notes: ${notesText}`);
+  const notesLines = wrapLines(font, notesLine, 7.8, contentW - 16);
+
+  const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+  page.drawRectangle({
+    x: M,
+    y: y - notesH,
+    width: contentW,
+    height: notesH,
+    color: rgb(1,1,1),
+    borderWidth: 1.0,
+    borderColor: GRAY
+  });
+
+  let ny = y - 12;
+  for(const ln of notesLines){
+    page.drawText(ln, { x:M+8, y:ny, size:7.8, font, color:BLACK });
+    ny -= CONFIG.PDF.notesLineH;
+  }
+  y -= notesH;
+
+  if(side === "buyer"){
+    const dmH = 18;
+    page.drawRectangle({
+      x: M,
+      y: y - dmH,
+      width: contentW,
+      height: dmH,
+      color: rgb(0.98,0.98,0.98),
+      borderWidth: 1.0,
+      borderColor: GRAY
+    });
+    page.drawText(`Down Money Due: ${downMoney}`, { x:M+8, y:y-13, size:10.0, font:fontBold, color:BLACK });
+    y -= dmH;
+  }
+
+  y -= 10;
+
+  const rawTerms = (side === "buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
+  const termsText = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
+
+  const termLines = termsText
+    .split("\n")
+    .flatMap(p => {
+      const t = safeStr(p);
+      if(!t) return [""];
+      return wrapLines(font, t, 9.2, contentW);
+    });
+
+  for(const ln of termLines){
+    if(y < 110) break;
+    page.drawText(ln, { x:M, y, size:9.2, font, color:BLACK });
+    y -= 11;
+  }
+
+  y -= 10;
+
+  const lineW = (contentW - 30) / 2;
+  const leftX = M;
+  const rightX = M + lineW + 30;
+
+  const sigY = Math.max(64, y);
+
+  page.drawLine({ start:{x:leftX, y:sigY}, end:{x:leftX+lineW, y:sigY}, thickness:1.0, color:BLACK });
+  page.drawLine({ start:{x:rightX, y:sigY}, end:{x:rightX+lineW, y:sigY}, thickness:1.0, color:BLACK });
+
+  const leftLabel = (side === "buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
+  const rightLabel = "CMS Orita Calf Auctions, LLC Signature / Date";
+
+  page.drawText(leftLabel, { x:leftX, y:sigY-14, size:9.6, font, color:BLACK });
+  page.drawText(rightLabel, { x:rightX, y:sigY-14, size:9.6, font, color:BLACK });
 
   return await pdfDoc.save();
 }
@@ -1071,6 +1415,8 @@ function renderResults(){
   const total =
     generated.buyerReports.length +
     generated.lotByLot.length +
+    generated.buyerContracts.length +
+    generated.sellerContracts.length +
     generated.consignorReports.length +
     generated.repReports.length;
 
@@ -1078,11 +1424,15 @@ function renderResults(){
 
   renderList(listBuyerReports, generated.buyerReports);
   renderList(listLotByLot, generated.lotByLot);
+  renderList(listBuyerContracts, generated.buyerContracts);
+  renderList(listSellerContracts, generated.sellerContracts);
   renderList(listConsignorReports, generated.consignorReports);
   renderList(listRepReports, generated.repReports);
 
   zipBuyerReports.disabled = generated.buyerReports.length === 0;
   zipLotByLot.disabled = generated.lotByLot.length === 0;
+  zipBuyerContracts.disabled = generated.buyerContracts.length === 0;
+  zipSellerContracts.disabled = generated.sellerContracts.length === 0;
   zipConsignorReports.disabled = generated.consignorReports.length === 0;
   zipRepReports.disabled = generated.repReports.length === 0;
   zipAll.disabled = total === 0;
@@ -1101,7 +1451,12 @@ function wireBuild(){
       if(csvRows.length === 0) throw new Error("Upload a CSV first.");
 
       const anyChecked =
-        chkBuyer.checked || chkConsignor.checked || chkRep.checked || chkLotByLot.checked;
+        chkBuyer.checked ||
+        chkConsignor.checked ||
+        chkRep.checked ||
+        chkLotByLot.checked ||
+        chkBuyerContracts.checked ||
+        chkSellerContracts.checked;
 
       if(!anyChecked) throw new Error("Select at least one output option.");
 
@@ -1110,16 +1465,21 @@ function wireBuild(){
 
       if(!contractColName) throw new Error("Contract column not detected. Re-upload CSV.");
 
-      // Reset generated state
-      generated = { buyerReports: [], lotByLot: [], consignorReports: [], repReports: [] };
+      generated = {
+        buyerReports: [],
+        lotByLot: [],
+        buyerContracts: [],
+        sellerContracts: [],
+        consignorReports: [],
+        repReports: [],
+      };
 
-      // Build groups
       const byBuyer = groupBy(csvRows, CONFIG.COLS.buyer);
       const byConsignor = groupBy(csvRows, CONFIG.COLS.consignor);
       const repRows = csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== "");
       const byRep = groupBy(repRows, CONFIG.COLS.rep);
 
-      // 1) Buyer reports (one PDF per buyer, includes all contracts)
+      // Buyer reports (one PDF per buyer)
       if(chkBuyer.checked){
         for(const [buyer, rows] of byBuyer.entries()){
           if(!buyer) continue;
@@ -1138,12 +1498,12 @@ function wireBuild(){
         }
       }
 
-      // 2) Lot-by-lot (one PDF per lot/contract, buyer mode header)
+      // Contract Details (lot-by-lot)
       if(chkLotByLot.checked){
         const sorted = [...csvRows].sort(sortLots);
         for(const row of sorted){
-          const buyer = safeStr(row[CONFIG.COLS.buyer]) || "Buyer";
           const contract = safeStr(getContract(row)) || "Contract";
+          const buyer = safeStr(row[CONFIG.COLS.buyer]) || "Buyer";
           const bytes = await buildPdfForGroup({
             entityName: buyer,
             rows: [row],
@@ -1152,14 +1512,46 @@ function wireBuild(){
             forceBuyerName: buyer
           });
           generated.lotByLot.push({
-            filename: `Contract-${fileSafeName(contract)}.pdf`,
+            filename: `Contract-Details-${fileSafeName(contract)}.pdf`,
             bytes,
             count: 1
           });
         }
       }
 
-      // 3) Consignor reports (one PDF per consignor)
+      // Buyer Contracts (one per lot) — NEW filename: ContractNumber-Buyer.pdf
+      if(chkBuyerContracts.checked){
+        const sorted = [...csvRows].sort(sortLots);
+        for(const row of sorted){
+          const contract = safeStr(getContract(row)) || "Contract";
+          const buyer = safeStr(row[CONFIG.COLS.buyer]) || "Buyer";
+          const bytes = await buildSalesContractPdf({ row, side: "buyer" });
+
+          generated.buyerContracts.push({
+            filename: `${fileSafeName(contract)}-${fileSafeName(buyer)}.pdf`,
+            bytes,
+            count: 1
+          });
+        }
+      }
+
+      // Seller Contracts (one per lot) — NEW filename: Seller-ContractNumber.pdf
+      if(chkSellerContracts.checked){
+        const sorted = [...csvRows].sort(sortLots);
+        for(const row of sorted){
+          const contract = safeStr(getContract(row)) || "Contract";
+          const seller = safeStr(row[CONFIG.COLS.consignor]) || "Seller";
+          const bytes = await buildSalesContractPdf({ row, side: "seller" });
+
+          generated.sellerContracts.push({
+            filename: `${fileSafeName(seller)}-${fileSafeName(contract)}.pdf`,
+            bytes,
+            count: 1
+          });
+        }
+      }
+
+      // Consignor reports (one PDF per consignor)
       if(chkConsignor.checked){
         for(const [consignor, rows] of byConsignor.entries()){
           if(!consignor) continue;
@@ -1176,7 +1568,7 @@ function wireBuild(){
         }
       }
 
-      // 4) Rep reports (ignore blank reps)
+      // Rep reports
       if(chkRep.checked){
         for(const [rep, rows] of byRep.entries()){
           if(!rep) continue;
@@ -1193,7 +1585,6 @@ function wireBuild(){
         }
       }
 
-      // Show results
       renderResults();
       goto(pageResults);
 
@@ -1207,13 +1598,20 @@ function wireBuild(){
     }
   });
 
-  // ZIP buttons
   zipBuyerReports.addEventListener("click", async ()=>{
     if(generated.buyerReports.length) await downloadZip(generated.buyerReports, "Buyer-Reports.zip");
   });
 
   zipLotByLot.addEventListener("click", async ()=>{
-    if(generated.lotByLot.length) await downloadZip(generated.lotByLot, "Lot-by-Lot.zip");
+    if(generated.lotByLot.length) await downloadZip(generated.lotByLot, "Contract-Details.zip");
+  });
+
+  zipBuyerContracts.addEventListener("click", async ()=>{
+    if(generated.buyerContracts.length) await downloadZip(generated.buyerContracts, "Buyer-Contracts.zip");
+  });
+
+  zipSellerContracts.addEventListener("click", async ()=>{
+    if(generated.sellerContracts.length) await downloadZip(generated.sellerContracts, "Seller-Contracts.zip");
   });
 
   zipConsignorReports.addEventListener("click", async ()=>{
@@ -1228,6 +1626,8 @@ function wireBuild(){
     const all = [
       ...generated.buyerReports,
       ...generated.lotByLot,
+      ...generated.buyerContracts,
+      ...generated.sellerContracts,
       ...generated.consignorReports,
       ...generated.repReports
     ];
@@ -1256,11 +1656,15 @@ function wireExit(){
 
     listBuyerReports.innerHTML = "";
     listLotByLot.innerHTML = "";
+    listBuyerContracts.innerHTML = "";
+    listSellerContracts.innerHTML = "";
     listConsignorReports.innerHTML = "";
     listRepReports.innerHTML = "";
 
     zipBuyerReports.disabled = true;
     zipLotByLot.disabled = true;
+    zipBuyerContracts.disabled = true;
+    zipSellerContracts.disabled = true;
     zipConsignorReports.disabled = true;
     zipRepReports.disabled = true;
     zipAll.disabled = true;
@@ -1303,12 +1707,12 @@ function init(){
     metaEl: fileMeta
   });
 
-  [chkBuyer, chkConsignor, chkRep, chkLotByLot].forEach(el => el.addEventListener("change", setBuildEnabled));
+  [chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts]
+    .forEach(el => el.addEventListener("change", setBuildEnabled));
 
   wireBuild();
   wireExit();
 
-  // Start at auth
   goto(pageAuth);
   setBuildEnabled();
 }
