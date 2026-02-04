@@ -1,176 +1,217 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CMS Post-Auction Report Builder</title>
+:root{
+  --bg:#0b1220;
+  --card:#121b2f;
+  --text:#e6edf7;
+  --muted:#9db0d0;
+  --line:rgba(255,255,255,0.10);
+  --accent:#3b82f6;
+  --accent2:#60a5fa;
+  --shadow: 0 12px 30px rgba(0,0,0,.35);
+  --radius: 16px;
+  --radius2: 12px;
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
 
-  <link rel="stylesheet" href="styles.css" />
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:var(--font);
+  background: radial-gradient(1200px 800px at 20% 0%, rgba(59,130,246,.20), transparent 50%),
+              radial-gradient(900px 600px at 80% 20%, rgba(96,165,250,.14), transparent 55%),
+              var(--bg);
+  color:var(--text);
+}
 
-  <!-- Client-only libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-</head>
+.app{min-height:100vh; display:flex; flex-direction:column}
 
-<body>
-  <div class="app">
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 18px; border-bottom:1px solid var(--line);
+  background: rgba(8,12,22,.65);
+  backdrop-filter: blur(10px);
+  position:sticky; top:0;
+  z-index:10;
+}
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="brand">
-        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
-        <div class="brandText">
-          <div class="brandTitle">CMS Post-Auction Reporting</div>
-          <div class="brandSub">Internal PDF Builder</div>
-        </div>
-      </div>
+.brand{display:flex; align-items:center; gap:12px}
+.logo{
+  height:44px;
+  width:auto;
+  border-radius:10px;
+  background:rgba(255,255,255,.03);
+  padding:6px;
+}
+.brandTitle{font-weight:700; letter-spacing:.2px}
+.brandSub{color:var(--muted); font-size:13px}
 
-      <div class="topbarActions">
-        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
-          Exit / Clear
-        </button>
-      </div>
-    </header>
+.main{
+  flex:1;
+  padding:22px 18px 34px;
+  display:flex;
+  justify-content:center;
+}
 
-    <main class="main">
+.card{
+  width:min(1100px, 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border:1px solid var(--line);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  padding:22px;
+}
 
-      <!-- PAGE 1: AUTH -->
-      <section id="pageAuth" class="card">
-        <h1>Enter PIN</h1>
-        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
+h1{margin:0 0 6px; font-size:26px}
+h2{margin:0; font-size:18px}
+p{margin:8px 0}
 
-        <div class="row">
-          <label class="label">PIN</label>
-          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
-        </div>
+.row{margin-top:14px}
+.label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
 
-        <div class="row">
-          <button id="pinSubmit" class="btn">Enter</button>
-        </div>
+.input{
+  width:100%;
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.20);
+  border-radius: var(--radius2);
+  padding:12px 12px;
+  color: var(--text);
+  outline:none;
+}
+.input:focus{
+  border-color: rgba(96,165,250,.65);
+  box-shadow:0 0 0 3px rgba(96,165,250,.15)
+}
 
-        <div id="authError" class="error hidden"></div>
-      </section>
+.btn{
+  background: linear-gradient(180deg, var(--accent2), var(--accent));
+  border:none;
+  color:#06101f;
+  font-weight:700;
+  padding:12px 14px;
+  border-radius: 12px;
+  cursor:pointer;
+}
+.btn:disabled{opacity:.45; cursor:not-allowed}
 
-      <!-- PAGE 2: BUILDER -->
-      <section id="pageBuilder" class="card hidden">
-        <h1>Report Builder</h1>
+.btnGhost{
+  background: transparent;
+  border:1px solid var(--line);
+  color: var(--text);
+  font-weight:600;
+}
 
-        <div class="grid2">
-          <div class="row">
-            <label class="label">Auction Title</label>
-            <input id="auctionName" class="input" placeholder="e.g., CMS Video Auction" />
-          </div>
+.btnSmall{
+  padding:8px 10px;
+  border-radius:10px;
+  font-size:12px;
+}
 
-          <div class="row">
-            <label class="label">Auction Date</label>
-            <input id="auctionDate" class="input" placeholder="e.g., January 15, 2026" />
-          </div>
+.muted{color:var(--muted)}
+.small{font-size:12px}
 
-          <div class="row">
-            <label class="label">Auction Label (optional)</label>
-            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
-          </div>
-        </div>
+.hidden{display:none}
 
-        <hr class="divider" />
+.error{
+  margin-top:12px;
+  color: #fff;
+  background: rgba(239,68,68,.18);
+  border:1px solid rgba(239,68,68,.35);
+  padding:10px 12px;
+  border-radius:12px;
+}
 
-        <!-- CSV UPLOAD -->
-        <div class="row">
-          <label class="label">Upload CSV</label>
+.divider{
+  border:0;
+  border-top:1px solid var(--line);
+  margin:18px 0
+}
 
-          <div id="dropZone" class="dropZone">
-            <div class="dropTitle">Drag & drop CSV here</div>
-            <div class="dropSub">or</div>
-            <div>
-              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
-            </div>
-          </div>
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px
+}
+@media (max-width:900px){
+  .grid2{grid-template-columns:1fr}
+}
 
-          <div id="fileMeta" class="muted small hidden"></div>
-        </div>
+.dropZone{
+  border:1.5px dashed rgba(255,255,255,.18);
+  background: rgba(0,0,0,.16);
+  border-radius:16px;
+  padding:18px;
+  text-align:center;
+}
+.dropZone.dragover{
+  border-color: rgba(96,165,250,.8);
+  background: rgba(96,165,250,.08)
+}
+.dropTitle{font-weight:700}
+.dropSub{margin:6px 0; color:var(--muted)}
+.file{display:inline-block; color:var(--muted)}
 
-        <hr class="divider" />
+.pillRow{display:flex; flex-wrap:wrap; gap:10px}
+.pill{
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.18);
+  padding:10px 12px;
+  border-radius: 999px;
+  display:flex; align-items:center; gap:8px;
+  user-select:none;
+}
 
-        <!-- OPTIONS -->
-        <div class="row">
-          <label class="label">PDFs to Generate</label>
+/* Supports more columns gracefully */
+.resultsGrid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap:14px
+}
 
-          <div class="pillRow">
-            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Lot-by-lot PDFs (one lot each)</label>
-          </div>
+.resultsCol{
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.16);
+  border-radius: 16px;
+  padding:12px;
+  min-height:260px;
+}
 
-          <div class="muted small" style="margin-top:6px;">
-            Rep PDFs ignore rows where <b>Representative</b> is blank.
-          </div>
-        </div>
+.resultsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px
+}
 
-        <div class="row">
-          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
-        </div>
+.list{display:flex; flex-direction:column; gap:8px}
 
-        <div id="builderError" class="error hidden"></div>
-      </section>
+.listItem{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  padding:10px 10px;
+  border-radius: 12px;
+}
 
-      <!-- PAGE 3: RESULTS -->
-      <section id="pageResults" class="card hidden">
-        <h1>Generated PDFs</h1>
-        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
+.listName{
+  font-weight:650;
+  font-size:13px;
+  line-height:1.1
+}
 
-        <div class="resultsGrid">
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Buyer Reports</h3>
-              <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listBuyerReports" class="list"></div>
-          </div>
+.listMeta{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:2px
+}
 
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Lot-by-lot</h3>
-              <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listLotByLot" class="list"></div>
-          </div>
+.spaceBetween{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px
+}
 
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Consignor Reports</h3>
-              <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listConsignorReports" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Representative Reports</h3>
-              <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listRepReports" class="list"></div>
-          </div>
-        </div>
-
-        <hr class="divider" />
-
-        <div class="row spaceBetween">
-          <button id="backBtn" class="btn btnGhost">Back</button>
-          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
-        </div>
-
-        <div id="resultsMeta" class="muted small"></div>
-      </section>
-    </main>
-
-    <footer class="footer muted small">
-      Client-only app. No CSVs or PDFs are uploaded or stored.
-    </footer>
-  </div>
-
-  <!-- App -->
-  <script src="app.js"></script>
-</body>
-</html>
+.footer{
+  padding:14px 18px 22px;
+  text-align:center;
+}
