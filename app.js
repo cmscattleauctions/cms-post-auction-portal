@@ -493,7 +493,7 @@ function wrapLines(fontObj, text, size, maxW){
 }
 
 /* ---------------- PDF GENERATION: GROUP REPORTS + CONTRACT DETAILS ---------------- */
-async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null}){
+async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
@@ -580,7 +580,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const rightBlockW = 300;
     const rx = M + contentW - rightBlockW;
 
-    // IMPORTANT: for single-lot mode, do NOT show Buyer at top
+    // For single-lot mode: do NOT show Buyer at top (you want it moved down)
     if(!singleLotMode){
       const leftName = forceBuyerName ? safeStr(forceBuyerName) : safeStr(entityName);
       page.drawText(`${leftLabel}: ${leftName}`, {
@@ -619,6 +619,20 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         font: fontBold,
         color: BLACK
       });
+
+      // NEW: Big, top-right Contract # for Contract Details only
+      if(singleLotMode && headerRightBig){
+        const t = safeStr(headerRightBig);
+        const s = 17.5;
+        const w = fontBold.widthOfTextAtSize(t, s);
+        page.drawText(t, {
+          x: M + contentW - w,
+          y: topY - 6, // visually top-right
+          size: s,
+          font: fontBold,
+          color: BLACK
+        });
+      }
 
       page.drawText(addrLines[0], { x: rx, y: topY,      size: 10.0, font: fontBold, color: BLACK });
       page.drawText(addrLines[1], { x: rx, y: topY - 12, size:  9.2, font,         color: BLACK });
@@ -713,10 +727,12 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     const dmRowH = (mode === "buyer") ? 18 : 0;
 
-    const preLinesH = singleLotMode ? 28 : 0;
-    const internalNotesH = (singleLotMode && safeStr(record[CONFIG.COLS.cmsInternalNotes])) ? 14 : 0;
+    // Contract Details: Buyer+Rep lines + extra spacing + down money received block + internal notes spacing
+    const preLinesH = singleLotMode ? 40 : 0;     // increased: adds spacing under Buyer/Rep
+    const receivedBlockH = singleLotMode ? 34 : 0;
+    const internalNotesH = (singleLotMode && safeStr(record[CONFIG.COLS.cmsInternalNotes])) ? 36 : 0; // bold, plus added top spacing
 
-    return preLinesH + row1H + gridH + notesH + dmRowH + internalNotesH + CONFIG.PDF.lotGap;
+    return preLinesH + row1H + gridH + notesH + dmRowH + receivedBlockH + internalNotesH + CONFIG.PDF.lotGap;
   }
 
   function ensureRoom(record){
@@ -794,28 +810,75 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       });
       used += 14;
     }
+
+    // NEW: a touch of spacing below Buyer/Rep block
+    used += 10;
+
     y -= Math.max(0, used);
+  }
+
+  function drawDownMoneyReceivedBlock(){
+    const { rgb } = window.PDFLib;
+    const startY = y - 8;
+
+    // Checkbox
+    const box = 12;
+    page.drawRectangle({
+      x: M,
+      y: startY - box + 2,
+      width: box,
+      height: box,
+      borderWidth: 1.0,
+      borderColor: rgb(0,0,0),
+      color: rgb(1,1,1)
+    });
+
+    page.drawText("Down Money Received", {
+      x: M + box + 8,
+      y: startY,
+      size: 10.6,
+      font: fontBold,
+      color: rgb(0,0,0)
+    });
+
+    // Initials + Date lines
+    const lineY = startY - 18;
+    const initialsX = M + 280;
+    const dateX = M + 500;
+
+    page.drawText("Initials:", { x: initialsX - 52, y: lineY + 2, size: 9.6, font, color: rgb(0,0,0) });
+    page.drawLine({ start:{x: initialsX, y: lineY}, end:{x: initialsX + 110, y: lineY}, thickness:1.0, color: rgb(0,0,0) });
+
+    page.drawText("Date:", { x: dateX - 34, y: lineY + 2, size: 9.6, font, color: rgb(0,0,0) });
+    page.drawLine({ start:{x: dateX, y: lineY}, end:{x: dateX + 120, y: lineY}, thickness:1.0, color: rgb(0,0,0) });
+
+    y = lineY - 6;
   }
 
   function drawCmsInternalNotesIfAny(r){
     const n = safeStr(r[CONFIG.COLS.cmsInternalNotes]);
     if(!n) return;
 
+    // NEW: add good spacing before internal notes
+    y -= 18;
+
     const { rgb } = window.PDFLib;
     const label = "CMS Internal Notes: ";
-    const labelW = fontBold.widthOfTextAtSize(label, 9.8);
+    const size = 10.0;
 
+    // Entire internal notes block bold
+    const labelW = fontBold.widthOfTextAtSize(label, size);
     const maxW = (W - 2*M) - labelW;
-    const lines = wrapLines(font, n, 9.8, maxW);
+    const lines = wrapLines(fontBold, n, size, maxW);
 
     let yy = y - 10;
 
-    page.drawText(label, { x: M, y: yy, size: 9.8, font: fontBold, color: rgb(0,0,0) });
-    page.drawText(lines[0] || "", { x: M + labelW, y: yy, size: 9.8, font, color: rgb(0,0,0) });
+    page.drawText(label, { x: M, y: yy, size, font: fontBold, color: rgb(0,0,0) });
+    page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: rgb(0,0,0) });
     yy -= 12;
 
     for(let i=1;i<lines.length;i++){
-      page.drawText(lines[i], { x: M + labelW, y: yy, size: 9.8, font, color: rgb(0,0,0) });
+      page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: rgb(0,0,0) });
       yy -= 12;
     }
 
@@ -966,7 +1029,10 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       y -= dmRowH;
     }
 
+    // NEW: Contract Details extra separation + checkbox area + spacing before notes
     if(mode === "buyer" && singleLotMode){
+      y -= 10;                 // good gap between lot details and the marking area
+      drawDownMoneyReceivedBlock();
       drawCmsInternalNotesIfAny(r);
     }
 
@@ -979,7 +1045,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     drawLotBlock(r);
   }
 
-  // footer (skip in single-lot mode)
+  // Buyer footer (skip in single-lot mode)
   if(mode === "buyer" && !singleLotMode){
     const footerNeed = CONFIG.PDF.footerMinH + 36;
     if(y < bottomLimit + footerNeed){
@@ -1138,16 +1204,17 @@ async function buildSalesContractPdf({row, side}){
     color: BLACK
   });
 
-  let y = subY - 18;
+  // NEW: stronger header break (more spacing before preamble)
+  let y = subY - 38;
 
   if(side === "buyer"){
     const pre = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
-    const lines = wrapLines(font, pre, 10.4, contentW);
+    const lines = wrapLines(font, pre, 10.4, contentW - 10);
     for(const ln of lines){
       page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
       y -= 12;
     }
-    y -= 6;
+    y -= 10;
 
     page.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
     y -= 14;
@@ -1159,12 +1226,12 @@ async function buildSalesContractPdf({row, side}){
 
   } else {
     const pre = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
-    const lines = wrapLines(font, pre, 10.4, contentW);
+    const lines = wrapLines(font, pre, 10.4, contentW - 10);
     for(const ln of lines){
       page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
       y -= 12;
     }
-    y -= 8;
+    y -= 10;
   }
 
   const breed = safeStr(row[CONFIG.COLS.breed]) || safeStr(row[CONFIG.COLS.description]);
@@ -1290,41 +1357,47 @@ async function buildSalesContractPdf({row, side}){
     y -= dmH;
   }
 
-  y -= 10;
+  // NEW: significantly more spacing between lot details and terms
+  y -= 28;
 
+  // Terms width: seller gets larger right margin (narrower measure)
+  const termsX = M + 8;
+  const termsW = (side === "seller") ? (contentW - 70) : (contentW - 20);
   const rawTerms = (side === "buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
   const termsText = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
 
-  const termLines = termsText
-    .split("\n")
-    .flatMap(p => {
-      const t = safeStr(p);
-      if(!t) return [""];
-      return wrapLines(font, t, 9.2, contentW);
-    });
+  // Render paragraph-by-paragraph so we can bold specific clause
+  const boldClauseStartsWith = "Buyer does hereby agree to a down payment of $30.00";
+  const paras = termsText.split("\n").map(s => safeStr(s)).filter(p => p.length > 0);
 
-  for(const ln of termLines){
+  for(const p of paras){
+    const useBold = (side === "buyer") && p.startsWith(boldClauseStartsWith);
+    const f = useBold ? fontBold : font;
+    const lines = wrapLines(f, p, 9.2, termsW);
+
+    for(const ln of lines){
+      if(y < 110) break;
+      page.drawText(ln, { x: termsX, y, size: 9.2, font: f, color: BLACK });
+      y -= 11;
+    }
+    y -= 3;
     if(y < 110) break;
-    page.drawText(ln, { x:M, y, size:9.2, font, color:BLACK });
-    y -= 11;
   }
 
-  y -= 10;
-
+  // Signature lines closer to bottom
+  const sigLineY = 54; // fixed near-bottom
   const lineW = (contentW - 30) / 2;
   const leftX = M;
   const rightX = M + lineW + 30;
 
-  const sigY = Math.max(64, y);
-
-  page.drawLine({ start:{x:leftX, y:sigY}, end:{x:leftX+lineW, y:sigY}, thickness:1.0, color:BLACK });
-  page.drawLine({ start:{x:rightX, y:sigY}, end:{x:rightX+lineW, y:sigY}, thickness:1.0, color:BLACK });
+  page.drawLine({ start:{x:leftX, y:sigLineY}, end:{x:leftX+lineW, y:sigLineY}, thickness:1.0, color:BLACK });
+  page.drawLine({ start:{x:rightX, y:sigLineY}, end:{x:rightX+lineW, y:sigLineY}, thickness:1.0, color:BLACK });
 
   const leftLabel = (side === "buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
   const rightLabel = "CMS Orita Calf Auctions, LLC Signature / Date";
 
-  page.drawText(leftLabel, { x:leftX, y:sigY-14, size:9.6, font, color:BLACK });
-  page.drawText(rightLabel, { x:rightX, y:sigY-14, size:9.6, font, color:BLACK });
+  page.drawText(leftLabel, { x:leftX, y:sigLineY-14, size:9.6, font, color:BLACK });
+  page.drawText(rightLabel, { x:rightX, y:sigLineY-14, size:9.6, font, color:BLACK });
 
   return await pdfDoc.save();
 }
@@ -1498,7 +1571,7 @@ function wireBuild(){
         }
       }
 
-      // Contract Details (lot-by-lot)
+      // Contract Details (lot-by-lot) — adds big contract # top-right and down-money received block
       if(chkLotByLot.checked){
         const sorted = [...csvRows].sort(sortLots);
         for(const row of sorted){
@@ -1509,7 +1582,8 @@ function wireBuild(){
             rows: [row],
             mode: "buyer",
             singleLotMode: true,
-            forceBuyerName: buyer
+            forceBuyerName: buyer,
+            headerRightBig: `Contract # ${contract}`
           });
           generated.lotByLot.push({
             filename: `Contract-Details-${fileSafeName(contract)}.pdf`,
@@ -1519,7 +1593,7 @@ function wireBuild(){
         }
       }
 
-      // Buyer Contracts (one per lot) — NEW filename: ContractNumber-Buyer.pdf
+      // Buyer Contracts (one per lot) — filename: ContractNumber-Buyer.pdf
       if(chkBuyerContracts.checked){
         const sorted = [...csvRows].sort(sortLots);
         for(const row of sorted){
@@ -1535,7 +1609,7 @@ function wireBuild(){
         }
       }
 
-      // Seller Contracts (one per lot) — NEW filename: Seller-ContractNumber.pdf
+      // Seller Contracts (one per lot) — filename: Seller-ContractNumber.pdf (Seller=Consignor)
       if(chkSellerContracts.checked){
         const sorted = [...csvRows].sort(sortLots);
         for(const row of sorted){
@@ -1551,7 +1625,7 @@ function wireBuild(){
         }
       }
 
-      // Consignor reports (one PDF per consignor)
+      // Consignor reports (one PDF per consignor) — NEW filename: Trade Confirmations-Consignor
       if(chkConsignor.checked){
         for(const [consignor, rows] of byConsignor.entries()){
           if(!consignor) continue;
@@ -1561,7 +1635,7 @@ function wireBuild(){
             mode: "consignor"
           });
           generated.consignorReports.push({
-            filename: `Contract-${fileSafeName(consignor)}.pdf`,
+            filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`,
             bytes,
             count: rows.length
           });
