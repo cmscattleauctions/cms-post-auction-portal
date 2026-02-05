@@ -35,8 +35,7 @@ body{
 
 .brand{display:flex; align-items:center; gap:12px}
 .logo{
-  height:44px;
-  width:auto;
+  height:44px; width:auto;
   border-radius:10px;
   background:rgba(255,255,255,.03);
   padding:6px;
@@ -62,6 +61,7 @@ body{
 
 h1{margin:0 0 6px; font-size:26px}
 h2{margin:0; font-size:18px}
+h3{margin:0; font-size:15px}
 p{margin:8px 0}
 
 .row{margin-top:14px}
@@ -91,14 +91,12 @@ p{margin:8px 0}
   cursor:pointer;
 }
 .btn:disabled{opacity:.45; cursor:not-allowed}
-
 .btnGhost{
   background: transparent;
   border:1px solid var(--line);
   color: var(--text);
   font-weight:600;
 }
-
 .btnSmall{
   padding:8px 10px;
   border-radius:10px;
@@ -107,7 +105,6 @@ p{margin:8px 0}
 
 .muted{color:var(--muted)}
 .small{font-size:12px}
-
 .hidden{display:none}
 
 .error{
@@ -140,6 +137,7 @@ p{margin:8px 0}
   border-radius:16px;
   padding:18px;
   text-align:center;
+  cursor:pointer;
 }
 .dropZone.dragover{
   border-color: rgba(96,165,250,.8);
@@ -155,23 +153,23 @@ p{margin:8px 0}
   background: rgba(0,0,0,.18);
   padding:10px 12px;
   border-radius: 999px;
-  display:flex; align-items:center; gap:8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
   user-select:none;
 }
 
-/* Supports more columns gracefully */
 .resultsGrid{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap:14px
 }
-
 .resultsCol{
   border:1px solid var(--line);
   background: rgba(0,0,0,.16);
   border-radius: 16px;
   padding:12px;
-  min-height:260px;
+  min-height:110px;
 }
 
 .resultsHeader{
@@ -181,10 +179,56 @@ p{margin:8px 0}
   margin-bottom:8px
 }
 
+.resultsHeaderRight{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.toggleBtn{
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.18);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 7px 9px;
+  cursor:pointer;
+  line-height: 1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.toggleBtn:hover{
+  background: rgba(255,255,255,.06);
+}
+.chev{
+  display:inline-block;
+  transform: rotate(-90deg); /* collapsed */
+  transition: transform .18s ease;
+  font-size: 14px;
+  margin-top:-1px;
+}
+.toggleBtn[aria-expanded="true"] .chev{
+  transform: rotate(0deg); /* expanded */
+}
+
 .list{display:flex; flex-direction:column; gap:8px}
 
+.collapsible{
+  overflow:hidden;
+  transition: max-height .20s ease, opacity .20s ease;
+  max-height: 900px;
+  opacity: 1;
+}
+.collapsible.collapsed{
+  max-height: 0;
+  opacity: 0;
+  pointer-events:none;
+}
+
 .listItem{
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap:10px;
   border:1px solid var(--line);
   background: rgba(255,255,255,.03);
@@ -197,7 +241,6 @@ p{margin:8px 0}
   font-size:13px;
   line-height:1.1
 }
-
 .listMeta{
   font-size:12px;
   color:var(--muted);
