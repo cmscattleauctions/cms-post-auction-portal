@@ -1,196 +1,91 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CMS Post-Auction Report Builder</title>
+  <meta charset="utf-8"/>
+  <title>CMS Post-Auction Portal</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./styles.css"/>
 
-  <!-- Client-only libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- Libraries -->
+  <script defer src="./lib/papaparse.min.js"></script>
+  <script defer src="./lib/jspdf.umd.min.js"></script>
+  <script defer src="./lib/jszip.min.js"></script>
+
+  <script defer src="./app.js"></script>
 </head>
 
 <body>
-  <div class="app">
+  <header class="top">
+    <h1>CMS Post-Auction Portal</h1>
+  </header>
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="brand">
-        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
-        <div class="brandText">
-          <div class="brandTitle">CMS Post-Auction Reporting</div>
-          <div class="brandSub">Internal PDF Builder</div>
+  <main>
+    <!-- PIN -->
+    <section id="pinGate">
+      <input id="pinInput" type="password" placeholder="Enter PIN"/>
+      <button id="pinBtn">Enter</button>
+    </section>
+
+    <!-- Upload -->
+    <section id="uploadSection" class="hidden">
+      <input id="csvInput" type="file" accept=".csv"/>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="hidden">
+
+      <!-- Buyer Reports -->
+      <div class="download-group">
+        <div class="group-header" data-toggle>
+          <span class="chevron">▸</span>
+          <h2>Buyer Reports</h2>
+          <button class="zip-btn" id="zipBuyers">ZIP</button>
         </div>
+        <div class="group-body collapsed" id="buyerReports"></div>
       </div>
 
-      <div class="topbarActions">
-        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
-          Exit / Clear
-        </button>
+      <!-- Seller Contracts -->
+      <div class="download-group">
+        <div class="group-header" data-toggle>
+          <span class="chevron">▸</span>
+          <h2>Seller Contracts</h2>
+          <button class="zip-btn" id="zipSellers">ZIP</button>
+        </div>
+        <div class="group-body collapsed" id="sellerContracts"></div>
       </div>
-    </header>
 
-    <main class="main">
-
-      <!-- PAGE 1: AUTH -->
-      <section id="pageAuth" class="card">
-        <h1>Enter PIN</h1>
-        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
-
-        <div class="row">
-          <label class="label">PIN</label>
-          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+      <!-- Buyer Contracts -->
+      <div class="download-group">
+        <div class="group-header" data-toggle>
+          <span class="chevron">▸</span>
+          <h2>Buyer Contracts</h2>
+          <button class="zip-btn" id="zipBuyerContracts">ZIP</button>
         </div>
+        <div class="group-body collapsed" id="buyerContracts"></div>
+      </div>
 
-        <div class="row">
-          <button id="pinSubmit" class="btn">Enter</button>
+      <!-- Consignor Reports -->
+      <div class="download-group">
+        <div class="group-header" data-toggle>
+          <span class="chevron">▸</span>
+          <h2>Consignor Reports</h2>
+          <button class="zip-btn" id="zipConsignors">ZIP</button>
         </div>
+        <div class="group-body collapsed" id="consignorReports"></div>
+      </div>
 
-        <div id="authError" class="error hidden"></div>
-      </section>
-
-      <!-- PAGE 2: BUILDER -->
-      <section id="pageBuilder" class="card hidden">
-        <h1>Report Builder</h1>
-
-        <div class="grid2">
-          <div class="row">
-            <label class="label">Auction Title</label>
-            <input id="auctionName" class="input" placeholder="e.g., CMS Video Auction" />
-          </div>
-
-          <div class="row">
-            <label class="label">Auction Date</label>
-            <input id="auctionDate" class="input" placeholder="e.g., January 15, 2026" />
-          </div>
-
-          <div class="row">
-            <label class="label">Auction Label (optional)</label>
-            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
-          </div>
+      <!-- Rep Reports -->
+      <div class="download-group">
+        <div class="group-header" data-toggle>
+          <span class="chevron">▸</span>
+          <h2>Rep Reports</h2>
+          <button class="zip-btn" id="zipReps">ZIP</button>
         </div>
+        <div class="group-body collapsed" id="repReports"></div>
+      </div>
 
-        <hr class="divider" />
-
-        <!-- CSV UPLOAD -->
-        <div class="row">
-          <label class="label">Upload CSV</label>
-
-          <div id="dropZone" class="dropZone">
-            <div class="dropTitle">Drag & drop CSV here</div>
-            <div class="dropSub">or</div>
-            <div>
-              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
-            </div>
-          </div>
-
-          <div id="fileMeta" class="muted small hidden"></div>
-        </div>
-
-        <hr class="divider" />
-
-        <!-- OPTIONS -->
-        <div class="row">
-          <label class="label">PDFs to Generate</label>
-
-          <div class="pillRow">
-            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
-
-            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (Lot-by-lot PDFs)</label>
-
-            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
-            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
-          </div>
-
-          <div class="muted small" style="margin-top:6px;">
-            Rep PDFs ignore rows where <b>Representative</b> is blank.
-          </div>
-        </div>
-
-        <div class="row">
-          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
-        </div>
-
-        <div id="builderError" class="error hidden"></div>
-      </section>
-
-      <!-- PAGE 3: RESULTS -->
-      <section id="pageResults" class="card hidden">
-        <h1>Generated PDFs</h1>
-        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
-
-        <div class="resultsGrid">
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Buyer Reports</h3>
-              <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listBuyerReports" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Contract Details (Lot-by-lot)</h3>
-              <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listLotByLot" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Buyer Contracts</h3>
-              <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listBuyerContracts" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Seller Contracts</h3>
-              <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listSellerContracts" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Consignor Reports</h3>
-              <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listConsignorReports" class="list"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Representative Reports</h3>
-              <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-            </div>
-            <div id="listRepReports" class="list"></div>
-          </div>
-        </div>
-
-        <hr class="divider" />
-
-        <div class="row spaceBetween">
-          <button id="backBtn" class="btn btnGhost">Back</button>
-          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
-        </div>
-
-        <div id="resultsMeta" class="muted small"></div>
-      </section>
-    </main>
-
-    <footer class="footer muted small">
-      Client-only app. No CSVs or PDFs are uploaded or stored.
-    </footer>
-  </div>
-
-  <!-- App -->
-  <script src="app.js"></script>
+    </section>
+  </main>
 </body>
 </html>
