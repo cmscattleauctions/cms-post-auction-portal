@@ -627,7 +627,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
         // Contract Details top-right (only once)
         if(headerRightBig){
-          const DROP = 72; // ≈ 1 inch
+          const DROP = 44; // ≈ 1 inch
 
           const t = safeStr(headerRightBig);
           const s = 17.5;
