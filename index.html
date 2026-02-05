@@ -17,192 +17,180 @@
   <div class="app">
 
     <!-- TOP BAR -->
-    <header class="topBar">
+    <header class="topbar">
       <div class="brand">
-        <div class="logoDot"></div>
-        <div>
-          <div class="brandName">CMS</div>
-          <div class="brandSub">Post-Auction Portal</div>
+        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
+        <div class="brandText">
+          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
 
-      <div class="topActions">
-        <button id="btnExit" class="btn btnGhost">Exit</button>
+      <div class="topbarActions">
+        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
+          Exit / Clear
+        </button>
       </div>
     </header>
 
-    <!-- AUTH -->
-    <section id="pageAuth" class="page">
-      <div class="card authCard">
-        <h1 class="h1">Enter PIN</h1>
-        <p class="muted">This portal is client-only. Files are processed in your browser.</p>
+    <main class="main">
+
+      <!-- PAGE 1: AUTH -->
+      <section id="pageAuth" class="card">
+        <h1>Enter PIN</h1>
+        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
 
         <div class="row">
-          <input id="pinInput" class="input" type="password" placeholder="PIN" autocomplete="one-time-code" />
+          <label class="label">PIN</label>
+          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+        </div>
+
+        <div class="row">
           <button id="pinSubmit" class="btn">Enter</button>
         </div>
+
         <div id="authError" class="error hidden"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- BUILDER -->
-    <section id="pageBuilder" class="page hidden">
-      <div class="grid2">
+      <!-- PAGE 2: BUILDER -->
+      <section id="pageBuilder" class="card hidden">
+        <h1>Report Builder</h1>
 
-        <!-- LEFT: Upload + Options -->
-        <div class="card">
-          <h2 class="h2">Upload Auction Results CSV</h2>
-          <p class="muted">Drag & drop a CSV file or click to browse.</p>
-
-          <div id="dropZone" class="dropZone">
-            <input id="fileInput" type="file" accept=".csv" />
-            <div class="dropHint">
-              <div class="dropTitle">Drop CSV here</div>
-              <div class="dropSub">or click to select</div>
-            </div>
-          </div>
-
-          <div id="fileMeta" class="meta muted"></div>
-          <div id="builderError" class="error hidden"></div>
-
-          <hr class="hr" />
-
-          <h3 class="h3">Auction Header</h3>
-          <div class="stack">
+        <div class="grid2">
+          <div class="row">
             <label class="label">Auction Title</label>
-            <input id="auctionName" class="input" placeholder="e.g., CMS Orita Calf Auction" />
-
-            <label class="label">Auction Label (optional)</label>
-            <input id="auctionLabel" class="input" placeholder="e.g., February Video Auction" />
-
-            <label class="label">Auction Date & Time</label>
-            <input id="auctionDate" class="input" placeholder="e.g., February 12, 2026 — 11:00 AM CT" />
-          </div>
-
-          <hr class="hr" />
-
-          <h3 class="h3">Choose Outputs</h3>
-          <div class="checks">
-            <label class="check">
-              <input id="chkBuyer" type="checkbox" checked />
-              <span>Buyer Reports</span>
-            </label>
-
-            <label class="check">
-              <input id="chkLotByLot" type="checkbox" checked />
-              <span>Contract Details (Lot-by-lot)</span>
-            </label>
-
-            <label class="check">
-              <input id="chkBuyerContracts" type="checkbox" checked />
-              <span>Buyer Contracts</span>
-            </label>
-
-            <label class="check">
-              <input id="chkSellerContracts" type="checkbox" checked />
-              <span>Seller Contracts</span>
-            </label>
-
-            <label class="check">
-              <input id="chkConsignor" type="checkbox" checked />
-              <span>Consignor Reports</span>
-            </label>
-
-            <label class="check">
-              <input id="chkRep" type="checkbox" checked />
-              <span>Representative Reports</span>
-            </label>
+            <input id="auctionName" class="input" placeholder="e.g., CMS Video Auction" />
           </div>
 
           <div class="row">
-            <button id="btnBuild" class="btn" disabled>Build PDFs</button>
-            <button id="btnClear" class="btn btnGhost" disabled>Clear</button>
+            <label class="label">Auction Date</label>
+            <input id="auctionDate" class="input" placeholder="e.g., January 15, 2026" />
+          </div>
+
+          <div class="row">
+            <label class="label">Auction Label (optional)</label>
+            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
           </div>
         </div>
 
-        <!-- RIGHT: Status -->
-        <div class="card">
-          <h2 class="h2">Status</h2>
-          <div id="statusBox" class="statusBox muted">
-            Upload a CSV to begin.
+        <hr class="divider" />
+
+        <!-- CSV UPLOAD -->
+        <div class="row">
+          <label class="label">Upload CSV</label>
+
+          <div id="dropZone" class="dropZone">
+            <div class="dropTitle">Drag & drop CSV here</div>
+            <div class="dropSub">or</div>
+            <div>
+              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
+            </div>
+          </div>
+
+          <div id="fileMeta" class="muted small hidden"></div>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- OPTIONS -->
+        <div class="row">
+          <label class="label">PDFs to Generate</label>
+
+          <div class="pillRow">
+            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
+
+            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (Lot-by-lot PDFs)</label>
+
+            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
+            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
+          </div>
+
+          <div class="muted small" style="margin-top:6px;">
+            Rep PDFs ignore rows where <b>Representative</b> is blank.
           </div>
         </div>
 
-      </div>
-    </section>
-
-    <!-- RESULTS -->
-    <section id="pageResults" class="page hidden">
-      <div class="card">
-        <div class="resultsTop">
-          <div>
-            <h1 class="h1">Generated PDFs</h1>
-            <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
-          </div>
-
-          <div class="resultsActions">
-            <button id="zipAll" class="btn" disabled>ZIP ALL</button>
-            <button id="btnBack" class="btn btnGhost">Back</button>
-          </div>
+        <div class="row">
+          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
         </div>
 
-        <div id="resultsMeta" class="meta muted"></div>
+        <div id="builderError" class="error hidden"></div>
+      </section>
+
+      <!-- PAGE 3: RESULTS -->
+      <section id="pageResults" class="card hidden">
+        <h1>Generated PDFs</h1>
+        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
 
         <div class="resultsGrid">
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listBuyerReports">
-              <span class="chev">▸</span><h3>Buyer Reports</h3>
+            <div class="resultsHeader">
+              <h3>Buyer Reports</h3>
               <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listBuyerReports" class="list collapsed"></div>
+            <div id="listBuyerReports" class="list"></div>
           </div>
 
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listLotByLot">
-              <span class="chev">▸</span><h3>Contract Details (Lot-by-lot)</h3>
+            <div class="resultsHeader">
+              <h3>Contract Details (Lot-by-lot)</h3>
               <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listLotByLot" class="list collapsed"></div>
+            <div id="listLotByLot" class="list"></div>
           </div>
 
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listBuyerContracts">
-              <span class="chev">▸</span><h3>Buyer Contracts</h3>
+            <div class="resultsHeader">
+              <h3>Buyer Contracts</h3>
               <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listBuyerContracts" class="list collapsed"></div>
+            <div id="listBuyerContracts" class="list"></div>
           </div>
 
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listSellerContracts">
-              <span class="chev">▸</span><h3>Seller Contracts</h3>
+            <div class="resultsHeader">
+              <h3>Seller Contracts</h3>
               <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listSellerContracts" class="list collapsed"></div>
+            <div id="listSellerContracts" class="list"></div>
           </div>
 
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listConsignorReports">
-              <span class="chev">▸</span><h3>Consignor Reports</h3>
+            <div class="resultsHeader">
+              <h3>Consignor Reports</h3>
               <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listConsignorReports" class="list collapsed"></div>
+            <div id="listConsignorReports" class="list"></div>
           </div>
 
           <div class="resultsCol">
-            <div class="resultsHeader" data-collapse data-target="listRepReports">
-              <span class="chev">▸</span><h3>Representative Reports</h3>
+            <div class="resultsHeader">
+              <h3>Representative Reports</h3>
               <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div id="listRepReports" class="list collapsed"></div>
+            <div id="listRepReports" class="list"></div>
           </div>
         </div>
 
-      </div>
-    </section>
+        <hr class="divider" />
 
+        <div class="row spaceBetween">
+          <button id="backBtn" class="btn btnGhost">Back</button>
+          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+        </div>
+
+        <div id="resultsMeta" class="muted small"></div>
+      </section>
+    </main>
+
+    <footer class="footer muted small">
+      Client-only app. No CSVs or PDFs are uploaded or stored.
+    </footer>
   </div>
 
+  <!-- App -->
   <script src="app.js"></script>
 </body>
 </html>
