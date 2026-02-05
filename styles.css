@@ -1,74 +1,185 @@
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background:#f7f9fc;
+:root{
+  --bg:#0b1220;
+  --card:#121b2f;
+  --text:#e6edf7;
+  --muted:#9db0d0;
+  --line: rgba(255,255,255,.12);
+  --accent:#336699;
+  --danger:#ef4444;
+  --ok:#22c55e;
+  --warn:#f59e0b;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
   margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background: radial-gradient(1200px 800px at 15% 0%, rgba(51,102,153,.22), transparent 55%),
+              radial-gradient(1000px 700px at 90% 10%, rgba(111,143,175,.18), transparent 55%),
+              var(--bg);
+  color:var(--text);
 }
 
-.hidden { display:none; }
+.app{min-height:100%; display:flex; flex-direction:column}
 
-.top {
-  background:#336699;
-  color:#fff;
-  padding:16px;
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.meta{margin-top:10px}
+.error{margin-top:10px; color:var(--danger); font-weight:650}
+
+.topBar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--line);
+  background: rgba(255,255,255,.02);
+  backdrop-filter: blur(10px);
+  position:sticky; top:0; z-index:5;
 }
 
-main { padding:20px; }
+.brand{display:flex; align-items:center; gap:12px}
+.logoDot{width:14px; height:14px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 6px rgba(51,102,153,.15)}
+.brandName{font-weight:850; letter-spacing:.6px}
+.brandSub{font-size:12px; color:var(--muted)}
 
-.download-group {
-  border:1px solid #dbe3ef;
-  border-radius:8px;
-  background:#fff;
-  margin-bottom:16px;
+.page{padding:18px; max-width:1200px; width:100%; margin:0 auto}
+.card{
+  background: rgba(18,27,47,.9);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
 
-.group-header {
+.h1{margin:0 0 10px 0; font-size:28px}
+.h2{margin:0 0 10px 0; font-size:18px}
+.h3{margin:0 0 10px 0; font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
+
+.hr{border:none; border-top:1px solid var(--line); margin:16px 0}
+
+.row{display:flex; gap:10px; align-items:center}
+.stack{display:flex; flex-direction:column; gap:8px}
+.grid2{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
+@media (max-width: 980px){ .grid2{grid-template-columns:1fr} }
+
+.input{
+  width:100%;
+  padding:12px 12px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color:var(--text);
+  outline:none;
+}
+.input:focus{border-color: rgba(51,102,153,.7); box-shadow:0 0 0 4px rgba(51,102,153,.18)}
+
+.btn{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(51,102,153,.6);
+  background: rgba(51,102,153,.25);
+  color:var(--text);
+  font-weight:750;
+  cursor:pointer;
+}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.btn:hover:not(:disabled){background: rgba(51,102,153,.35)}
+.btnGhost{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+}
+.btnGhost:hover:not(:disabled){background: rgba(255,255,255,.06)}
+.btnSmall{padding:8px 10px; border-radius:10px; font-size:12px}
+
+.dropZone{
+  position:relative;
+  border:1px dashed rgba(255,255,255,.25);
+  border-radius:16px;
+  padding:18px;
+  background: rgba(255,255,255,.02);
+  overflow:hidden;
+}
+.dropZone input[type="file"]{
+  position:absolute; inset:0;
+  opacity:0; cursor:pointer;
+}
+.dropHint{text-align:center}
+.dropTitle{font-weight:850}
+.dropSub{font-size:12px; color:var(--muted); margin-top:4px}
+
+.checks{display:flex; flex-direction:column; gap:10px}
+.check{display:flex; align-items:center; gap:10px; cursor:pointer}
+.check input{transform: scale(1.1)}
+
+.statusBox{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  background: rgba(255,255,255,.02);
+  min-height:90px;
+}
+
+.resultsTop{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  margin-bottom:12px;
+}
+.resultsActions{display:flex; gap:10px; align-items:center}
+
+.resultsGrid{
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:14px;
+}
+@media (max-width: 980px){ .resultsGrid{grid-template-columns:1fr} }
+
+.resultsCol{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  background: rgba(255,255,255,.02);
+}
+
+/* UPDATED for collapsibles */
+.resultsHeader{
   display:flex;
   align-items:center;
+  justify-content:flex-start;
   gap:10px;
-  padding:12px 14px;
+  margin-bottom:8px;
+}
+.resultsHeader[data-collapse]{
   cursor:pointer;
   user-select:none;
 }
-
-.group-header h2 {
+.resultsHeader .btn{
+  margin-left:auto;
+}
+.resultsHeader .chev{
+  display:inline-block;
+  transition: transform .15s ease;
   font-size:16px;
-  margin:0;
-  flex:1;
+  line-height:1;
+}
+.resultsHeader.open .chev{
+  transform: rotate(90deg);
 }
 
-.chevron {
-  font-size:18px;
-  transition:transform .2s ease;
-}
+.list{display:flex; flex-direction:column; gap:8px}
+.list.collapsed{display:none}
 
-.group-body {
-  padding:12px 14px;
+.listItem{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  padding:10px 10px;
+  border-radius: 12px;
 }
-
-.group-body.collapsed {
-  display:none;
+.listName{
+  font-weight:650;
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
 }
-
-.group-header.open .chevron {
-  transform:rotate(90deg);
-}
-
-.zip-btn {
-  background:#336699;
-  color:#fff;
-  border:none;
-  padding:6px 12px;
-  border-radius:6px;
-  cursor:pointer;
-}
-
-.zip-btn:hover {
-  background:#28527a;
-}
-
-.download-link {
-  display:block;
-  padding:6px 0;
-  color:#336699;
-  cursor:pointer;
-}
+.listMeta{font-size:12px; color:var(--muted)}
