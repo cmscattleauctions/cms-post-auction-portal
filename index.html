@@ -1,91 +1,208 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>CMS Post-Auction Portal</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CMS Post-Auction Report Builder</title>
 
-  <link rel="stylesheet" href="./styles.css"/>
+  <link rel="stylesheet" href="styles.css" />
 
-  <!-- Libraries -->
-  <script defer src="./lib/papaparse.min.js"></script>
-  <script defer src="./lib/jspdf.umd.min.js"></script>
-  <script defer src="./lib/jszip.min.js"></script>
-
-  <script defer src="./app.js"></script>
+  <!-- Client-only libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 
 <body>
-  <header class="top">
-    <h1>CMS Post-Auction Portal</h1>
-  </header>
+  <div class="app">
 
-  <main>
-    <!-- PIN -->
-    <section id="pinGate">
-      <input id="pinInput" type="password" placeholder="Enter PIN"/>
-      <button id="pinBtn">Enter</button>
+    <!-- TOP BAR -->
+    <header class="topBar">
+      <div class="brand">
+        <div class="logoDot"></div>
+        <div>
+          <div class="brandName">CMS</div>
+          <div class="brandSub">Post-Auction Portal</div>
+        </div>
+      </div>
+
+      <div class="topActions">
+        <button id="btnExit" class="btn btnGhost">Exit</button>
+      </div>
+    </header>
+
+    <!-- AUTH -->
+    <section id="pageAuth" class="page">
+      <div class="card authCard">
+        <h1 class="h1">Enter PIN</h1>
+        <p class="muted">This portal is client-only. Files are processed in your browser.</p>
+
+        <div class="row">
+          <input id="pinInput" class="input" type="password" placeholder="PIN" autocomplete="one-time-code" />
+          <button id="pinSubmit" class="btn">Enter</button>
+        </div>
+        <div id="authError" class="error hidden"></div>
+      </div>
     </section>
 
-    <!-- Upload -->
-    <section id="uploadSection" class="hidden">
-      <input id="csvInput" type="file" accept=".csv"/>
+    <!-- BUILDER -->
+    <section id="pageBuilder" class="page hidden">
+      <div class="grid2">
+
+        <!-- LEFT: Upload + Options -->
+        <div class="card">
+          <h2 class="h2">Upload Auction Results CSV</h2>
+          <p class="muted">Drag & drop a CSV file or click to browse.</p>
+
+          <div id="dropZone" class="dropZone">
+            <input id="fileInput" type="file" accept=".csv" />
+            <div class="dropHint">
+              <div class="dropTitle">Drop CSV here</div>
+              <div class="dropSub">or click to select</div>
+            </div>
+          </div>
+
+          <div id="fileMeta" class="meta muted"></div>
+          <div id="builderError" class="error hidden"></div>
+
+          <hr class="hr" />
+
+          <h3 class="h3">Auction Header</h3>
+          <div class="stack">
+            <label class="label">Auction Title</label>
+            <input id="auctionName" class="input" placeholder="e.g., CMS Orita Calf Auction" />
+
+            <label class="label">Auction Label (optional)</label>
+            <input id="auctionLabel" class="input" placeholder="e.g., February Video Auction" />
+
+            <label class="label">Auction Date & Time</label>
+            <input id="auctionDate" class="input" placeholder="e.g., February 12, 2026 — 11:00 AM CT" />
+          </div>
+
+          <hr class="hr" />
+
+          <h3 class="h3">Choose Outputs</h3>
+          <div class="checks">
+            <label class="check">
+              <input id="chkBuyer" type="checkbox" checked />
+              <span>Buyer Reports</span>
+            </label>
+
+            <label class="check">
+              <input id="chkLotByLot" type="checkbox" checked />
+              <span>Contract Details (Lot-by-lot)</span>
+            </label>
+
+            <label class="check">
+              <input id="chkBuyerContracts" type="checkbox" checked />
+              <span>Buyer Contracts</span>
+            </label>
+
+            <label class="check">
+              <input id="chkSellerContracts" type="checkbox" checked />
+              <span>Seller Contracts</span>
+            </label>
+
+            <label class="check">
+              <input id="chkConsignor" type="checkbox" checked />
+              <span>Consignor Reports</span>
+            </label>
+
+            <label class="check">
+              <input id="chkRep" type="checkbox" checked />
+              <span>Representative Reports</span>
+            </label>
+          </div>
+
+          <div class="row">
+            <button id="btnBuild" class="btn" disabled>Build PDFs</button>
+            <button id="btnClear" class="btn btnGhost" disabled>Clear</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Status -->
+        <div class="card">
+          <h2 class="h2">Status</h2>
+          <div id="statusBox" class="statusBox muted">
+            Upload a CSV to begin.
+          </div>
+        </div>
+
+      </div>
     </section>
 
-    <!-- Results -->
-    <section id="results" class="hidden">
+    <!-- RESULTS -->
+    <section id="pageResults" class="page hidden">
+      <div class="card">
+        <div class="resultsTop">
+          <div>
+            <h1 class="h1">Generated PDFs</h1>
+            <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
+          </div>
 
-      <!-- Buyer Reports -->
-      <div class="download-group">
-        <div class="group-header" data-toggle>
-          <span class="chevron">▸</span>
-          <h2>Buyer Reports</h2>
-          <button class="zip-btn" id="zipBuyers">ZIP</button>
+          <div class="resultsActions">
+            <button id="zipAll" class="btn" disabled>ZIP ALL</button>
+            <button id="btnBack" class="btn btnGhost">Back</button>
+          </div>
         </div>
-        <div class="group-body collapsed" id="buyerReports"></div>
-      </div>
 
-      <!-- Seller Contracts -->
-      <div class="download-group">
-        <div class="group-header" data-toggle>
-          <span class="chevron">▸</span>
-          <h2>Seller Contracts</h2>
-          <button class="zip-btn" id="zipSellers">ZIP</button>
+        <div id="resultsMeta" class="meta muted"></div>
+
+        <div class="resultsGrid">
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listBuyerReports">
+              <span class="chev">▸</span><h3>Buyer Reports</h3>
+              <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listBuyerReports" class="list collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listLotByLot">
+              <span class="chev">▸</span><h3>Contract Details (Lot-by-lot)</h3>
+              <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listLotByLot" class="list collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listBuyerContracts">
+              <span class="chev">▸</span><h3>Buyer Contracts</h3>
+              <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listBuyerContracts" class="list collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listSellerContracts">
+              <span class="chev">▸</span><h3>Seller Contracts</h3>
+              <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listSellerContracts" class="list collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listConsignorReports">
+              <span class="chev">▸</span><h3>Consignor Reports</h3>
+              <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listConsignorReports" class="list collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader" data-collapse data-target="listRepReports">
+              <span class="chev">▸</span><h3>Representative Reports</h3>
+              <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+            </div>
+            <div id="listRepReports" class="list collapsed"></div>
+          </div>
         </div>
-        <div class="group-body collapsed" id="sellerContracts"></div>
-      </div>
 
-      <!-- Buyer Contracts -->
-      <div class="download-group">
-        <div class="group-header" data-toggle>
-          <span class="chevron">▸</span>
-          <h2>Buyer Contracts</h2>
-          <button class="zip-btn" id="zipBuyerContracts">ZIP</button>
-        </div>
-        <div class="group-body collapsed" id="buyerContracts"></div>
       </div>
-
-      <!-- Consignor Reports -->
-      <div class="download-group">
-        <div class="group-header" data-toggle>
-          <span class="chevron">▸</span>
-          <h2>Consignor Reports</h2>
-          <button class="zip-btn" id="zipConsignors">ZIP</button>
-        </div>
-        <div class="group-body collapsed" id="consignorReports"></div>
-      </div>
-
-      <!-- Rep Reports -->
-      <div class="download-group">
-        <div class="group-header" data-toggle>
-          <span class="chevron">▸</span>
-          <h2>Rep Reports</h2>
-          <button class="zip-btn" id="zipReps">ZIP</button>
-        </div>
-        <div class="group-body collapsed" id="repReports"></div>
-      </div>
-
     </section>
-  </main>
+
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
