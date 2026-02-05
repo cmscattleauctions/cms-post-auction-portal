@@ -607,8 +607,14 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       page.drawText(`${leftLabel}: ${leftName}`, { x: lx, y: topY, size: nameSize, font: fontBold, color: BLACK });
     }
 
-    // Right block on every page
-    drawRightHeaderBlockAligned(rx, topY);
+    // ✅ FIX YOU ASKED FOR:
+    // On Contract Details (singleLotMode + page 1 + headerRightBig),
+    // we DO NOT draw the "top" right header block at all (it was duplicating).
+    const isContractDetailsFirstPage = (singleLotMode && pageIndex === 0 && !!headerRightBig);
+    if(!isContractDetailsFirstPage){
+      // Right block on every page for normal docs, and for overflow pages of Contract Details
+      drawRightHeaderBlockAligned(rx, topY);
+    }
 
     if(pageIndex === 0){
       if(singleLotMode){
@@ -619,8 +625,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
           page.drawText(safeStr(aDate), { x: lx, y: topY - 50, size: 10.0, font, color: BLACK });
         }
 
-        // ✅ CHANGE YOU REQUESTED:
-        // Drop the TOP-RIGHT header block (Contract # + address) down ~1 inch (72 pts)
+        // Contract Details top-right (only once)
         if(headerRightBig){
           const DROP = 72; // ≈ 1 inch
 
@@ -637,7 +642,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
             color: BLACK
           });
 
-          // Company/address block
+          // Company/address block (lowered)
           drawRightHeaderBlockAligned(rx, topY - DROP);
         }
       } else {
@@ -707,7 +712,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       used += 14;
     }
     if(rep){
-      page.drawText(`Rep: ${rep}`, { x: M, y: y - 12 - used, size: 10.6, font: font, color: BLACK });
+      page.drawText(`Rep: ${rep}`, { x: M, y: y - 12 - used, size: 10.6, font, color: BLACK });
       used += 14;
     }
 
