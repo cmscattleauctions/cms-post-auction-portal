@@ -42,7 +42,7 @@ const CONFIG = {
     "Contract No."
   ],
 
-  // ✅ Header right block (Buyer Recaps / Trade Confirmations / Contract Details)
+  // Header right block (Buyer Recaps / Trade Confirmations / Contract Details)
   HEADER_RIGHT_TITLE: "CMS Livestock Auction",
   HEADER_ADDRESS_LINES: [
     "6900 I-40 West, Suite 135",
@@ -73,8 +73,8 @@ The CMS Livestock Auction Seller’s Terms of Service Agreement as signed prior 
     bottomLimit: 9,
     topBarH: 8,
 
-    headerHFirst: 98,   // ✅ slightly taller to fit the right block higher
-    headerHOther: 62,   // ✅ keeps alignment consistent across pages
+    headerHFirst: 98,
+    headerHOther: 62,
 
     buyerNameSize: 14.4,
     otherNameSize: 12.6,
@@ -575,7 +575,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   }
 
   function drawRightHeaderBlockAligned(rx, topY){
-    // ✅ aligns with Buyer/Consignor/Rep line and appears on EVERY PAGE
     const title = CONFIG.HEADER_RIGHT_TITLE;
     const titleSize = 12.6;
     const addrSize = 9.2;
@@ -608,7 +607,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       page.drawText(`${leftLabel}: ${leftName}`, { x: lx, y: topY, size: nameSize, font: fontBold, color: BLACK });
     }
 
-    // ✅ Right block on every page, aligned with left label line
+    // Right block on every page
     drawRightHeaderBlockAligned(rx, topY);
 
     if(pageIndex === 0){
@@ -620,12 +619,26 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
           page.drawText(safeStr(aDate), { x: lx, y: topY - 50, size: 10.0, font, color: BLACK });
         }
 
-        // Contract # big stays top-right (in addition to right block)
+        // ✅ CHANGE YOU REQUESTED:
+        // Drop the TOP-RIGHT header block (Contract # + address) down ~1 inch (72 pts)
         if(headerRightBig){
+          const DROP = 72; // ≈ 1 inch
+
           const t = safeStr(headerRightBig);
           const s = 17.5;
           const w = fontBold.widthOfTextAtSize(t, s);
-          page.drawText(t, { x: rx - w, y: topY + 18, size: s, font: fontBold, color: BLACK });
+
+          // Contract # (big)
+          page.drawText(t, {
+            x: rx - w,
+            y: topY + 18 - DROP,
+            size: s,
+            font: fontBold,
+            color: BLACK
+          });
+
+          // Company/address block
+          drawRightHeaderBlockAligned(rx, topY - DROP);
         }
       } else {
         // Group headers
@@ -633,7 +646,6 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
         if(aDate){
           page.drawText(safeStr(aDate), { x: lx, y: topY - 30, size: 10.0, font, color: BLACK });
         }
-        // ✅ moved down so it never collides with the right block
         page.drawText(docTitle, { x: lx, y: topY - 54, size: CONFIG.PDF.title, font: fontBold, color: BLACK });
       }
     }
@@ -895,7 +907,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     drawLotBlock(r);
   }
 
-  // Buyer footer remains unchanged from your working version
+  // Buyer footer remains unchanged
   if(mode === "buyer" && !singleLotMode){
     const footerNeed = CONFIG.PDF.footerMinH + 36;
     if(y < bottomLimit + footerNeed) newPage();
@@ -966,7 +978,7 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
 }
 
 /* ---------------- PDF: BUYER/SELLER CONTRACTS ----------------
-   (UNCHANGED — left intact for stability)
+   (Kept intact)
 -------------------------------------------------------------- */
 async function buildSalesContractPdf({row, side}){
   assertLibsLoaded();
