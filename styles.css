@@ -197,9 +197,8 @@ p{margin:8px 0}
   align-items:center;
   justify-content:center;
 }
-.toggleBtn:hover{
-  background: rgba(255,255,255,.06);
-}
+.toggleBtn:hover{ background: rgba(255,255,255,.06); }
+
 .chev{
   display:inline-block;
   transform: rotate(-90deg); /* collapsed */
@@ -207,22 +206,24 @@ p{margin:8px 0}
   font-size: 14px;
   margin-top:-1px;
 }
-.toggleBtn[aria-expanded="true"] .chev{
-  transform: rotate(0deg); /* expanded */
-}
+.toggleBtn[aria-expanded="true"] .chev{ transform: rotate(0deg); }
 
 .list{display:flex; flex-direction:column; gap:8px}
 
+/* ✅ FIX: expanded lists scroll; no hidden “cutoff” */
 .collapsible{
-  overflow:hidden;
+  max-height: 420px;     /* expanded height */
+  overflow: auto;        /* scroll for long lists */
+  padding-right: 6px;    /* keeps scrollbar from covering buttons */
   transition: max-height .20s ease, opacity .20s ease;
-  max-height: 900px;
   opacity: 1;
 }
 .collapsible.collapsed{
   max-height: 0;
+  overflow: hidden;
   opacity: 0;
   pointer-events:none;
+  padding-right: 0;
 }
 
 .listItem{
@@ -236,16 +237,8 @@ p{margin:8px 0}
   border-radius: 12px;
 }
 
-.listName{
-  font-weight:650;
-  font-size:13px;
-  line-height:1.1
-}
-.listMeta{
-  font-size:12px;
-  color:var(--muted);
-  margin-top:2px
-}
+.listName{ font-weight:650; font-size:13px; line-height:1.1 }
+.listMeta{ font-size:12px; color:var(--muted); margin-top:2px }
 
 .spaceBetween{
   display:flex;
@@ -254,7 +247,4 @@ p{margin:8px 0}
   gap:10px
 }
 
-.footer{
-  padding:14px 18px 22px;
-  text-align:center;
-}
+.footer{ padding:14px 18px 22px; text-align:center; }
