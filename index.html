@@ -19,25 +19,33 @@
     <!-- TOP BAR -->
     <header class="topbar">
       <div class="brand">
-        <div class="mark"></div>
-        <div>
-          <div class="brandTitle">CMS Post-Auction Portal</div>
-          <div class="brandSub">Client-only • PDF generation • ZIP downloads</div>
+        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
+        <div class="brandText">
+          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
 
-      <button id="exitBtn" class="btn btnGhost">Exit</button>
+      <div class="topbarActions">
+        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
+          Exit / Clear
+        </button>
+      </div>
     </header>
 
-    <main class="wrap">
+    <main class="main">
 
       <!-- PAGE 1: AUTH -->
       <section id="pageAuth" class="card">
         <h1>Enter PIN</h1>
-        <p class="muted">This portal is for internal use. Nothing uploads or persists.</p>
+        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
 
         <div class="row">
-          <input id="pinInput" class="input" type="password" placeholder="PIN" autocomplete="one-time-code" />
+          <label class="label">PIN</label>
+          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+        </div>
+
+        <div class="row">
           <button id="pinSubmit" class="btn">Enter</button>
         </div>
 
@@ -85,38 +93,23 @@
         <hr class="divider" />
 
         <!-- OPTIONS -->
-        <h2>Select outputs</h2>
+        <div class="row">
+          <label class="label">PDFs to Generate</label>
 
-        <div class="checks">
-          <label class="check">
-            <input id="chkBuyer" type="checkbox" checked />
-            <span>Buyer Reports</span>
-          </label>
+          <div class="pillRow">
+            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
+            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
 
-          <label class="check">
-            <input id="chkConsignor" type="checkbox" checked />
-            <span>Consignor Reports</span>
-          </label>
+            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (Lot-by-lot PDFs)</label>
 
-          <label class="check">
-            <input id="chkRep" type="checkbox" checked />
-            <span>Representative Reports</span>
-          </label>
+            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
+            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
+          </div>
 
-          <label class="check">
-            <input id="chkLotByLot" type="checkbox" checked />
-            <span>Contract Details (Lot-by-lot)</span>
-          </label>
-
-          <label class="check">
-            <input id="chkBuyerContracts" type="checkbox" checked />
-            <span>Buyer Contracts (per lot)</span>
-          </label>
-
-          <label class="check">
-            <input id="chkSellerContracts" type="checkbox" checked />
-            <span>Seller Contracts (per lot)</span>
-          </label>
+          <div class="muted small" style="margin-top:6px;">
+            Rep PDFs ignore rows where <b>Representative</b> is blank.
+          </div>
         </div>
 
         <div class="row">
@@ -132,85 +125,53 @@
         <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
 
         <div class="resultsGrid">
-
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Buyer Reports</span>
-              </button>
+              <h3>Buyer Reports</h3>
               <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listBuyerReports" class="list"></div>
-            </div>
+            <div id="listBuyerReports" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Contract Details (Lot-by-lot)</span>
-              </button>
+              <h3>Contract Details (Lot-by-lot)</h3>
               <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listLotByLot" class="list"></div>
-            </div>
+            <div id="listLotByLot" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Buyer Contracts</span>
-              </button>
+              <h3>Buyer Contracts</h3>
               <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listBuyerContracts" class="list"></div>
-            </div>
+            <div id="listBuyerContracts" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Seller Contracts</span>
-              </button>
+              <h3>Seller Contracts</h3>
               <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listSellerContracts" class="list"></div>
-            </div>
+            <div id="listSellerContracts" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Consignor Reports</span>
-              </button>
+              <h3>Consignor Reports</h3>
               <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listConsignorReports" class="list"></div>
-            </div>
+            <div id="listConsignorReports" class="list"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <button class="accToggle" type="button" aria-expanded="true">
-                <span class="chev">▸</span>
-                <span class="accTitle">Representative Reports</span>
-              </button>
+              <h3>Representative Reports</h3>
               <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
             </div>
-            <div class="accBody">
-              <div id="listRepReports" class="list"></div>
-            </div>
+            <div id="listRepReports" class="list"></div>
           </div>
-
         </div>
 
         <hr class="divider" />
