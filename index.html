@@ -54,69 +54,61 @@
 
       <!-- PAGE 2: BUILDER -->
       <section id="pageBuilder" class="card hidden">
-        <h1>Report Builder</h1>
+        <h1>Build PDFs</h1>
+        <p class="muted">Upload a CSV and choose what you want to generate.</p>
 
         <div class="grid2">
-          <div class="row">
-            <label class="label">Auction Title</label>
-            <input id="auctionName" class="input" placeholder="e.g., CMS Video Auction" />
-          </div>
+          <div>
+            <div class="row">
+              <label class="label">Auction Title</label>
+              <input id="auctionName" class="input" placeholder="e.g. CMS Weekly Video Auction" />
+            </div>
 
-          <div class="row">
-            <label class="label">Auction Date</label>
-            <input id="auctionDate" class="input" placeholder="e.g., January 15, 2026" />
-          </div>
+            <div class="row">
+              <label class="label">Auction Date / Time</label>
+              <input id="auctionDate" class="input" placeholder="e.g. Feb 12, 2026 — 10:00 AM CT" />
+            </div>
 
-          <div class="row">
-            <label class="label">Auction Label (optional)</label>
-            <input id="auctionLabel" class="input" placeholder="e.g., Calftech Special (optional)" />
-          </div>
-        </div>
-
-        <hr class="divider" />
-
-        <!-- CSV UPLOAD -->
-        <div class="row">
-          <label class="label">Upload CSV</label>
-
-          <div id="dropZone" class="dropZone">
-            <div class="dropTitle">Drag & drop CSV here</div>
-            <div class="dropSub">or</div>
-            <div>
-              <input id="fileInput" type="file" accept=".csv,text/csv" class="file" />
+            <div class="row">
+              <label class="label">Optional Label</label>
+              <input id="auctionLabel" class="input" placeholder="e.g. Special Calf Sale" />
             </div>
           </div>
 
-          <div id="fileMeta" class="muted small hidden"></div>
-        </div>
+          <div>
+            <div class="row">
+              <label class="label">Upload CSV</label>
+              <div id="dropZone" class="dropZone">
+                <div class="dropTitle">Drag & drop your CSV here</div>
+                <div class="dropSub">or click to browse</div>
+                <input id="fileInput" type="file" accept=".csv,text/csv" class="hidden" />
+                <div id="fileMeta" class="file hidden"></div>
+              </div>
+            </div>
 
-        <hr class="divider" />
+            <div class="row">
+              <label class="label">What to Generate</label>
+              <div class="pillRow">
+                <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports (one per buyer)</label>
+                <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (one per lot)</label>
+                <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
+                <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
+                <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
+                <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
+              </div>
 
-        <!-- OPTIONS -->
-        <div class="row">
-          <label class="label">PDFs to Generate</label>
+              <div class="muted small" style="margin-top:6px;">
+                Rep PDFs ignore rows where <b>Representative</b> is blank.
+              </div>
+            </div>
 
-          <div class="pillRow">
-            <label class="pill"><input type="checkbox" id="chkBuyer" checked /> Buyer Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkConsignor" checked /> Consignor Reports (PDF)</label>
-            <label class="pill"><input type="checkbox" id="chkRep" checked /> Representative Reports (PDF)</label>
+            <div class="row">
+              <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
+            </div>
 
-            <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (Lot-by-lot PDFs)</label>
-
-            <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
-            <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
+            <div id="builderError" class="error hidden"></div>
           </div>
-
-          <div class="muted small" style="margin-top:6px;">
-            Rep PDFs ignore rows where <b>Representative</b> is blank.
-          </div>
         </div>
-
-        <div class="row">
-          <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
-        </div>
-
-        <div id="builderError" class="error hidden"></div>
       </section>
 
       <!-- PAGE 3: RESULTS -->
@@ -125,53 +117,85 @@
         <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
 
         <div class="resultsGrid">
+
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Reports</h3>
-              <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <div class="resultsHeaderRight">
+                <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togBuyerReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listBuyerReports" class="list"></div>
+            <div id="listBuyerReports" class="list collapsible collapsed"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Contract Details (Lot-by-lot)</h3>
-              <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <div class="resultsHeaderRight">
+                <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togLotByLot" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listLotByLot" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listLotByLot" class="list"></div>
+            <div id="listLotByLot" class="list collapsible collapsed"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Contracts</h3>
-              <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <div class="resultsHeaderRight">
+                <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togBuyerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerContracts" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listBuyerContracts" class="list"></div>
+            <div id="listBuyerContracts" class="list collapsible collapsed"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Seller Contracts</h3>
-              <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <div class="resultsHeaderRight">
+                <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togSellerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSellerContracts" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listSellerContracts" class="list"></div>
+            <div id="listSellerContracts" class="list collapsible collapsed"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Consignor Reports</h3>
-              <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <h3>Consignor Trade Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listConsignorReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listConsignorReports" class="list"></div>
+            <div id="listConsignorReports" class="list collapsible collapsed"></div>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Representative Reports</h3>
-              <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+              <h3>Rep Trade Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listRepReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
             </div>
-            <div id="listRepReports" class="list"></div>
+            <div id="listRepReports" class="list collapsible collapsed"></div>
           </div>
+
         </div>
 
         <hr class="divider" />
@@ -183,6 +207,7 @@
 
         <div id="resultsMeta" class="muted small"></div>
       </section>
+
     </main>
 
     <footer class="footer muted small">
@@ -192,5 +217,16 @@
 
   <!-- App -->
   <script src="app.js"></script>
+
+  <script>
+    // Make drop zone clickable
+    document.addEventListener("DOMContentLoaded", () => {
+      const dz = document.getElementById("dropZone");
+      const fi = document.getElementById("fileInput");
+      if(dz && fi){
+        dz.addEventListener("click", () => fi.click());
+      }
+    });
+  </script>
 </body>
 </html>
