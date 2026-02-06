@@ -1,79 +1,172 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CMS Post Auction Portal</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CMS Post-Auction Report Builder</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Client-only libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
+
 <body>
-  <div id="pageAuth" class="page">
-    <h1>CMS Post Auction Portal</h1>
-    <label for="pinInput">Enter PIN:</label>
-    <input type="password" id="pinInput" placeholder="Enter PIN">
-    <button id="pinSubmit">Submit</button>
-    <div id="authError" class="error hidden"></div>
+  <div class="app">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="brand">
+        <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
+        <div class="brandText">
+          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandSub">Internal PDF Builder</div>
+        </div>
+      </div>
+
+      <div class="topbarActions">
+        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
+          Exit / Clear
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- PAGE 1: AUTH -->
+      <section id="pageAuth" class="card">
+        <h1>Enter PIN</h1>
+        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
+
+        <div class="row">
+          <label class="label">PIN</label>
+          <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+        </div>
+
+        <div class="row">
+          <button id="pinSubmit" class="btn">Enter</button>
+        </div>
+
+        <div id="authError" class="error hidden"></div>
+      </section>
+
+      <!-- PAGE 2: BUILDER -->
+      <section id="pageBuilder" class="card hidden">
+        <h1>Build PDFs</h1>
+        <p class="muted">Upload a CSV and choose what you want to generate.</p>
+
+        <div class="grid2">
+          <div>
+            <div class="row">
+              <label class="label">Auction Title</label>
+              <input id="auctionName" class="input" placeholder="e.g. CMS Weekly Video Auction" />
+            </div>
+
+            <div class="row">
+              <label class="label">Auction Date / Time</label>
+              <input id="auctionDate" class="input" placeholder="e.g. Feb 12, 2026 — 10:00 AM CT" />
+            </div>
+
+            <div class="row">
+              <label class="label">Optional Label</label>
+              <input id="auctionLabel" class="input" placeholder="e.g. Special Calf Sale" />
+            </div>
+          </div>
+
+          <div>
+            <div class="row">
+              <label class="label">Upload CSV</label>
+              <div id="dropZone" class="dropZone">
+                <div class="dropTitle">Drag & drop your CSV here</div>
+                <div class="dropSub">or click to browse</div>
+                <input id="fileInput" type="file" accept=".csv,text/csv" class="hidden" />
+                <div id="fileMeta" class="file hidden"></div>
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="label">What to Generate</label>
+              <div class="pillRow">
+                <label class="pill"><input type="checkbox" id="chkConsignorListing" /> Pre-Auction Consignor Listing Report</label>
+                <label class="pill"><input type="checkbox" id="chkRepListing" /> Pre-Auction Rep Listing Report</label>
+              </div>
+            </div>
+
+            <div class="row">
+              <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
+            </div>
+
+            <div id="builderError" class="error hidden"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE 3: RESULTS -->
+      <section id="pageResults" class="card hidden">
+        <h1>Generated PDFs</h1>
+        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
+
+        <div class="resultsGrid">
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Consignor Listing Reports</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listConsignorReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listConsignorReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Rep Listing Reports</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listRepReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listRepReports" class="list collapsible collapsed"></div>
+          </div>
+
+        </div>
+
+        <hr class="divider" />
+
+        <div class="row spaceBetween">
+          <button id="backBtn" class="btn btnGhost">Back</button>
+          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+        </div>
+
+        <div id="resultsMeta" class="muted small"></div>
+      </section>
+
+    </main>
+
+    <footer class="footer muted small">
+      Client-only app. No CSVs or PDFs are uploaded or stored.
+    </footer>
   </div>
 
-  <div id="pageBuilder" class="page hidden">
-    <h1>CMS Post Auction Builder</h1>
-    
-    <div id="dropZone" class="dropZone">
-      <div class="dropTitle">Drop CSV file here</div>
-      <div class="dropSub">or click to upload</div>
-      <input type="file" id="fileInput" class="hidden" />
-      <div id="fileMeta" class="fileMeta hidden"></div>
-    </div>
-
-    <div id="builderError" class="error hidden"></div>
-
-    <!-- Add Auction Details -->
-    <div>
-      <label for="auctionName">Auction Name:</label>
-      <input type="text" id="auctionName" placeholder="Enter Auction Name" />
-    </div>
-
-    <div>
-      <label for="auctionDate">Auction Date:</label>
-      <input type="text" id="auctionDate" placeholder="Enter Auction Date" />
-    </div>
-
-    <div>
-      <label for="auctionLabel">Auction Label (optional):</label>
-      <input type="text" id="auctionLabel" placeholder="Enter Auction Label" />
-    </div>
-
-    <!-- Options for generating reports -->
-    <div>
-      <input type="checkbox" id="chkConsignorListing" />
-      <label for="chkConsignorListing">Generate Pre-Auction Consignor Listing Report</label>
-    </div>
-
-    <div>
-      <input type="checkbox" id="chkRepListing" />
-      <label for="chkRepListing">Generate Pre-Auction Rep Listing Report</label>
-    </div>
-
-    <button id="buildBtn" disabled>Generate PDFs</button>
-    <button id="backBtn">Back</button>
-  </div>
-
-  <div id="pageResults" class="page hidden">
-    <h1>Results</h1>
-    <div id="resultsMeta"></div>
-
-    <!-- List of generated reports -->
-    <div id="listConsignorReports" class="resultsList"></div>
-    <div id="listRepReports" class="resultsList"></div>
-
-    <div class="footer">
-      <button id="zipConsignorReports">Download Consignor Reports</button>
-      <button id="zipRepReports">Download Rep Reports</button>
-      <button id="zipAll">Download All</button>
-      <button id="exitBtn">Exit</button>
-    </div>
-  </div>
-
+  <!-- App -->
   <script src="app.js"></script>
+
+  <script>
+    // Make drop zone clickable
+    document.addEventListener("DOMContentLoaded", () => {
+      const dz = document.getElementById("dropZone");
+      const fi = document.getElementById("fileInput");
+      if(dz && fi){
+        dz.addEventListener("click", () => fi.click());
+      }
+    });
+  </script>
 </body>
 </html>
