@@ -129,16 +129,13 @@ let pageAuth, pageBuilder, pageResults;
 let pinInput, pinSubmit, authError;
 let auctionName, auctionDate, auctionLabel;
 let dropZone, fileInput, fileMeta;
-let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
+let chkBuyer, chkConsignor, chkRep, chkLotByLot;
 let buildBtn, builderError;
 
 let listBuyerReports, listLotByLot, listConsignorReports, listRepReports;
-let listBuyerContracts, listSellerContracts;
-
 let zipBuyerReports, zipLotByLot, zipConsignorReports, zipRepReports, zipAll;
-let zipBuyerContracts, zipSellerContracts;
 
-let togBuyerReports, togLotByLot, togBuyerContracts, togSellerContracts, togConsignorReports, togRepReports;
+let togBuyerReports, togLotByLot, togConsignorReports, togRepReports;
 
 let backBtn, exitBtn, resultsMeta;
 
@@ -163,8 +160,6 @@ function bindDom(){
   chkConsignor = mustGet("chkConsignor");
   chkRep = mustGet("chkRep");
   chkLotByLot = mustGet("chkLotByLot");
-  chkBuyerContracts = mustGet("chkBuyerContracts");  // Removed
-  chkSellerContracts = mustGet("chkSellerContracts");  // Removed
 
   buildBtn = mustGet("buildBtn");
   builderError = mustGet("builderError");
@@ -173,21 +168,15 @@ function bindDom(){
   listLotByLot = mustGet("listLotByLot");
   listConsignorReports = mustGet("listConsignorReports");
   listRepReports = mustGet("listRepReports");
-  listBuyerContracts = mustGet("listBuyerContracts");  // Removed
-  listSellerContracts = mustGet("listSellerContracts");  // Removed
 
   zipBuyerReports = mustGet("zipBuyerReports");
   zipLotByLot = mustGet("zipLotByLot");
-  zipBuyerContracts = mustGet("zipBuyerContracts");  // Removed
-  zipSellerContracts = mustGet("zipSellerContracts");  // Removed
   zipConsignorReports = mustGet("zipConsignorReports");
   zipRepReports = mustGet("zipRepReports");
   zipAll = mustGet("zipAll");
 
   togBuyerReports = mustGet("togBuyerReports");
   togLotByLot = mustGet("togLotByLot");
-  togBuyerContracts = mustGet("togBuyerContracts");  // Removed
-  togSellerContracts = mustGet("togSellerContracts");  // Removed
   togConsignorReports = mustGet("togConsignorReports");
   togRepReports = mustGet("togRepReports");
 
