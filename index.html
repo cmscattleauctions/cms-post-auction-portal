@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CMS Post-Auction Report Builder</title>
+  <title>CMS Pre-Auction Report Builder</title>
 
   <link rel="stylesheet" href="styles.css" />
 
@@ -21,7 +21,7 @@
       <div class="brand">
         <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
         <div class="brandText">
-          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandTitle">CMS Pre-Auction Reporting</div>
           <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
@@ -89,8 +89,14 @@
             <div class="row">
               <label class="label">What to Generate</label>
               <div class="pillRow">
-                <label class="pill"><input type="checkbox" id="chkConsignorListing" /> Pre-Auction Consignor Listing Report</label>
-                <label class="pill"><input type="checkbox" id="chkRepListing" /> Pre-Auction Rep Listing Report</label>
+                <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports (one per buyer)</label>
+                <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (one per lot)</label>
+                <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Listing Report</label>
+                <label class="pill"><input type="checkbox" id="chkRep" /> Rep Listing Report</label>
+              </div>
+
+              <div class="muted small" style="margin-top:6px;">
+                Rep PDFs ignore rows where <b>Representative</b> is blank.
               </div>
             </div>
 
@@ -112,7 +118,33 @@
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Consignor Listing Reports</h3>
+              <h3>Buyer Reports</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipBuyerReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togBuyerReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listBuyerReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Contract Details (Lot-by-lot)</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipLotByLot" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togLotByLot" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listLotByLot" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listLotByLot" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Consignor Listing Report</h3>
               <div class="resultsHeaderRight">
                 <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
                 <button id="togConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listConsignorReports" title="Expand/Collapse">
@@ -125,7 +157,7 @@
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Rep Listing Reports</h3>
+              <h3>Rep Listing Report</h3>
               <div class="resultsHeaderRight">
                 <button id="zipRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
                 <button id="togRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listRepReports" title="Expand/Collapse">
