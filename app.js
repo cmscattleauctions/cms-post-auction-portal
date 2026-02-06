@@ -42,7 +42,6 @@ const CONFIG = {
     "Contract No."
   ],
 
-  // Header right block (Buyer Recaps / Trade Confirmations / Contract Details)
   HEADER_RIGHT_TITLE: "CMS Livestock Auction",
   HEADER_ADDRESS_LINES: [
     "6900 I-40 West, Suite 135",
@@ -318,42 +317,270 @@ function hashIndex(str, mod){
   return Math.abs(h) % mod;
 }
 
-function wrapLines(fontObj, text, size, maxW){
-  const words = safeStr(text).split(/\s+/).filter(Boolean);
-  if(words.length === 0) return [""];
-  const lines = [];
-  let line = words[0];
-  for(let i=1;i<words.length;i++){
-    const test = line + " " + words[i];
-    if(fontObj.widthOfTextAtSize(test, size) <= maxW){
-      line = test;
-    } else {
-      lines.push(line);
-      line = words[i];
-    }
-  }
-  lines.push(line);
-  return lines;
-}
+/* ---------------- GROUP REPORTS ---------------- */
+async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
-/* ---------------- RESULTS ---------------- */
-function wireResultsDropdowns(){
-  const pairs = [
-    [togConsignorReports, listConsignorReports],
-    [togRepReports, listRepReports],
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const BLACK = rgb(0,0,0);
+  const FILL = rgb(0.98,0.98,0.98);
+
+  const W = CONFIG.PDF.pageSize.width;
+  const H = CONFIG.PDF.pageSize.height;
+  const M = CONFIG.PDF.margin;
+  const bottomLimit = CONFIG.PDF.bottomLimit;
+  const contentW = W - 2*M;
+
+  const colDefs = [
+    { key: "loads",   label: "Loads",   w: 45 },
+    { key: "head",    label: "Head",    w: 45 },
+    { key: "sex",     label: "Sex",     w: 100 },
+    { key: "bw",      label: "Base Wt", w: 38 },
+    { key: "del",     label: "Delivery",w: 170 },
+    { key: "loc",     label: "Location",w: 110 },
+    { key: "shr",     label: "Shrink",  w: 48 },
+    { key: "sld",     label: "Slide",   w: 134 },
+    { key: "price",   label: "Price",   w: 50 },
   ];
 
-  for(const [btn, list] of pairs){
-    const sync = () => {
-      const collapsed = list.classList.contains("collapsed");
-      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    };
-    btn.addEventListener("click", ()=>{
-      list.classList.toggle("collapsed");
-      sync();
-    });
-    sync();
+  const gridW = colDefs.reduce((s,c)=>s+c.w,0);
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate = safeStr(auctionDate.value) || "";
+
+  const docTitle = mode === "buyer" ? "Buyer Recap and Down Money Invoice" : "Trade Confirmations";
+
+  const leftLabel =
+    mode === "buyer" ? "Buyer" : (mode === "consignor" ? "Consignor" : "Rep");
+
+  const docSize = (mode === "buyer") ? CONFIG.PDF.buyerNameSize : CONFIG.PDF.otherNameSize;
+
+  let page = pdfDoc.addPage([W,H]);
+  let pageIndex = 0;
+  let y = H - M;
+
+  function drawTopBar(){
+    page.drawRectangle({ x: 0, y: H - CONFIG.PDF.topBarH, width: W, height: CONFIG.PDF.topBarH, color: FILL });
   }
+
+  function drawRightHeaderBlockAligned(rx, topY){
+    const title = CONFIG.HEADER_RIGHT_TITLE;
+    const titleSize = 12.6;
+    const addrSize = 9.2;
+    const lh = 11;
+
+    const tw = fontBold.widthOfTextAtSize(title, titleSize);
+    page.drawText(title, { x: rx - tw, y: topY, size: titleSize, font: fontBold, color: BLACK });
+
+    let yy = topY - (lh + 2);
+    for(const ln of CONFIG.HEADER_ADDRESS_LINES){
+      const w = font.widthOfTextAtSize(ln, addrSize);
+      page.drawText(ln, { x: rx - w, y: yy, size: addrSize, font, color: BLACK });
+      yy -= lh;
+    }
+  }
+
+  function drawHeader(){
+    drawTopBar();
+
+    const headerH = (pageIndex === 0) ? CONFIG.PDF.headerHFirst : CONFIG.PDF.headerHOther;
+    const topY = (pageIndex === 0)
+      ? (H - CONFIG.PDF.topBarH - 20)
+      : (H - CONFIG.PDF.topBarH - 22);
+
+    const lx = M;
+    const rx = M + contentW;
+
+    if(!singleLotMode){
+      const leftName = forceBuyerName ? safeStr(forceBuyerName) : safeStr(entityName);
+      page.drawText(`${leftLabel}: ${leftName}`, { x: lx, y: topY, size: docSize, font: fontBold, color: BLACK });
+    }
+
+    // Right block on every page for normal docs
+    drawRightHeaderBlockAligned(rx, topY);
+
+    if(pageIndex === 0){
+      if(singleLotMode){
+        // Contract Details header (left)
+        page.drawText(docTitle, { x: lx, y: topY - 20, size: 12.2, font: fontBold, color: BLACK });
+        page.drawText(safeStr(auctionTitle), { x: lx, y: topY - 38, size: 10.0, font, color: BLACK });
+        if(aDate){
+          page.drawText(safeStr(aDate), { x: lx, y: topY - 50, size: 10.0, font, color: BLACK });
+        }
+
+        // Contract Details top-right (only once)
+        drawRightHeaderBlockAligned(rx, topY);
+      } else {
+        // Group headers
+        page.drawText(safeStr(auctionTitle), { x: lx, y: topY - 18, size: 10.0, font, color: BLACK });
+        if(aDate){
+          page.drawText(safeStr(aDate), { x: lx, y: topY - 30, size: 10.0, font, color: BLACK });
+        }
+        page.drawText(docTitle, { x: lx, y: topY - 54, size: CONFIG.PDF.title, font: fontBold, color: BLACK });
+      }
+    }
+
+    y = H - CONFIG.PDF.topBarH - headerH;
+  }
+
+  function newPage(){
+    page = pdfDoc.addPage([W,H]);
+    pageIndex += 1;
+    y = H - M;
+    drawHeader();
+  }
+
+  function drawLotBlock(r){
+    const contract = safeStr(getContract(r));
+    const consignor = safeStr(r[CONFIG.COLS.consignor]);
+    const breed = safeStr(r[CONFIG.COLS.breed]) || safeStr(r[CONFIG.COLS.description]);
+
+    if(mode === "buyer") buyerDownMoneyTotal += toNumber(r[CONFIG.COLS.downMoney]);
+
+    if(mode === "buyer" && singleLotMode) drawSingleLotBuyerAndRepBlock(r);
+
+    let headerFillHex = null;
+    if(mode === "rep"){
+      const idx = hashIndex(consignor, CONFIG.REP_CONSIGNOR_PALETTE.length);
+      headerFillHex = CONFIG.REP_CONSIGNOR_PALETTE[idx];
+    } else if(mode === "consignor"){
+      headerFillHex = pickTypeColorHex(r);
+    }
+
+    const topLine = `Contract # ${contract} - ${consignor}`;
+    const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
+
+    const breedColor = headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : BLACK;
+    page.drawText(safeStr(breed), { x: M + CONFIG.PDF.padX, y: y - 27, size: CONFIG.PDF.lotBreed, font, color: breedColor });
+    y -= row1H;
+
+    const labelH = 14;
+
+    const { wrapped, maxLines } = computeGridWrapped(r);
+    const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
+    const gridH = labelH + valueH;
+
+    page.drawRectangle({ x:M, y:y-gridH, width:gridW, height:gridH, color: rgb(1,1,1), borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
+    page.drawLine({ start:{x:M, y:y-labelH}, end:{x:M+gridW, y:y-labelH}, thickness: CONFIG.PDF.innerW, color: rgb(0.55,0.55,0.55) });
+
+    let cx = M;
+    for(let i=0;i<colDefs.length;i++){
+      const c = colDefs[i];
+      if(i !== 0){
+        page.drawLine({ start:{x:cx, y:y}, end:{x:cx, y:y-gridH}, thickness:CONFIG.PDF.innerW, color: rgb(0.55,0.55,0.55) });
+      }
+
+      const cellCenter = cx + c.w/2;
+      const lw = fontBold.widthOfTextAtSize(c.label, CONFIG.PDF.gridLabel);
+      page.drawText(c.label, { x: cellCenter - lw/2, y: y - 11, size: CONFIG.PDF.gridLabel, font: fontBold, color: BLACK });
+
+      const lines = wrapped[c.key] || [""];
+      const startY = y - labelH - 11;
+      drawCenteredLines(lines, cellCenter, startY, CONFIG.PDF.gridLineH, CONFIG.PDF.gridValue);
+
+      cx += c.w;
+    }
+
+    y -= gridH;
+
+    const notesLines = computeNotesLines(r);
+    const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+    page.drawRectangle({ x:M, y:y-notesH, width:contentW, height:notesH, color: rgb(1,1,1), borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
+
+    let ny = y - 12;
+    for(const ln of notesLines){
+      page.drawText(ln, { x:M + CONFIG.PDF.padX, y:ny, size: CONFIG.PDF.notes, font, color: BLACK });
+      ny -= CONFIG.PDF.notesLineH;
+    }
+    y -= notesH;
+
+    if(mode === "buyer"){
+      const dmRowH = 18;
+      const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
+      page.drawRectangle({ x:M, y:y-dmRowH, width:contentW, height:dmRowH, color: rgb(1,1,1), borderWidth:CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
+      page.drawText(`Down Money Due: ${dm}`, { x:M + CONFIG.PDF.padX, y:y-13, size: 10.0, font:fontBold, color:BLACK });
+      y -= dmRowH;
+    }
+
+    if(mode === "buyer" && singleLotMode){
+      const dm = toNumber(r[CONFIG.COLS.downMoney]);
+      if(dm > 0){ y -= 8; drawDownMoneyReceivedBlock(); }
+      drawCmsInternalNotesIfAny(r);
+    }
+
+    y -= CONFIG.PDF.lotGap;
+  }
+
+  const sorted = [...rows].sort(sortLots);
+  for(const r of sorted){
+    ensureRoom(r);
+    drawLotBlock(r);
+  }
+
+  return await pdfDoc.save();
+}
+
+/* ---------------- RESULTS RENDER ---------------- */
+function renderList(container, items){
+  container.innerHTML = "";
+  if(items.length === 0){
+    const div = document.createElement("div");
+    div.className = "muted small";
+    div.textContent = "None generated.";
+    container.appendChild(div);
+    return;
+  }
+
+  for(const it of items){
+    const row = document.createElement("div");
+    row.className = "listItem";
+
+    const left = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "listName";
+    name.textContent = it.filename;
+
+    const meta = document.createElement("div");
+    meta.className = "listMeta";
+    meta.textContent = `${it.count || 1} item(s)`;
+
+    left.appendChild(name);
+    left.appendChild(meta);
+
+    const btn = document.createElement("button");
+    btn.className = "btn btnSmall";
+    btn.textContent = "Download";
+    btn.addEventListener("click", ()=> downloadBytes(it.bytes, it.filename, "application/pdf"));
+
+    row.appendChild(left);
+    row.appendChild(btn);
+    container.appendChild(row);
+  }
+}
+
+function renderResults(){
+  const total =
+    generated.buyerReports.length +
+    generated.lotByLot.length +
+    generated.buyerContracts.length +
+    generated.sellerContracts.length +
+    generated.consignorReports.length +
+    generated.repReports.length;
+
+  resultsMeta.textContent = `Generated ${total} file(s) from ${csvRows.length} row(s).`;
+
+  renderList(listConsignorReports, generated.consignorReports);
+  renderList(listRepReports, generated.repReports);
+
+  zipConsignorReports.disabled = generated.consignorReports.length === 0;
+  zipRepReports.disabled = generated.repReports.length === 0;
+  zipAll.disabled = total === 0;
 }
 
 /* ---------------- BUILD ---------------- */
