@@ -27,6 +27,22 @@
 
     <div id="builderError" class="error hidden"></div>
 
+    <!-- Add Auction Details -->
+    <div>
+      <label for="auctionName">Auction Name:</label>
+      <input type="text" id="auctionName" placeholder="Enter Auction Name" />
+    </div>
+
+    <div>
+      <label for="auctionDate">Auction Date:</label>
+      <input type="text" id="auctionDate" placeholder="Enter Auction Date" />
+    </div>
+
+    <div>
+      <label for="auctionLabel">Auction Label (optional):</label>
+      <input type="text" id="auctionLabel" placeholder="Enter Auction Label" />
+    </div>
+
     <!-- Options for generating reports -->
     <div>
       <input type="checkbox" id="chkConsignorListing" />
@@ -47,14 +63,10 @@
     <div id="resultsMeta"></div>
 
     <!-- List of generated reports -->
-    <div id="listBuyerReports" class="resultsList"></div>
-    <div id="listLotByLot" class="resultsList"></div>
     <div id="listConsignorReports" class="resultsList"></div>
     <div id="listRepReports" class="resultsList"></div>
 
     <div class="footer">
-      <button id="zipBuyerReports">Download Buyer Reports</button>
-      <button id="zipLotByLot">Download Lot-by-Lot</button>
       <button id="zipConsignorReports">Download Consignor Reports</button>
       <button id="zipRepReports">Download Rep Reports</button>
       <button id="zipAll">Download All</button>
