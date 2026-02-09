@@ -21,7 +21,7 @@
       <div class="brand">
         <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
         <div class="brandText">
-          <div class="brandTitle">CMS Post-Auction Reporting</div>
+          <div class="brandTitle">CMS Auction Reporting</div>
           <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
@@ -88,17 +88,31 @@
 
             <div class="row">
               <label class="label">What to Generate</label>
-              <div class="pillRow">
-                <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports (one per buyer)</label>
-                <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details (one per lot)</label>
-                <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (one per lot)</label>
-                <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (one per lot)</label>
-                <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
-                <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
+              
+              <!-- POST-AUCTION SECTION -->
+              <div style="margin-bottom: 16px;">
+                <div class="sectionLabel">Post-Auction (requires Contract # column)</div>
+                <div class="pillRow">
+                  <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports</label>
+                  <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
+                  <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts</label>
+                  <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts</label>
+                  <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
+                  <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
+                </div>
+              </div>
+
+              <!-- PRE-AUCTION SECTION -->
+              <div>
+                <div class="sectionLabel">Pre-Auction (requires Lot Number column)</div>
+                <div class="pillRow">
+                  <label class="pill"><input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations</label>
+                  <label class="pill"><input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations</label>
+                </div>
               </div>
 
               <div class="muted small" style="margin-top:6px;">
-                Rep PDFs ignore rows where <b>Representative</b> is blank.
+                Rep PDFs ignore rows where <b>Representative</b> or <b>Rep</b> is blank.
               </div>
             </div>
 
@@ -118,6 +132,7 @@
 
         <div class="resultsGrid">
 
+          <!-- POST-AUCTION RESULTS -->
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Reports</h3>
@@ -194,6 +209,33 @@
               </div>
             </div>
             <div id="listRepReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <!-- PRE-AUCTION RESULTS -->
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Consignor Listing Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipPreConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togPreConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreConsignorReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listPreConsignorReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Rep Listing Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipPreRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togPreRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreRepReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listPreRepReports" class="list collapsible collapsed"></div>
           </div>
 
         </div>
