@@ -67,6 +67,15 @@ p{margin:8px 0}
 .row{margin-top:14px}
 .label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
 
+.sectionLabel{
+  font-size:13px; 
+  font-weight:600; 
+  color:var(--accent2); 
+  margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+
 .input{
   width:100%;
   border:1px solid var(--line);
@@ -210,11 +219,10 @@ p{margin:8px 0}
 
 .list{display:flex; flex-direction:column; gap:8px}
 
-/* ✅ FIX: expanded lists scroll; no hidden “cutoff” */
 .collapsible{
-  max-height: 420px;     /* expanded height */
-  overflow: auto;        /* scroll for long lists */
-  padding-right: 6px;    /* keeps scrollbar from covering buttons */
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 6px;
   transition: max-height .20s ease, opacity .20s ease;
   opacity: 1;
 }
@@ -248,4 +256,3 @@ p{margin:8px 0}
 }
 
 .footer{ padding:14px 18px 22px; text-align:center; }
-
