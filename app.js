@@ -594,12 +594,12 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
   const colDefs = [
     { key: "loads", label: "Loads",   w: 50 },
     { key: "head",  label: "Head",    w: 50 },
-    { key: "sex",   label: "Sex",     w: 110 },
-    { key: "bw",    label: "Base Wt", w: 45 },
-    { key: "del",   label: "Delivery",w: 180 },
+    { key: "sex",   label: "Sex",     w: 80 },
+    { key: "bw",    label: "Base Wt", w: 75 },
+    { key: "del",   label: "Delivery",w: 150 },
     { key: "loc",   label: "Location",w: 120 },
     { key: "shr",   label: "Shrink",  w: 55 },
-    { key: "sld",   label: "Slide",   w: 130 },
+    { key: "sld",   label: "Slide",   w: 160 },
   ];
   const gridW = colDefs.reduce((s,c)=>s+c.w,0);
 
@@ -852,13 +852,13 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const colDefs = [
     { key: "loads", label: "Loads",   w: 45 },
     { key: "head",  label: "Head",    w: 45 },
-    { key: "sex",   label: "Sex",     w: 100 },
-    { key: "bw",    label: "Base Wt", w: 38 },
-    { key: "del",   label: "Delivery",w: 170 },
+    { key: "sex",   label: "Sex",     w: 80 },
+    { key: "bw",    label: "Base Wt", w: 75 },
+    { key: "del",   label: "Delivery",w: 150 },
     { key: "loc",   label: "Location",w: 110 },
     { key: "shr",   label: "Shrink",  w: 48 },
     { key: "sld",   label: "Slide",   w: 134 },
-    { key: "price", label: "Price",   w: 50 },
+    { key: "price", label: "Price",   w: 53 },
   ];
   const gridW = colDefs.reduce((s,c)=>s+c.w,0);
 
@@ -1277,407 +1277,432 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
 
 
 /* =========================================================================
-   PDF: BUYER/SELLER CONTRACTS - PORTRAIT WITH TABLE LAYOUT
+   PDF: BUYER/SELLER CONTRACTS — PORTRAIT, TABLE LAYOUT
+   - Portrait 8.5×11
+   - Table with proper full borders
+   - Price left-aligned + highlighted
+   - Dynamic notes height
+   - Contract terms never cut off (overflow to page 2 with page numbers)
+   - Side-by-side signatures on last page
+   - Lot # in top box from CONFIG.COLS.lotNumber
    ========================================================================= */
 async function buildSalesContractPdf({row, side}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
   const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // PORTRAIT: 612 x 792 (8.5" x 11")
+  // Portrait 8.5×11
   const W = 612;
   const H = 792;
-  const M = 26;
+  const M = 36;           // left/right margin
   const contentW = W - 2*M;
 
-  const topBarColor = rgb(...hexToRgb01(CONFIG.COLORS.cmsBlue));
-  const BLACK = rgb(0,0,0);
-  const GRAY = rgb(0.55, 0.55, 0.55);
+  const topBarColor  = rgb(...hexToRgb01(CONFIG.COLORS.cmsBlue));
+  const BLACK        = rgb(0, 0, 0);
+  const DARK_GRAY    = rgb(0.3, 0.3, 0.3);
+  const GRAY         = rgb(0.55, 0.55, 0.55);
+  const SECTION_BG   = rgb(0.94, 0.94, 0.94);
   const HIGHLIGHT_BG = rgb(...CONFIG.COLORS.highlightBg);
+  const WHITE        = rgb(1, 1, 1);
 
-  const page = pdfDoc.addPage([W,H]);
-  page.drawRectangle({ x:0, y:H-CONFIG.PDF.topBarH, width:W, height:CONFIG.PDF.topBarH, color: topBarColor });
-
-  const contract = safeStr(getContract(row));
-  const buyer = safeStr(row[CONFIG.COLS.buyer]);
-  const consignor = safeStr(row[CONFIG.COLS.consignor]);
-  const rep = getRepColumn(row);
-  const downMoneyAmount = toNumber(row[CONFIG.COLS.downMoney]);
-  const downMoney = downMoneyDisplay(row[CONFIG.COLS.downMoney]);
+  // ---- Data ----
+  const contract       = safeStr(getContract(row));
+  const lotNumber      = safeStr(row[CONFIG.COLS.lotNumber]);
+  const buyer          = safeStr(row[CONFIG.COLS.buyer]);
+  const consignor      = safeStr(row[CONFIG.COLS.consignor]);
+  const rep            = getRepColumn(row);
+  const downMoneyAmt   = toNumber(row[CONFIG.COLS.downMoney]);
+  const downMoney      = downMoneyDisplay(row[CONFIG.COLS.downMoney]);
+  const breed          = safeStr(row[CONFIG.COLS.breed]) || safeStr(row[CONFIG.COLS.description]);
+  const loads          = safeStr(row[CONFIG.COLS.loads])      || "0";
+  const head           = safeStr(row[CONFIG.COLS.head])       || "0";
+  const sex            = safeStr(row[CONFIG.COLS.sex]);
+  const bw             = safeStr(row[CONFIG.COLS.baseWeight]);
+  const del            = safeStr(row[CONFIG.COLS.delivery]);
+  const loc            = safeStr(row[CONFIG.COLS.location]);
+  const shr            = safeStr(row[CONFIG.COLS.shrink]);
+  const sld            = safeStr(row[CONFIG.COLS.slide]);
+  const price          = priceDisplay(row[CONFIG.COLS.price]);
 
   const auctionTitleBase = safeStr(auctionName.value) || "Auction";
-  const extra = safeStr(auctionLabel.value);
-  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
-  const aDate = safeStr(auctionDate.value) || "";
+  const extra            = safeStr(auctionLabel.value);
+  const auctionTitle     = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate            = safeStr(auctionDate.value) || "";
 
-  // HEADER
-  let y = H - CONFIG.PDF.topBarH - 28;
+  // ---- Table geometry ----
+  const tableW  = contentW;
+  const labelW  = 130;
+  const valueW  = tableW - labelW;
+  const secH    = 18;   // section header row height
+  const dataH   = 17;   // data row height (base — may grow for multiline)
+  const padX    = 8;    // inner horizontal padding
+  const termsLineH = 11.5;
+  const paraGap    = 3;
 
-  const headerTitle = "Cattle Sales Contract";
-  const headerSize = 18;
-  page.drawText(headerTitle, { x: M, y, size: headerSize, font: fontBold, color: BLACK });
-  
-  const cnText = `Contract #: ${contract || ""}`.trim();
-  const cnSize = 16;
-  const cnW = fontBold.widthOfTextAtSize(cnText, cnSize);
-  const cnX = M + contentW - cnW;
-  page.drawText(cnText, { x: cnX, y, size: cnSize, font: fontBold, color: BLACK });
+  // ---- Helper: draw one page's top bar + contract header ----
+  // Returns starting y for content on that page
+  function drawPageHeader(pg, pageNum){
+    // Blue top bar
+    pg.drawRectangle({ x:0, y:H-8, width:W, height:8, color: topBarColor });
 
-  y -= 18;
+    const topY = H - 8 - 28;
 
-  // Company Address (right-aligned)
-  const addrLines = [
-    "CMS Orita Calf Auctions, LLC",
-    "6900 I-40 West, Suite 135",
-    "Amarillo, TX 79106",
-    "(806) 355-7505"
-  ];
+    // Left: "Cattle Sales Contract"
+    pg.drawText("Cattle Sales Contract", {
+      x: M, y: topY, size: 18, font: fontBold, color: BLACK
+    });
 
-  page.drawText(addrLines[0], { x: cnX, y, size: 9.6, font: fontBold, color: BLACK });
-  y -= 11;
-  page.drawText(addrLines[1], { x: cnX, y, size: 9.2, font, color: BLACK });
-  y -= 11;
-  page.drawText(addrLines[2], { x: cnX, y, size: 9.2, font, color: BLACK });
-  y -= 11;
-  page.drawText(addrLines[3], { x: cnX, y, size: 9.2, font, color: BLACK });
+    // Right: Contract #
+    const cnText = `Contract #: ${contract}`.trim();
+    const cnW    = fontBold.widthOfTextAtSize(cnText, 16);
+    pg.drawText(cnText, {
+      x: M + contentW - cnW, y: topY, size: 16, font: fontBold, color: BLACK
+    });
 
-  // Auction info (left)
-  y = H - CONFIG.PDF.topBarH - 46;
-  page.drawText(safeStr(auctionTitle), { x: M, y, size: 9.8, font, color: BLACK });
-  y -= 12;
-  if(aDate){
-    page.drawText(safeStr(aDate), { x: M, y, size: 9.8, font, color: BLACK });
-    y -= 12;
+    // Company address (right-aligned under Contract #)
+    const addrLines = [
+      "CMS Orita Calf Auctions, LLC",
+      "6900 I-40 West, Suite 135",
+      "Amarillo, TX 79106",
+      "(806) 355-7505"
+    ];
+    let ay = topY - 14;
+    const addrX = M + contentW;
+    pg.drawText(addrLines[0], { x: addrX - fontBold.widthOfTextAtSize(addrLines[0],9.6), y:ay, size:9.6, font:fontBold, color:BLACK });
+    for(let i=1;i<addrLines.length;i++){
+      ay -= 11;
+      pg.drawText(addrLines[i], { x: addrX - font.widthOfTextAtSize(addrLines[i],9.2), y:ay, size:9.2, font, color:BLACK });
+    }
+
+    // Auction info (left, below main title)
+    let lY = topY - 18;
+    pg.drawText(safeStr(auctionTitle), { x:M, y:lY, size:9.8, font, color:BLACK });
+    lY -= 12;
+    if(aDate){ pg.drawText(safeStr(aDate), { x:M, y:lY, size:9.8, font, color:BLACK }); lY -= 12; }
+
+    // Page number on overflow pages
+    if(pageNum > 1){
+      const pnText = `Page ${pageNum}`;
+      const pnW = font.widthOfTextAtSize(pnText, 9);
+      pg.drawText(pnText, { x: W/2 - pnW/2, y: 20, size:9, font, color:GRAY });
+    }
+
+    return H - 8 - 120;  // content starts here
   }
 
-  y -= 20;
+  // ---- Helper: draw the full-border table row ----
+  // Draws a single horizontal rule for dividers and the outer border per-row
+  // We'll draw the outer box ONCE over the whole table after measuring height,
+  // and inner lines row by row.
 
-  // Intro text
+  // ---- MEASURE table height (data rows may be multiline) ----
+  // Table sections for both sides:
+  const tableData = [
+    { section: "Quantity & Description" },
+    { label: "Loads:",        value: loads },
+    { label: "Head Count:",   value: head },
+    { label: "Sex:",          value: sex },
+    { label: "Base Weight:",  value: bw + " lbs" },
+
+    { section: "Delivery & Location" },
+    { label: "Delivery:",     value: del },
+    { label: "FOB Location:", value: `FOB ${loc}` },
+
+    { section: "Terms" },
+    { label: "Shrink:",       value: shr },
+    { label: "Slide:",        value: sld },
+  ];
+
+  // Pre-compute actual row heights (data rows may wrap)
+  function rowHeight(item){
+    if(item.section) return secH;
+    const lines = wrapLines(font, item.value, 10.0, valueW - padX*2);
+    return Math.max(dataH, lines.length * 12 + 5);
+  }
+
+  const rowHeights = tableData.map(rowHeight);
+  const priceRowH  = 22;
+  const totalTableH = rowHeights.reduce((s,h)=>s+h, 0) + priceRowH;
+
+  // ---- NOTES dynamic height ----
+  const desc  = safeStr(row[CONFIG.COLS.description]);
+  const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
+  const notesRaw  = [desc, desc2].filter(Boolean).join("  |  ");
+  const notesText = safeStr(`Notes: ${notesRaw}`);
+  const notesWrapW = contentW - padX*2 - 8;  // proper right padding
+  const notesWrapped = wrapLines(font, notesText, 9.0, notesWrapW);
+  const notesH = 8 + notesWrapped.length * 11 + 6;
+
+  // ---- DOWN MONEY row height ----
+  const dmH = 22;
+
+  // ---- CONTRACT TERMS: pre-render all lines so we know total ----
+  const rawTerms   = (side==="buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
+  const termsText2 = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
+  const boldStart  = "Buyer does hereby agree to a down payment of $30.00";
+  const termsParas = termsText2.split("\n").map(s=>safeStr(s)).filter(p=>p.length>0);
+
+  // Build flat list of {text, bold} lines
+  const termLines = [];
+  for(const p of termsParas){
+    const useBold = (side==="buyer") && p.startsWith(boldStart);
+    const f = useBold ? fontBold : font;
+    const wrapped = wrapLines(f, p, 9.5, contentW - padX*2);
+    for(const ln of wrapped) termLines.push({ text: ln, bold: useBold });
+    termLines.push({ text: "", gap: true });  // paragraph gap
+  }
+
+  // ---- SIGNATURE block height ----
+  const sigBlockH = 60;
+
+  // ---- Page 1 setup ----
+  let pages = [pdfDoc.addPage([W,H])];
+  let pageNum = 1;
+  let curPage = pages[0];
+  let y = drawPageHeader(curPage, 1);
+
+  // ---- Intro text ----
+  y -= 28;   // 2 lines lower than before
+
   if(side === "buyer"){
-    const pre = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
-    const lines = wrapLines(font, pre, 10.4, contentW - 10);
-    for(const ln of lines){ 
-      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); 
-      y -= 12; 
+    const introText = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
+    const introLines = wrapLines(font, introText, 10.4, contentW - 10);
+    for(const ln of introLines){
+      curPage.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
+      y -= 13;
     }
-    y -= 10;
-
-    page.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
-    y -= 14;
-
+    y -= 8;
+    curPage.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
+    y -= 15;
     if(rep){
-      page.drawText(rep, { x:M, y, size:10.6, font, color:BLACK });
-      y -= 14;
+      curPage.drawText(rep, { x:M, y, size:10.6, font, color:BLACK });
+      y -= 15;
     }
   } else {
-    const pre = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
-    const lines = wrapLines(font, pre, 10.4, contentW - 10);
-    for(const ln of lines){ 
-      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); 
-      y -= 12; 
+    const introText = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
+    const introLines = wrapLines(font, introText, 10.4, contentW - 10);
+    for(const ln of introLines){
+      curPage.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
+      y -= 13;
     }
-    y -= 10;
+    y -= 8;
   }
 
-  y -= 6;
+  y -= 8;
 
-  // Seller/Breed Banner
-  const breed = safeStr(row[CONFIG.COLS.breed]) || safeStr(row[CONFIG.COLS.description]);
-  const bandH = 32;
-  page.drawRectangle({ x:M, y:y-bandH, width:contentW, height:bandH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
-  page.drawText(`Seller: ${consignor}`, { x:M+8, y:y-14, size:10.6, font:fontBold, color:BLACK });
-  page.drawText(safeStr(breed), { x:M+8, y:y-27, size:9.4, font, color:BLACK });
-  y -= bandH;
+  // ---- TOP BOX: Lot # + (Seller for seller side) + Breed ----
+  // Calculate top box height
+  const topBoxLines = [];
+  if(lotNumber){ topBoxLines.push({ text: `Lot # ${lotNumber}`, bold: true, size: 10.6 }); }
+  if(side === "seller"){ topBoxLines.push({ text: `Seller: ${consignor}`, bold: true, size: 10.6 }); }
+  topBoxLines.push({ text: safeStr(breed), bold: side === "buyer", size: 9.6 });
 
-  y -= 4;
-
-  // TABLE LAYOUT
-  const tableW = contentW;
-  const labelW = 130;
-  const valueW = tableW - labelW;
-  const rowH = 16;
-  const labelSize = 9.5;
-  const valueSize = 10.0;
-
-  const loads = safeStr(row[CONFIG.COLS.loads]) || "0";
-  const head  = safeStr(row[CONFIG.COLS.head])  || "0";
-  const sex   = safeStr(row[CONFIG.COLS.sex]);
-  const bw    = safeStr(row[CONFIG.COLS.baseWeight]);
-  const del   = safeStr(row[CONFIG.COLS.delivery]);
-  const loc   = safeStr(row[CONFIG.COLS.location]);
-  const shr   = safeStr(row[CONFIG.COLS.shrink]);
-  const sld   = safeStr(row[CONFIG.COLS.slide]);
-  const price = priceDisplay(row[CONFIG.COLS.price]);
-
-  const tableData = [
-    // Section 1: Quantity & Description
-    { section: "Quantity & Description", sectionH: 18 },
-    { label: "Loads:", value: loads },
-    { label: "Head Count:", value: head },
-    { label: "Sex:", value: sex },
-    { label: "Base Weight:", value: bw + " lbs" },
-    
-    // Section 2: Delivery & Location
-    { section: "Delivery & Location", sectionH: 18 },
-    { label: "Delivery:", value: del },
-    { label: "Location:", value: loc },
-    
-    // Section 3: Terms
-    { section: "Terms", sectionH: 18 },
-    { label: "Shrink:", value: shr },
-    { label: "Slide:", value: sld },
-  ];
-
-  // Draw table
-  let tableY = y;
-  let totalTableH = 0;
-
-  // Calculate total height
-  for(const item of tableData){
-    if(item.section){
-      totalTableH += item.sectionH;
-    } else {
-      totalTableH += rowH;
-    }
+  const topBoxH = 10 + topBoxLines.length * 14;
+  curPage.drawRectangle({
+    x:M, y:y-topBoxH, width:contentW, height:topBoxH,
+    color:WHITE, borderWidth:1.0, borderColor:GRAY
+  });
+  let bby = y - 12;
+  for(const item of topBoxLines){
+    curPage.drawText(item.text, {
+      x: M+padX, y: bby,
+      size: item.size,
+      font: item.bold ? fontBold : font,
+      color: BLACK
+    });
+    bby -= 14;
   }
-  // Add price highlight row
-  totalTableH += 22;
+  y -= topBoxH + 4;
 
-  // Draw outer border
-  page.drawRectangle({ 
-    x: M, 
-    y: tableY - totalTableH, 
-    width: tableW, 
-    height: totalTableH, 
-    color: rgb(1,1,1),
-    borderWidth: 1.0, 
-    borderColor: GRAY 
+  // ---- TABLE ----
+  // Draw outer border first
+  curPage.drawRectangle({
+    x:M, y:y-totalTableH, width:tableW, height:totalTableH,
+    color:WHITE, borderWidth:1.0, borderColor:GRAY
   });
 
-  // Draw rows
-  let currentY = tableY;
-  for(const item of tableData){
+  let ty = y;
+  for(let i=0; i<tableData.length; i++){
+    const item = tableData[i];
+    const rh   = rowHeights[i];
+
     if(item.section){
-      // Section header
-      page.drawRectangle({ 
-        x: M, 
-        y: currentY - item.sectionH, 
-        width: tableW, 
-        height: item.sectionH,
-        color: rgb(0.96, 0.96, 0.96),
-        borderWidth: 0
+      // Section header background
+      curPage.drawRectangle({
+        x:M, y:ty-rh, width:tableW, height:rh,
+        color:SECTION_BG, borderWidth:0
       });
-      page.drawText(item.section, { 
-        x: M + 8, 
-        y: currentY - 13, 
-        size: 10.0, 
-        font: fontBold, 
-        color: BLACK 
+      // Redraw left + right borders (background overwrites them)
+      curPage.drawLine({ start:{x:M,     y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY });
+      curPage.drawLine({ start:{x:M+tableW, y:ty}, end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY });
+
+      curPage.drawText(item.section, {
+        x:M+padX, y:ty-13, size:10.0, font:fontBold, color:BLACK
       });
-      
-      // Bottom border of section header
-      page.drawLine({ 
-        start: {x: M, y: currentY - item.sectionH}, 
-        end: {x: M + tableW, y: currentY - item.sectionH}, 
-        thickness: 0.8, 
-        color: GRAY 
-      });
-      
-      currentY -= item.sectionH;
     } else {
-      // Data row
+      // Data row — redraw left + right side borders
+      curPage.drawLine({ start:{x:M,       y:ty}, end:{x:M,         y:ty-rh}, thickness:1.0, color:GRAY });
+      curPage.drawLine({ start:{x:M+tableW,y:ty}, end:{x:M+tableW, y:ty-rh}, thickness:1.0, color:GRAY });
+
       // Label
-      page.drawText(item.label, { 
-        x: M + 8, 
-        y: currentY - 12, 
-        size: labelSize, 
-        font, 
-        color: rgb(0.3, 0.3, 0.3) 
+      curPage.drawText(item.label, {
+        x:M+padX, y:ty-12, size:9.5, font, color:DARK_GRAY
       });
-      
-      // Value
-      const valueLines = wrapLines(font, item.value, valueSize, valueW - 16);
-      let vy = currentY - 12;
-      for(const vline of valueLines){
-        page.drawText(vline, { 
-          x: M + labelW + 8, 
-          y: vy, 
-          size: valueSize, 
-          font, 
-          color: BLACK 
-        });
-        vy -= 11;
+
+      // Vertical divider
+      curPage.drawLine({
+        start:{x:M+labelW, y:ty}, end:{x:M+labelW, y:ty-rh},
+        thickness:0.8, color:GRAY
+      });
+
+      // Value (may wrap)
+      const vLines = wrapLines(font, item.value, 10.0, valueW - padX*2);
+      let vy = ty - 12;
+      for(const vl of vLines){
+        curPage.drawText(vl, { x:M+labelW+padX, y:vy, size:10.0, font, color:BLACK });
+        vy -= 12;
       }
-      
-      // Vertical divider between label and value
-      page.drawLine({ 
-        start: {x: M + labelW, y: currentY}, 
-        end: {x: M + labelW, y: currentY - rowH}, 
-        thickness: 0.8, 
-        color: GRAY 
-      });
-      
-      // Bottom border of row
-      page.drawLine({ 
-        start: {x: M, y: currentY - rowH}, 
-        end: {x: M + tableW, y: currentY - rowH}, 
-        thickness: 0.8, 
-        color: GRAY 
-      });
-      
-      currentY -= rowH;
     }
+
+    // Row bottom divider (except last data row before price)
+    curPage.drawLine({
+      start:{x:M, y:ty-rh}, end:{x:M+tableW, y:ty-rh},
+      thickness:0.8, color:GRAY
+    });
+
+    ty -= rh;
   }
 
-  // HIGHLIGHTED PRICE ROW
-  const priceRowH = 22;
-  page.drawRectangle({ 
-    x: M, 
-    y: currentY - priceRowH, 
-    width: tableW, 
-    height: priceRowH,
-    color: HIGHLIGHT_BG,
-    borderWidth: 0
+  // ---- PRICE ROW (highlighted, left-aligned label) ----
+  curPage.drawRectangle({
+    x:M, y:ty-priceRowH, width:tableW, height:priceRowH,
+    color:HIGHLIGHT_BG, borderWidth:0
   });
-  
-  const priceText = `PURCHASE PRICE: ${price}/cwt`;
-  const priceSize = 12.0;
-  const priceW = fontBold.widthOfTextAtSize(priceText, priceSize);
-  const priceX = M + (tableW / 2) - (priceW / 2);
-  
-  page.drawText(priceText, { 
-    x: priceX, 
-    y: currentY - 14, 
-    size: priceSize, 
-    font: fontBold, 
-    color: BLACK 
+  // Restore all 4 borders on price row
+  curPage.drawLine({ start:{x:M,        y:ty},          end:{x:M,          y:ty-priceRowH}, thickness:1.0, color:GRAY });
+  curPage.drawLine({ start:{x:M+tableW, y:ty},          end:{x:M+tableW,   y:ty-priceRowH}, thickness:1.0, color:GRAY });
+  curPage.drawLine({ start:{x:M,        y:ty-priceRowH},end:{x:M+tableW,   y:ty-priceRowH}, thickness:1.0, color:GRAY });
+
+  // Left-aligned label + value matching other rows
+  curPage.drawText("Purchase Price:", {
+    x:M+padX, y:ty-14, size:9.5, font:fontBold, color:DARK_GRAY
+  });
+  curPage.drawLine({ start:{x:M+labelW,y:ty}, end:{x:M+labelW,y:ty-priceRowH}, thickness:0.8, color:GRAY });
+  curPage.drawText(`${price}/cwt`, {
+    x:M+labelW+padX, y:ty-14, size:12.0, font:fontBold, color:BLACK
   });
 
-  currentY -= priceRowH;
-  y = currentY;
-
+  ty -= priceRowH;
+  y = ty;
   y -= 6;
 
-  // NOTES
-  const desc = safeStr(row[CONFIG.COLS.description]);
-  const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
-  const notesText = [desc, desc2].filter(Boolean).join("  |  ");
-  const notesLine = safeStr(`Notes: ${notesText}`);
-  const notesLines = wrapLines(font, notesLine, 9.0, contentW - 16);
-
-  const notesH = 8 + (notesLines.length * 11) + 6;
-  page.drawRectangle({ x:M, y:y-notesH, width:contentW, height:notesH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
-
+  // ---- NOTES (dynamic height, proper right padding) ----
+  curPage.drawRectangle({
+    x:M, y:y-notesH, width:contentW, height:notesH,
+    color:WHITE, borderWidth:1.0, borderColor:GRAY
+  });
   let ny = y - 10;
-  for(const ln of notesLines){
-    page.drawText(ln, { x:M+8, y:ny, size:9.0, font, color:BLACK });
+  for(const ln of notesWrapped){
+    curPage.drawText(ln, { x:M+padX, y:ny, size:9.0, font, color:BLACK });
     ny -= 11;
   }
   y -= notesH;
-
   y -= 6;
 
-  // DOWN MONEY DUE (buyer only)
+  // ---- DOWN MONEY (buyer only) ----
   if(side === "buyer"){
-    const dmH = 20;
-    
-    if(downMoneyAmount > 0){
-      // Highlighted version
-      page.drawRectangle({ 
-        x:M, 
-        y:y-dmH, 
-        width:contentW, 
-        height:dmH, 
-        color: HIGHLIGHT_BG, 
-        borderWidth:1.0, 
-        borderColor:GRAY 
+    if(downMoneyAmt > 0){
+      curPage.drawRectangle({
+        x:M, y:y-dmH, width:contentW, height:dmH,
+        color:HIGHLIGHT_BG, borderWidth:1.0, borderColor:GRAY
       });
-      page.drawText(`Down Money Due: ${downMoney}`, { 
-        x:M+8, 
-        y:y-14, 
-        size:11.0, 
-        font:fontBold, 
-        color:BLACK 
+      curPage.drawText(`Down Money Due: ${downMoney}`, {
+        x:M+padX, y:y-15, size:11.0, font:fontBold, color:BLACK
       });
     } else {
-      // Regular version
-      page.drawRectangle({ 
-        x:M, 
-        y:y-dmH, 
-        width:contentW, 
-        height:dmH, 
-        color: rgb(1,1,1), 
-        borderWidth:1.0, 
-        borderColor:GRAY 
+      curPage.drawRectangle({
+        x:M, y:y-dmH, width:contentW, height:dmH,
+        color:WHITE, borderWidth:1.0, borderColor:GRAY
       });
-      page.drawText(`Down Money Due: ${downMoney}`, { 
-        x:M+8, 
-        y:y-14, 
-        size:10.0, 
-        font, 
-        color:BLACK 
+      curPage.drawText(`Down Money Due: ${downMoney}`, {
+        x:M+padX, y:y-15, size:10.0, font, color:BLACK
       });
     }
-    
     y -= dmH;
-    y -= 6;
+    y -= 26;   // 2 clear lines before terms
+  } else {
+    y -= 26;   // 2 clear lines before terms (after notes on seller)
   }
 
-  // CONTRACT TERMS
-  const termsX = M + 8;
-  const termsW = contentW - 16;
+  // ---- CONTRACT TERMS (never cut off, overflow gracefully) ----
+  const termsX = M;
+  const termsWrap = contentW - padX;
 
-  const rawTerms = (side === "buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
-  const termsText = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
+  // Signature block helper — draws side-by-side sigs on current page
+  function drawSignatures(pg){
+    const sigY  = 72;
+    const sigW  = (contentW - 30) / 2;
+    const lX    = M;
+    const rX    = M + sigW + 30;
 
-  const boldClauseStartsWith = "Buyer does hereby agree to a down payment of $30.00";
-  const paras = termsText.split("\n").map(s => safeStr(s)).filter(p => p.length > 0);
+    pg.drawLine({ start:{x:lX, y:sigY}, end:{x:lX+sigW, y:sigY}, thickness:1.0, color:BLACK });
+    pg.drawLine({ start:{x:rX, y:sigY}, end:{x:rX+sigW, y:sigY}, thickness:1.0, color:BLACK });
 
-  for(const p of paras){
-    const useBold = (side === "buyer") && p.startsWith(boldClauseStartsWith);
-    const f = useBold ? fontBold : font;
-    const lines = wrapLines(f, p, 10.0, termsW);
+    const lLabel = (side==="buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
+    pg.drawText(lLabel,                               { x:lX, y:sigY-14, size:9.2, font, color:BLACK });
+    pg.drawText("CMS Orita Calf Auctions, LLC Signature / Date", { x:rX, y:sigY-14, size:9.2, font, color:BLACK });
+  }
 
-    for(const ln of lines){
-      if(y < 150) break;
-      page.drawText(ln, { x: termsX, y, size: 10.0, font: f, color: BLACK });
-      y -= 11.5;
+  // Add a new page and return starting y
+  function addContractPage(){
+    pageNum++;
+    const pg = pdfDoc.addPage([W,H]);
+    pages.push(pg);
+    // Page number on both pages now
+    const pnText = `Page ${pageNum}`;
+    const pnW = font.widthOfTextAtSize(pnText, 9);
+    pg.drawText(pnText, { x:W/2-pnW/2, y:20, size:9, font, color:GRAY });
+    // Also add page number to previous page
+    const prevPg = pages[pageNum-2];
+    const pnPrev = `Page ${pageNum-1}`;
+    const pnPrevW = font.widthOfTextAtSize(pnPrev, 9);
+    prevPg.drawText(pnPrev, { x:W/2-pnPrevW/2, y:20, size:9, font, color:GRAY });
+    return { pg, startY: H - 50 };
+  }
+
+  const SIG_CLEARANCE = 90;  // space needed at bottom for signatures
+
+  for(let i=0; i<termLines.length; i++){
+    const tl = termLines[i];
+
+    if(tl.gap){
+      y -= paraGap;
+      continue;
     }
-    y -= 4;
-    if(y < 150) break;
+
+    // Need room for this line + signature block
+    if(y < SIG_CLEARANCE + termsLineH){
+      // Overflow to new page
+      const { pg, startY } = addContractPage();
+      curPage = pg;
+      y = startY;
+    }
+
+    curPage.drawText(tl.text, {
+      x: termsX,
+      y,
+      size: 9.5,
+      font: tl.bold ? fontBold : font,
+      color: BLACK
+    });
+    y -= termsLineH;
   }
 
-  // SIGNATURE LINES (stacked)
-  y = Math.max(y, 120);
-  
-  const sigLineY1 = 90;
-  const sigLineY2 = 50;
-  const lineW = contentW - 20;
-  
-  // First signature
-  page.drawLine({ 
-    start:{x:M+10, y:sigLineY1}, 
-    end:{x:M+10+lineW, y:sigLineY1}, 
-    thickness:1.0, 
-    color:BLACK 
-  });
-  
-  const label1 = (side === "buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
-  page.drawText(label1, { x:M+10, y:sigLineY1-14, size:9.6, font, color:BLACK });
-
-  // Second signature
-  page.drawLine({ 
-    start:{x:M+10, y:sigLineY2}, 
-    end:{x:M+10+lineW, y:sigLineY2}, 
-    thickness:1.0, 
-    color:BLACK 
-  });
-  
-  const label2 = "CMS Orita Calf Auctions, LLC Signature / Date";
-  page.drawText(label2, { x:M+10, y:sigLineY2-14, size:9.6, font, color:BLACK });
+  // ---- SIGNATURES on final page ----
+  drawSignatures(curPage);
 
   return await pdfDoc.save();
 }
