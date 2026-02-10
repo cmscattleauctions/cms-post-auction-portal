@@ -153,6 +153,7 @@ let auctionName, auctionDate, auctionLabel;
 let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let chkPreConsignor, chkPreRep;
+let chkShowCmsNotes;
 let buildBtn, builderError;
 
 let listBuyerReports, listLotByLot, listConsignorReports, listRepReports;
@@ -194,6 +195,8 @@ function bindDom(){
 
   chkPreConsignor = mustGet("chkPreConsignor");
   chkPreRep = mustGet("chkPreRep");
+
+  chkShowCmsNotes = mustGet("chkShowCmsNotes");
 
   buildBtn = mustGet("buildBtn");
   builderError = mustGet("builderError");
@@ -571,7 +574,7 @@ function wireAuth(){
    PDF: PRE-AUCTION LISTING CONFIRMATIONS (Consignor / Rep)
    PRICE COLUMN REMOVED
    ========================================================================= */
-async function buildPreAuctionListingPdf({entityName, rows, mode}){
+async function buildPreAuctionListingPdf({entityName, rows, mode, showCmsNotes=false}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
@@ -703,9 +706,9 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
     const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
     
-    // For rep mode, add CMS Internal Notes below (bold)
+    // For rep mode, add CMS Internal Notes below (bold) - ONLY if showCmsNotes is enabled
     // Pre-auction CSVs may not have this column, so check if it exists
-    const cmsNotes = (mode === "rep" && record[CONFIG.COLS.cmsInternalNotes]) 
+    const cmsNotes = (mode === "rep" && showCmsNotes && record[CONFIG.COLS.cmsInternalNotes]) 
       ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) 
       : "";
     
@@ -863,7 +866,7 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
 /* =========================================================================
    PDF: POST-AUCTION GROUP + CONTRACT DETAILS (LANDSCAPE - unchanged)
    ========================================================================= */
-async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null}){
+async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null, showCmsNotes=false}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
@@ -1032,8 +1035,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
     const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
     
-    // For rep mode, add CMS Internal Notes below (bold)
-    const cmsNotes = (mode === "rep") ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) : "";
+    // For rep mode, add CMS Internal Notes below (bold) - ONLY if showCmsNotes is enabled
+    const cmsNotes = (mode === "rep" && showCmsNotes) ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) : "";
     
     return { regularLines, cmsNotes };
   }
@@ -2007,7 +2010,7 @@ function wireBuild(){
         if(chkRep.checked){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
-            const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep" });
+            const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
             generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations.pdf`, bytes, count: rows.length });
           }
         }
@@ -2049,7 +2052,7 @@ function wireBuild(){
           const byRep = groupBy(repRows, CONFIG.PRE_COLS.rep);
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
-            const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep" });
+            const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
             generated.preRepReports.push({ 
               filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
               bytes, 
