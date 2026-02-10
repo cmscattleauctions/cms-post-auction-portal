@@ -128,6 +128,7 @@ The CMS Livestock Auction Seller's Terms of Service Agreement as signed prior to
     consignorColor: "#818589",
     repBar: "#6F8FAF",
     textWhite: [1,1,1],
+    highlightBg: [0.95, 0.95, 0.95], // Light gray for highlighting
   },
 
   REP_CONSIGNOR_PALETTE: [
@@ -346,6 +347,13 @@ function detectContractColumn(rows){
   return null;
 }
 
+// Helper to check for Representative or Rep column
+function getRepColumn(row){
+  if(row[CONFIG.COLS.rep]) return row[CONFIG.COLS.rep];
+  if(row[CONFIG.PRE_COLS.rep]) return row[CONFIG.PRE_COLS.rep];
+  return "";
+}
+
 function getContract(row){
   if(!contractColName) return "";
   return safeStr(row[contractColName]);
@@ -561,6 +569,7 @@ function wireAuth(){
 
 /* =========================================================================
    PDF: PRE-AUCTION LISTING CONFIRMATIONS (Consignor / Rep)
+   PRICE COLUMN REMOVED
    ========================================================================= */
 async function buildPreAuctionListingPdf({entityName, rows, mode}){
   assertLibsLoaded();
@@ -581,16 +590,16 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
   const bottomLimit = CONFIG.PDF.bottomLimit;
   const contentW = W - 2*M;
 
+  // Removed price column from pre-auction
   const colDefs = [
-    { key: "loads", label: "Loads",   w: 45 },
-    { key: "head",  label: "Head",    w: 45 },
-    { key: "sex",   label: "Sex",     w: 100 },
-    { key: "bw",    label: "Base Wt", w: 38 },
-    { key: "del",   label: "Delivery",w: 170 },
-    { key: "loc",   label: "Location",w: 110 },
-    { key: "shr",   label: "Shrink",  w: 48 },
-    { key: "sld",   label: "Slide",   w: 134 },
-    { key: "price", label: "Price",   w: 50 },
+    { key: "loads", label: "Loads",   w: 50 },
+    { key: "head",  label: "Head",    w: 50 },
+    { key: "sex",   label: "Sex",     w: 110 },
+    { key: "bw",    label: "Base Wt", w: 45 },
+    { key: "del",   label: "Delivery",w: 180 },
+    { key: "loc",   label: "Location",w: 120 },
+    { key: "shr",   label: "Shrink",  w: 55 },
+    { key: "sld",   label: "Slide",   w: 130 },
   ];
   const gridW = colDefs.reduce((s,c)=>s+c.w,0);
 
@@ -673,7 +682,6 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
       loc:   safeStr(record[CONFIG.PRE_COLS.location]),
       shr:   safeStr(record[CONFIG.PRE_COLS.shrink]),
       sld:   safeStr(record[CONFIG.PRE_COLS.slide]),
-      price: "",  // Leave blank for pre-auction
     };
 
     const wrapped = {};
@@ -803,8 +811,8 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
     y -= CONFIG.PDF.lotGap;
   }
 
-  // Sort lots - for pre-auction we'll just keep original order or sort by lot number
-  const sorted = [...rows]; // Keep original order for now
+  // Keep CSV order for pre-auction
+  const sorted = [...rows];
   for(const r of sorted){
     ensureRoom(r);
     drawLotBlock(r);
@@ -815,8 +823,7 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
 
 
 /* =========================================================================
-   PDF: POST-AUCTION GROUP + CONTRACT DETAILS
-   (Keeping your existing post-auction code intact)
+   PDF: POST-AUCTION GROUP + CONTRACT DETAILS (LANDSCAPE - unchanged)
    ========================================================================= */
 async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null}){
   assertLibsLoaded();
@@ -990,7 +997,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
   function drawSingleLotBuyerAndRepBlock(r){
     const buyer = safeStr(r[CONFIG.COLS.buyer]);
-    const rep = safeStr(r[CONFIG.COLS.rep]);
+    const rep = getRepColumn(r);
     let used = 0;
 
     if(buyer){
@@ -1269,7 +1276,9 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
 }
 
 
-/* ---------------- PDF: BUYER/SELLER CONTRACTS ---------------- */
+/* =========================================================================
+   PDF: BUYER/SELLER CONTRACTS - PORTRAIT WITH TABLE LAYOUT
+   ========================================================================= */
 async function buildSalesContractPdf({row, side}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
@@ -1278,14 +1287,16 @@ async function buildSalesContractPdf({row, side}){
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const W = CONFIG.PDF.pageSize.width;
-  const H = CONFIG.PDF.pageSize.height;
-  const M = CONFIG.PDF.margin;
+  // PORTRAIT: 612 x 792 (8.5" x 11")
+  const W = 612;
+  const H = 792;
+  const M = 26;
   const contentW = W - 2*M;
 
   const topBarColor = rgb(...hexToRgb01(CONFIG.COLORS.cmsBlue));
   const BLACK = rgb(0,0,0);
   const GRAY = rgb(0.55, 0.55, 0.55);
+  const HIGHLIGHT_BG = rgb(...CONFIG.COLORS.highlightBg);
 
   const page = pdfDoc.addPage([W,H]);
   page.drawRectangle({ x:0, y:H-CONFIG.PDF.topBarH, width:W, height:CONFIG.PDF.topBarH, color: topBarColor });
@@ -1293,7 +1304,8 @@ async function buildSalesContractPdf({row, side}){
   const contract = safeStr(getContract(row));
   const buyer = safeStr(row[CONFIG.COLS.buyer]);
   const consignor = safeStr(row[CONFIG.COLS.consignor]);
-  const rep = safeStr(row[CONFIG.COLS.rep]);
+  const rep = getRepColumn(row);
+  const downMoneyAmount = toNumber(row[CONFIG.COLS.downMoney]);
   const downMoney = downMoneyDisplay(row[CONFIG.COLS.downMoney]);
 
   const auctionTitleBase = safeStr(auctionName.value) || "Auction";
@@ -1301,17 +1313,22 @@ async function buildSalesContractPdf({row, side}){
   const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
   const aDate = safeStr(auctionDate.value) || "";
 
-  const headerY = H - CONFIG.PDF.topBarH - 34;
+  // HEADER
+  let y = H - CONFIG.PDF.topBarH - 28;
 
-  page.drawText("Cattle Sales Contract", { x: M, y: headerY, size: 18, font: fontBold, color: BLACK });
-
+  const headerTitle = "Cattle Sales Contract";
+  const headerSize = 18;
+  page.drawText(headerTitle, { x: M, y, size: headerSize, font: fontBold, color: BLACK });
+  
   const cnText = `Contract #: ${contract || ""}`.trim();
-  const cnSize = 18;
+  const cnSize = 16;
   const cnW = fontBold.widthOfTextAtSize(cnText, cnSize);
   const cnX = M + contentW - cnW;
+  page.drawText(cnText, { x: cnX, y, size: cnSize, font: fontBold, color: BLACK });
 
-  page.drawText(cnText, { x: cnX, y: headerY, size: cnSize, font: fontBold, color: BLACK });
+  y -= 18;
 
+  // Company Address (right-aligned)
   const addrLines = [
     "CMS Orita Calf Auctions, LLC",
     "6900 I-40 West, Suite 135",
@@ -1319,27 +1336,33 @@ async function buildSalesContractPdf({row, side}){
     "(806) 355-7505"
   ];
 
-  let ay = headerY - 14;
-  page.drawText(addrLines[0], { x: cnX, y: ay, size: 9.6, font: fontBold, color: BLACK });
-  ay -= 11;
-  page.drawText(addrLines[1], { x: cnX, y: ay, size: 9.2, font, color: BLACK });
-  ay -= 11;
-  page.drawText(addrLines[2], { x: cnX, y: ay, size: 9.2, font, color: BLACK });
-  ay -= 11;
-  page.drawText(addrLines[3], { x: cnX, y: ay, size: 9.2, font, color: BLACK });
+  page.drawText(addrLines[0], { x: cnX, y, size: 9.6, font: fontBold, color: BLACK });
+  y -= 11;
+  page.drawText(addrLines[1], { x: cnX, y, size: 9.2, font, color: BLACK });
+  y -= 11;
+  page.drawText(addrLines[2], { x: cnX, y, size: 9.2, font, color: BLACK });
+  y -= 11;
+  page.drawText(addrLines[3], { x: cnX, y, size: 9.2, font, color: BLACK });
 
-  const titleY = headerY - 18;
-  page.drawText(safeStr(auctionTitle), { x: M, y: titleY, size: 9.8, font, color: BLACK });
+  // Auction info (left)
+  y = H - CONFIG.PDF.topBarH - 46;
+  page.drawText(safeStr(auctionTitle), { x: M, y, size: 9.8, font, color: BLACK });
+  y -= 12;
   if(aDate){
-    page.drawText(safeStr(aDate), { x: M, y: titleY - 12, size: 9.8, font, color: BLACK });
+    page.drawText(safeStr(aDate), { x: M, y, size: 9.8, font, color: BLACK });
+    y -= 12;
   }
 
-  let y = titleY - 64;
+  y -= 20;
 
+  // Intro text
   if(side === "buyer"){
     const pre = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
     const lines = wrapLines(font, pre, 10.4, contentW - 10);
-    for(const ln of lines){ page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); y -= 12; }
+    for(const ln of lines){ 
+      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); 
+      y -= 12; 
+    }
     y -= 10;
 
     page.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
@@ -1352,11 +1375,33 @@ async function buildSalesContractPdf({row, side}){
   } else {
     const pre = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
     const lines = wrapLines(font, pre, 10.4, contentW - 10);
-    for(const ln of lines){ page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); y -= 12; }
+    for(const ln of lines){ 
+      page.drawText(ln, { x:M, y, size:10.4, font, color:BLACK }); 
+      y -= 12; 
+    }
     y -= 10;
   }
 
+  y -= 6;
+
+  // Seller/Breed Banner
   const breed = safeStr(row[CONFIG.COLS.breed]) || safeStr(row[CONFIG.COLS.description]);
+  const bandH = 32;
+  page.drawRectangle({ x:M, y:y-bandH, width:contentW, height:bandH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
+  page.drawText(`Seller: ${consignor}`, { x:M+8, y:y-14, size:10.6, font:fontBold, color:BLACK });
+  page.drawText(safeStr(breed), { x:M+8, y:y-27, size:9.4, font, color:BLACK });
+  y -= bandH;
+
+  y -= 4;
+
+  // TABLE LAYOUT
+  const tableW = contentW;
+  const labelW = 130;
+  const valueW = tableW - labelW;
+  const rowH = 16;
+  const labelSize = 9.5;
+  const valueSize = 10.0;
+
   const loads = safeStr(row[CONFIG.COLS.loads]) || "0";
   const head  = safeStr(row[CONFIG.COLS.head])  || "0";
   const sex   = safeStr(row[CONFIG.COLS.sex]);
@@ -1367,83 +1412,223 @@ async function buildSalesContractPdf({row, side}){
   const sld   = safeStr(row[CONFIG.COLS.slide]);
   const price = priceDisplay(row[CONFIG.COLS.price]);
 
-  const colDefs = [
-    { label:"Loads",   value:loads, w: 45 },
-    { label:"Head",    value:head,  w: 45 },
-    { label:"Sex",     value:sex,   w: 100 },
-    { label:"Base Wt", value:bw,    w: 38 },
-    { label:"Delivery",value:del,   w: 170 },
-    { label:"Location",value:loc,   w: 110 },
-    { label:"Shrink",  value:shr,   w: 48 },
-    { label:"Slide",   value:sld,   w: 134 },
-    { label:"Price",   value:price, w: 50 },
+  const tableData = [
+    // Section 1: Quantity & Description
+    { section: "Quantity & Description", sectionH: 18 },
+    { label: "Loads:", value: loads },
+    { label: "Head Count:", value: head },
+    { label: "Sex:", value: sex },
+    { label: "Base Weight:", value: bw + " lbs" },
+    
+    // Section 2: Delivery & Location
+    { section: "Delivery & Location", sectionH: 18 },
+    { label: "Delivery:", value: del },
+    { label: "Location:", value: loc },
+    
+    // Section 3: Terms
+    { section: "Terms", sectionH: 18 },
+    { label: "Shrink:", value: shr },
+    { label: "Slide:", value: sld },
   ];
-  const gridW = colDefs.reduce((s,c)=>s+c.w,0);
 
-  const bandH = 32;
-  page.drawRectangle({ x:M, y:y-bandH, width:contentW, height:bandH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
-  page.drawText(`Seller: ${consignor}`, { x:M+8, y:y-14, size:10.6, font:fontBold, color:BLACK });
-  page.drawText(safeStr(breed), { x:M+8, y:y-27, size:9.4, font, color:BLACK });
-  y -= bandH;
+  // Draw table
+  let tableY = y;
+  let totalTableH = 0;
 
-  const labelH = 14;
-
-  const wrapped = colDefs.map(c => wrapLines(font, c.value, 8.6, c.w - 2*CONFIG.PDF.cellPadX));
-  const maxLines = Math.max(...wrapped.map(a=>a.length), 1);
-  const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
-  const gridH = labelH + valueH;
-
-  page.drawRectangle({ x:M, y:y-gridH, width:gridW, height:gridH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
-  page.drawLine({ start:{x:M, y:y-labelH}, end:{x:M+gridW, y:y-labelH}, thickness:0.8, color:GRAY });
-
-  let cx = M;
-  for(let i=0;i<colDefs.length;i++){
-    const c = colDefs[i];
-    if(i !== 0){
-      page.drawLine({ start:{x:cx, y:y}, end:{x:cx, y:y-gridH}, thickness:0.8, color:GRAY });
+  // Calculate total height
+  for(const item of tableData){
+    if(item.section){
+      totalTableH += item.sectionH;
+    } else {
+      totalTableH += rowH;
     }
-
-    const cellCenter = cx + c.w/2;
-    const lw = fontBold.widthOfTextAtSize(c.label, 7.7);
-    page.drawText(c.label, { x:cellCenter - lw/2, y:y-11, size:7.7, font:fontBold, color:BLACK });
-
-    let ty = y - labelH - 11;
-    for(const ln of wrapped[i]){
-      const tw = font.widthOfTextAtSize(ln || "", 8.6);
-      page.drawText(ln, { x:cellCenter - tw/2, y:ty, size:8.6, font, color:BLACK });
-      ty -= CONFIG.PDF.gridLineH;
-    }
-    cx += c.w;
   }
-  y -= gridH;
+  // Add price highlight row
+  totalTableH += 22;
 
+  // Draw outer border
+  page.drawRectangle({ 
+    x: M, 
+    y: tableY - totalTableH, 
+    width: tableW, 
+    height: totalTableH, 
+    color: rgb(1,1,1),
+    borderWidth: 1.0, 
+    borderColor: GRAY 
+  });
+
+  // Draw rows
+  let currentY = tableY;
+  for(const item of tableData){
+    if(item.section){
+      // Section header
+      page.drawRectangle({ 
+        x: M, 
+        y: currentY - item.sectionH, 
+        width: tableW, 
+        height: item.sectionH,
+        color: rgb(0.96, 0.96, 0.96),
+        borderWidth: 0
+      });
+      page.drawText(item.section, { 
+        x: M + 8, 
+        y: currentY - 13, 
+        size: 10.0, 
+        font: fontBold, 
+        color: BLACK 
+      });
+      
+      // Bottom border of section header
+      page.drawLine({ 
+        start: {x: M, y: currentY - item.sectionH}, 
+        end: {x: M + tableW, y: currentY - item.sectionH}, 
+        thickness: 0.8, 
+        color: GRAY 
+      });
+      
+      currentY -= item.sectionH;
+    } else {
+      // Data row
+      // Label
+      page.drawText(item.label, { 
+        x: M + 8, 
+        y: currentY - 12, 
+        size: labelSize, 
+        font, 
+        color: rgb(0.3, 0.3, 0.3) 
+      });
+      
+      // Value
+      const valueLines = wrapLines(font, item.value, valueSize, valueW - 16);
+      let vy = currentY - 12;
+      for(const vline of valueLines){
+        page.drawText(vline, { 
+          x: M + labelW + 8, 
+          y: vy, 
+          size: valueSize, 
+          font, 
+          color: BLACK 
+        });
+        vy -= 11;
+      }
+      
+      // Vertical divider between label and value
+      page.drawLine({ 
+        start: {x: M + labelW, y: currentY}, 
+        end: {x: M + labelW, y: currentY - rowH}, 
+        thickness: 0.8, 
+        color: GRAY 
+      });
+      
+      // Bottom border of row
+      page.drawLine({ 
+        start: {x: M, y: currentY - rowH}, 
+        end: {x: M + tableW, y: currentY - rowH}, 
+        thickness: 0.8, 
+        color: GRAY 
+      });
+      
+      currentY -= rowH;
+    }
+  }
+
+  // HIGHLIGHTED PRICE ROW
+  const priceRowH = 22;
+  page.drawRectangle({ 
+    x: M, 
+    y: currentY - priceRowH, 
+    width: tableW, 
+    height: priceRowH,
+    color: HIGHLIGHT_BG,
+    borderWidth: 0
+  });
+  
+  const priceText = `PURCHASE PRICE: ${price}/cwt`;
+  const priceSize = 12.0;
+  const priceW = fontBold.widthOfTextAtSize(priceText, priceSize);
+  const priceX = M + (tableW / 2) - (priceW / 2);
+  
+  page.drawText(priceText, { 
+    x: priceX, 
+    y: currentY - 14, 
+    size: priceSize, 
+    font: fontBold, 
+    color: BLACK 
+  });
+
+  currentY -= priceRowH;
+  y = currentY;
+
+  y -= 6;
+
+  // NOTES
   const desc = safeStr(row[CONFIG.COLS.description]);
   const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
   const notesText = [desc, desc2].filter(Boolean).join("  |  ");
   const notesLine = safeStr(`Notes: ${notesText}`);
-  const notesLines = wrapLines(font, notesLine, 7.8, contentW - 16);
+  const notesLines = wrapLines(font, notesLine, 9.0, contentW - 16);
 
-  const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+  const notesH = 8 + (notesLines.length * 11) + 6;
   page.drawRectangle({ x:M, y:y-notesH, width:contentW, height:notesH, color: rgb(1,1,1), borderWidth:1.0, borderColor:GRAY });
 
-  let ny = y - 12;
+  let ny = y - 10;
   for(const ln of notesLines){
-    page.drawText(ln, { x:M+8, y:ny, size:7.8, font, color:BLACK });
-    ny -= CONFIG.PDF.notesLineH;
+    page.drawText(ln, { x:M+8, y:ny, size:9.0, font, color:BLACK });
+    ny -= 11;
   }
   y -= notesH;
 
+  y -= 6;
+
+  // DOWN MONEY DUE (buyer only)
   if(side === "buyer"){
-    const dmH = 18;
-    page.drawRectangle({ x:M, y:y-dmH, width:contentW, height:dmH, color: rgb(0.98,0.98,0.98), borderWidth:1.0, borderColor:GRAY });
-    page.drawText(`Down Money Due: ${downMoney}`, { x:M+8, y:y-13, size:10.0, font:fontBold, color:BLACK });
+    const dmH = 20;
+    
+    if(downMoneyAmount > 0){
+      // Highlighted version
+      page.drawRectangle({ 
+        x:M, 
+        y:y-dmH, 
+        width:contentW, 
+        height:dmH, 
+        color: HIGHLIGHT_BG, 
+        borderWidth:1.0, 
+        borderColor:GRAY 
+      });
+      page.drawText(`Down Money Due: ${downMoney}`, { 
+        x:M+8, 
+        y:y-14, 
+        size:11.0, 
+        font:fontBold, 
+        color:BLACK 
+      });
+    } else {
+      // Regular version
+      page.drawRectangle({ 
+        x:M, 
+        y:y-dmH, 
+        width:contentW, 
+        height:dmH, 
+        color: rgb(1,1,1), 
+        borderWidth:1.0, 
+        borderColor:GRAY 
+      });
+      page.drawText(`Down Money Due: ${downMoney}`, { 
+        x:M+8, 
+        y:y-14, 
+        size:10.0, 
+        font, 
+        color:BLACK 
+      });
+    }
+    
     y -= dmH;
+    y -= 6;
   }
 
-  y -= 28;
-
+  // CONTRACT TERMS
   const termsX = M + 8;
-  const termsW = contentW - 70;
+  const termsW = contentW - 16;
 
   const rawTerms = (side === "buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
   const termsText = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
@@ -1454,33 +1639,49 @@ async function buildSalesContractPdf({row, side}){
   for(const p of paras){
     const useBold = (side === "buyer") && p.startsWith(boldClauseStartsWith);
     const f = useBold ? fontBold : font;
-    const lines = wrapLines(f, p, 9.2, termsW);
+    const lines = wrapLines(f, p, 10.0, termsW);
 
     for(const ln of lines){
-      if(y < 110) break;
-      page.drawText(ln, { x: termsX, y, size: 9.2, font: f, color: BLACK });
-      y -= 11;
+      if(y < 150) break;
+      page.drawText(ln, { x: termsX, y, size: 10.0, font: f, color: BLACK });
+      y -= 11.5;
     }
-    y -= 3;
-    if(y < 110) break;
+    y -= 4;
+    if(y < 150) break;
   }
 
-  const sigLineY = 54;
-  const lineW = (contentW - 30) / 2;
-  const leftX = M;
-  const rightX = M + lineW + 30;
+  // SIGNATURE LINES (stacked)
+  y = Math.max(y, 120);
+  
+  const sigLineY1 = 90;
+  const sigLineY2 = 50;
+  const lineW = contentW - 20;
+  
+  // First signature
+  page.drawLine({ 
+    start:{x:M+10, y:sigLineY1}, 
+    end:{x:M+10+lineW, y:sigLineY1}, 
+    thickness:1.0, 
+    color:BLACK 
+  });
+  
+  const label1 = (side === "buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
+  page.drawText(label1, { x:M+10, y:sigLineY1-14, size:9.6, font, color:BLACK });
 
-  page.drawLine({ start:{x:leftX, y:sigLineY}, end:{x:leftX+lineW, y:sigLineY}, thickness:1.0, color:BLACK });
-  page.drawLine({ start:{x:rightX, y:sigLineY}, end:{x:rightX+lineW, y:sigLineY}, thickness:1.0, color:BLACK });
-
-  const leftLabel = (side === "buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
-  const rightLabel = "CMS Orita Calf Auctions, LLC Signature / Date";
-
-  page.drawText(leftLabel, { x:leftX, y:sigLineY-14, size:9.6, font, color:BLACK });
-  page.drawText(rightLabel, { x:rightX, y:sigLineY-14, size:9.6, font, color:BLACK });
+  // Second signature
+  page.drawLine({ 
+    start:{x:M+10, y:sigLineY2}, 
+    end:{x:M+10+lineW, y:sigLineY2}, 
+    thickness:1.0, 
+    color:BLACK 
+  });
+  
+  const label2 = "CMS Orita Calf Auctions, LLC Signature / Date";
+  page.drawText(label2, { x:M+10, y:sigLineY2-14, size:9.6, font, color:BLACK });
 
   return await pdfDoc.save();
 }
+
 
 /* ---------------- DOWNLOAD / ZIP ---------------- */
 function downloadBytes(bytes, filename, mime="application/pdf"){
@@ -1593,7 +1794,6 @@ function renderResults(){
   zipAll.disabled = total === 0;
 }
 
-
 /* ---------------- BUILD ---------------- */
 function wireBuild(){
   buildBtn.addEventListener("click", async ()=>{
@@ -1641,8 +1841,19 @@ function wireBuild(){
 
         const byBuyer = groupBy(csvRows, CONFIG.COLS.buyer);
         const byConsignor = groupBy(csvRows, CONFIG.COLS.consignor);
-        const repRows = csvRows.filter(r => safeStr(r[CONFIG.COLS.rep]) !== "");
-        const byRep = groupBy(repRows, CONFIG.COLS.rep);
+        
+        // Check for rep in both Representative and Rep columns
+        const repRows = csvRows.filter(r => {
+          const rep = getRepColumn(r);
+          return safeStr(rep) !== "";
+        });
+        const byRep = new Map();
+        for(const r of repRows){
+          const rep = safeStr(getRepColumn(r));
+          if(!rep) continue;
+          if(!byRep.has(rep)) byRep.set(rep, []);
+          byRep.get(rep).push(r);
+        }
 
         if(chkBuyer.checked){
           for(const [buyer, rows] of byBuyer.entries()){
@@ -1708,7 +1919,7 @@ function wireBuild(){
 
       // PRE-AUCTION GENERATION
       if(chkPreConsignor.checked || chkPreRep.checked){
-        // Pre-auction doesn't require all the post-auction columns, so just check for key pre-auction columns
+        // Pre-auction doesn't require all the post-auction columns
         const row0 = csvRows[0] || {};
         const keys = new Set(Object.keys(row0));
         const requiredPreCols = [
@@ -1737,6 +1948,7 @@ function wireBuild(){
         }
 
         if(chkPreRep.checked){
+          // Check for rep in Rep column (pre-auction uses "Rep" not "Representative")
           const repRows = csvRows.filter(r => safeStr(r[CONFIG.PRE_COLS.rep]) !== "");
           const byRep = groupBy(repRows, CONFIG.PRE_COLS.rep);
           for(const [rep, rows] of byRep.entries()){
