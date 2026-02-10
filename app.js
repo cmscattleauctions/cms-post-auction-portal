@@ -699,9 +699,17 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
     const desc = safeStr(record[CONFIG.PRE_COLS.description]);
     const desc2 = safeStr(record[CONFIG.PRE_COLS.secondDescription]);
     const notesText = [desc, desc2].filter(Boolean).join("  |  ");
-    const full = safeStr(`Notes: ${notesText}`);
+    const notesLine = safeStr(`Notes: ${notesText}`);
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
-    return wrapLines(font, full, CONFIG.PDF.notes, maxW);
+    const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
+    
+    // For rep mode, add CMS Internal Notes below (bold)
+    // Pre-auction CSVs may not have this column, so check if it exists
+    const cmsNotes = (mode === "rep" && record[CONFIG.COLS.cmsInternalNotes]) 
+      ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) 
+      : "";
+    
+    return { regularLines, cmsNotes };
   }
 
   function lotBlockHeight(record){
@@ -712,8 +720,18 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
     const gridH = labelH + valueH;
 
-    const notesLines = computeNotesLines(record);
-    const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+    const { regularLines, cmsNotes } = computeNotesLines(record);
+    let notesLineCount = regularLines.length;
+    
+    // Add lines for CMS Internal Notes if present (rep mode)
+    if(cmsNotes){
+      const cmsText = `CMS Internal Notes: ${cmsNotes}`;
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, cmsText, CONFIG.PDF.notes, maxW);
+      notesLineCount += cmsLines.length;
+    }
+    
+    const notesH = 8 + (notesLineCount * CONFIG.PDF.notesLineH) + 2;
 
     return row1H + gridH + notesH + CONFIG.PDF.lotGap;
   }
@@ -797,15 +815,35 @@ async function buildPreAuctionListingPdf({entityName, rows, mode}){
 
     y -= gridH;
 
-    const notesLines = computeNotesLines(r);
-    const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+    const { regularLines, cmsNotes } = computeNotesLines(r);
+    let notesLineCount = regularLines.length;
+    if(cmsNotes){
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, `CMS Internal Notes: ${cmsNotes}`, CONFIG.PDF.notes, maxW);
+      notesLineCount += cmsLines.length;
+    }
+    
+    const notesH = 8 + (notesLineCount * CONFIG.PDF.notesLineH) + 2;
     page.drawRectangle({ x:M, y:y-notesH, width:contentW, height:notesH, color: rgb(1,1,1), borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
 
     let ny = y - 12;
-    for(const ln of notesLines){
+    
+    // Draw regular notes
+    for(const ln of regularLines){
       page.drawText(ln, { x:M + CONFIG.PDF.padX, y:ny, size: CONFIG.PDF.notes, font, color: BLACK });
       ny -= CONFIG.PDF.notesLineH;
     }
+    
+    // Draw CMS Internal Notes (bold) for rep mode
+    if(cmsNotes){
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, `CMS Internal Notes: ${cmsNotes}`, CONFIG.PDF.notes, maxW);
+      for(const ln of cmsLines){
+        page.drawText(ln, { x:M + CONFIG.PDF.padX, y:ny, size: CONFIG.PDF.notes, font: fontBold, color: BLACK });
+        ny -= CONFIG.PDF.notesLineH;
+      }
+    }
+    
     y -= notesH;
 
     y -= CONFIG.PDF.lotGap;
@@ -990,9 +1028,14 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const desc = safeStr(record[CONFIG.COLS.description]);
     const desc2 = safeStr(record[CONFIG.COLS.secondDescription]);
     const notesText = [desc, desc2].filter(Boolean).join("  |  ");
-    const full = safeStr(`Notes: ${notesText}`);
+    const notesLine = safeStr(`Notes: ${notesText}`);
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
-    return wrapLines(font, full, CONFIG.PDF.notes, maxW);
+    const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
+    
+    // For rep mode, add CMS Internal Notes below (bold)
+    const cmsNotes = (mode === "rep") ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) : "";
+    
+    return { regularLines, cmsNotes };
   }
 
   function drawSingleLotBuyerAndRepBlock(r){
@@ -1075,8 +1118,18 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const valueH = CONFIG.PDF.cellPadY + (maxLines * CONFIG.PDF.gridLineH) + 2;
     const gridH = labelH + valueH;
 
-    const notesLines = computeNotesLines(record);
-    const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+    const { regularLines, cmsNotes } = computeNotesLines(record);
+    let notesLineCount = regularLines.length;
+    
+    // Add lines for CMS Internal Notes if present (rep mode)
+    if(cmsNotes){
+      const cmsText = `CMS Internal Notes: ${cmsNotes}`;
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, cmsText, CONFIG.PDF.notes, maxW);
+      notesLineCount += cmsLines.length;
+    }
+    
+    const notesH = 8 + (notesLineCount * CONFIG.PDF.notesLineH) + 2;
 
     const dmRowH = (mode === "buyer") ? 18 : 0;
     const preLinesH = singleLotMode ? 40 : 0;
@@ -1171,15 +1224,35 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     y -= gridH;
 
-    const notesLines = computeNotesLines(r);
-    const notesH = 8 + (notesLines.length * CONFIG.PDF.notesLineH) + 2;
+    const { regularLines, cmsNotes } = computeNotesLines(r);
+    let notesLineCount = regularLines.length;
+    if(cmsNotes){
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, `CMS Internal Notes: ${cmsNotes}`, CONFIG.PDF.notes, maxW);
+      notesLineCount += cmsLines.length;
+    }
+    
+    const notesH = 8 + (notesLineCount * CONFIG.PDF.notesLineH) + 2;
     page.drawRectangle({ x:M, y:y-notesH, width:contentW, height:notesH, color: rgb(1,1,1), borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
 
     let ny = y - 12;
-    for(const ln of notesLines){
+    
+    // Draw regular notes
+    for(const ln of regularLines){
       page.drawText(ln, { x:M + CONFIG.PDF.padX, y:ny, size: CONFIG.PDF.notes, font, color: BLACK });
       ny -= CONFIG.PDF.notesLineH;
     }
+    
+    // Draw CMS Internal Notes (bold) for rep mode
+    if(cmsNotes){
+      const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
+      const cmsLines = wrapLines(fontBold, `CMS Internal Notes: ${cmsNotes}`, CONFIG.PDF.notes, maxW);
+      for(const ln of cmsLines){
+        page.drawText(ln, { x:M + CONFIG.PDF.padX, y:ny, size: CONFIG.PDF.notes, font: fontBold, color: BLACK });
+        ny -= CONFIG.PDF.notesLineH;
+      }
+    }
+    
     y -= notesH;
 
     if(mode === "buyer"){
@@ -1279,12 +1352,11 @@ Contact our office at (806) 355-7505 or CMSCattleAuctions@gmail.com for account 
 /* =========================================================================
    PDF: BUYER/SELLER CONTRACTS — PORTRAIT, TABLE LAYOUT
    - Portrait 8.5×11
-   - Table with proper full borders
-   - Price left-aligned + highlighted
-   - Dynamic notes height
-   - Contract terms never cut off (overflow to page 2 with page numbers)
-   - Side-by-side signatures on last page
-   - Lot # in top box from CONFIG.COLS.lotNumber
+   - Optimized for single-page fit
+   - Terms section restructured (no separate Terms header)
+   - Location: FOB, City format
+   - Price with full border box
+   - Tight spacing throughout
    ========================================================================= */
 async function buildSalesContractPdf({row, side}){
   assertLibsLoaded();
@@ -1297,10 +1369,13 @@ async function buildSalesContractPdf({row, side}){
   // Portrait 8.5×11
   const W = 612;
   const H = 792;
-  const M = 36;           // left/right margin
+  const M = 36;
   const contentW = W - 2*M;
 
-  const topBarColor  = rgb(...hexToRgb01(CONFIG.COLORS.cmsBlue));
+  // Seller contracts use consignor color for top bar
+  const topBarHex = (side === "seller") ? CONFIG.COLORS.consignorColor : CONFIG.COLORS.cmsBlue;
+  const topBarColor  = rgb(...hexToRgb01(topBarHex));
+  
   const BLACK        = rgb(0, 0, 0);
   const DARK_GRAY    = rgb(0.3, 0.3, 0.3);
   const GRAY         = rgb(0.55, 0.55, 0.55);
@@ -1332,20 +1407,18 @@ async function buildSalesContractPdf({row, side}){
   const auctionTitle     = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
   const aDate            = safeStr(auctionDate.value) || "";
 
-  // ---- Table geometry ----
+  // ---- Table geometry (tightened for single-page fit) ----
   const tableW  = contentW;
   const labelW  = 130;
   const valueW  = tableW - labelW;
-  const secH    = 18;   // section header row height
-  const dataH   = 17;   // data row height (base — may grow for multiline)
-  const padX    = 8;    // inner horizontal padding
-  const termsLineH = 11.5;
-  const paraGap    = 3;
+  const secH    = 16;   // section header (reduced from 18)
+  const dataH   = 15;   // data row height (reduced from 17)
+  const padX    = 8;
+  const termsLineH = 10.5;  // tighter (was 11.5)
+  const paraGap    = 2;     // tighter (was 3)
 
-  // ---- Helper: draw one page's top bar + contract header ----
-  // Returns starting y for content on that page
+  // ---- Helper: draw page header ----
   function drawPageHeader(pg, pageNum){
-    // Blue top bar
     pg.drawRectangle({ x:0, y:H-8, width:W, height:8, color: topBarColor });
 
     const topY = H - 8 - 28;
@@ -1362,44 +1435,52 @@ async function buildSalesContractPdf({row, side}){
       x: M + contentW - cnW, y: topY, size: 16, font: fontBold, color: BLACK
     });
 
-    // Company address (right-aligned under Contract #)
-    const addrLines = [
-      "CMS Orita Calf Auctions, LLC",
-      "6900 I-40 West, Suite 135",
-      "Amarillo, TX 79106",
-      "(806) 355-7505"
-    ];
-    let ay = topY - 14;
-    const addrX = M + contentW;
-    pg.drawText(addrLines[0], { x: addrX - fontBold.widthOfTextAtSize(addrLines[0],9.6), y:ay, size:9.6, font:fontBold, color:BLACK });
-    for(let i=1;i<addrLines.length;i++){
-      ay -= 11;
-      pg.drawText(addrLines[i], { x: addrX - font.widthOfTextAtSize(addrLines[i],9.2), y:ay, size:9.2, font, color:BLACK });
+    // Page 1: Company address right-aligned
+    // Page 2+: Simple header
+    if(pageNum === 1){
+      const addrLines = [
+        "CMS Livestock Auction",  // Changed from CMS Orita Calf Auctions
+        "6900 I-40 West, Suite 135",
+        "Amarillo, TX 79106",
+        "(806) 355-7505"
+      ];
+      let ay = topY - 14;
+      const addrX = M + contentW;
+      pg.drawText(addrLines[0], { x: addrX - fontBold.widthOfTextAtSize(addrLines[0],9.6), y:ay, size:9.6, font:fontBold, color:BLACK });
+      for(let i=1;i<addrLines.length;i++){
+        ay -= 11;
+        pg.drawText(addrLines[i], { x: addrX - font.widthOfTextAtSize(addrLines[i],9.2), y:ay, size:9.2, font, color:BLACK });
+      }
+
+      // Auction info (left)
+      let lY = topY - 18;
+      pg.drawText(safeStr(auctionTitle), { x:M, y:lY, size:9.8, font, color:BLACK });
+      lY -= 12;
+      if(aDate){ pg.drawText(safeStr(aDate), { x:M, y:lY, size:9.8, font, color:BLACK }); lY -= 12; }
+    } else {
+      // Page 2+ header: simple centered text
+      const hdrText = "CMS Livestock Auction\n6900 I-40 West, Suite 135\nAmarillo, TX 79106\n(806) 355-7505";
+      const lines = hdrText.split('\n');
+      let hy = topY - 14;
+      for(const ln of lines){
+        const lw = font.widthOfTextAtSize(ln, 9);
+        pg.drawText(ln, { x: W/2 - lw/2, y: hy, size: 9, font, color: BLACK });
+        hy -= 11;
+      }
     }
 
-    // Auction info (left, below main title)
-    let lY = topY - 18;
-    pg.drawText(safeStr(auctionTitle), { x:M, y:lY, size:9.8, font, color:BLACK });
-    lY -= 12;
-    if(aDate){ pg.drawText(safeStr(aDate), { x:M, y:lY, size:9.8, font, color:BLACK }); lY -= 12; }
-
-    // Page number on overflow pages
+    // Page number on page 2+
     if(pageNum > 1){
       const pnText = `Page ${pageNum}`;
       const pnW = font.widthOfTextAtSize(pnText, 9);
       pg.drawText(pnText, { x: W/2 - pnW/2, y: 20, size:9, font, color:GRAY });
     }
 
-    return H - 8 - 120;  // content starts here
+    return pageNum === 1 ? (H - 8 - 110) : (H - 8 - 80);
   }
 
-  // ---- Helper: draw the full-border table row ----
-  // Draws a single horizontal rule for dividers and the outer border per-row
-  // We'll draw the outer box ONCE over the whole table after measuring height,
-  // and inner lines row by row.
-
   // ---- MEASURE table height (data rows may be multiline) ----
-  // Table sections for both sides:
+  // Restructured: Quantity & Description, then Terms (with Delivery, Location, Shrink, Slide)
   const tableData = [
     { section: "Quantity & Description" },
     { label: "Loads:",        value: loads },
@@ -1407,11 +1488,9 @@ async function buildSalesContractPdf({row, side}){
     { label: "Sex:",          value: sex },
     { label: "Base Weight:",  value: bw + " lbs" },
 
-    { section: "Delivery & Location" },
-    { label: "Delivery:",     value: del },
-    { label: "FOB Location:", value: `FOB ${loc}` },
-
     { section: "Terms" },
+    { label: "Delivery:",     value: del },
+    { label: "Location:",     value: `FOB, ${loc}` },  // Format: FOB, Clovis, NM
     { label: "Shrink:",       value: shr },
     { label: "Slide:",        value: sld },
   ];
@@ -1419,12 +1498,12 @@ async function buildSalesContractPdf({row, side}){
   // Pre-compute actual row heights (data rows may wrap)
   function rowHeight(item){
     if(item.section) return secH;
-    const lines = wrapLines(font, item.value, 10.0, valueW - padX*2);
-    return Math.max(dataH, lines.length * 12 + 5);
+    const lines = wrapLines(font, item.value, 9.5, valueW - padX*2);
+    return Math.max(dataH, lines.length * 11 + 4);
   }
 
   const rowHeights = tableData.map(rowHeight);
-  const priceRowH  = 22;
+  const priceRowH  = 20;  // tighter (was 22)
   const totalTableH = rowHeights.reduce((s,h)=>s+h, 0) + priceRowH;
 
   // ---- NOTES dynamic height ----
@@ -1432,31 +1511,30 @@ async function buildSalesContractPdf({row, side}){
   const desc2 = safeStr(row[CONFIG.COLS.secondDescription]);
   const notesRaw  = [desc, desc2].filter(Boolean).join("  |  ");
   const notesText = safeStr(`Notes: ${notesRaw}`);
-  const notesWrapW = contentW - padX*2 - 8;  // proper right padding
-  const notesWrapped = wrapLines(font, notesText, 9.0, notesWrapW);
-  const notesH = 8 + notesWrapped.length * 11 + 6;
+  const notesWrapW = contentW - padX*2 - 8;
+  const notesWrapped = wrapLines(font, notesText, 8.5, notesWrapW);  // smaller font
+  const notesH = 6 + notesWrapped.length * 10 + 4;  // tighter
 
   // ---- DOWN MONEY row height ----
-  const dmH = 22;
+  const dmH = 18;  // tighter (was 22)
 
-  // ---- CONTRACT TERMS: pre-render all lines so we know total ----
+  // ---- CONTRACT TERMS: pre-render all lines ----
   const rawTerms   = (side==="buyer") ? CONFIG.CONTRACT_TERMS.buyer : CONFIG.CONTRACT_TERMS.seller;
   const termsText2 = rawTerms.replace(/\{\{\s*Down Money Due\s*\}\}/g, downMoney);
   const boldStart  = "Buyer does hereby agree to a down payment of $30.00";
   const termsParas = termsText2.split("\n").map(s=>safeStr(s)).filter(p=>p.length>0);
 
-  // Build flat list of {text, bold} lines
   const termLines = [];
   for(const p of termsParas){
     const useBold = (side==="buyer") && p.startsWith(boldStart);
     const f = useBold ? fontBold : font;
-    const wrapped = wrapLines(f, p, 9.5, contentW - padX*2);
+    const wrapped = wrapLines(f, p, 9.0, contentW - padX*2);  // smaller font
     for(const ln of wrapped) termLines.push({ text: ln, bold: useBold });
-    termLines.push({ text: "", gap: true });  // paragraph gap
+    termLines.push({ text: "", gap: true });
   }
 
   // ---- SIGNATURE block height ----
-  const sigBlockH = 60;
+  const sigBlockH = 50;  // tighter
 
   // ---- Page 1 setup ----
   let pages = [pdfDoc.addPage([W,H])];
@@ -1464,48 +1542,47 @@ async function buildSalesContractPdf({row, side}){
   let curPage = pages[0];
   let y = drawPageHeader(curPage, 1);
 
-  // ---- Intro text ----
-  y -= 28;   // 2 lines lower than before
+  // ---- Intro text (starts right after phone number) ----
+  y -= 4;  // minimal gap
 
   if(side === "buyer"){
     const introText = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
-    const introLines = wrapLines(font, introText, 10.4, contentW - 10);
+    const introLines = wrapLines(font, introText, 10.0, contentW - 10);
     for(const ln of introLines){
-      curPage.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
-      y -= 13;
+      curPage.drawText(ln, { x:M, y, size:10.0, font, color:BLACK });
+      y -= 11.5;
     }
-    y -= 8;
+    y -= 6;  // reduced from 8
     curPage.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
-    y -= 15;
+    y -= 14;
     if(rep){
       curPage.drawText(rep, { x:M, y, size:10.6, font, color:BLACK });
-      y -= 15;
+      y -= 14;
     }
   } else {
     const introText = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
-    const introLines = wrapLines(font, introText, 10.4, contentW - 10);
+    const introLines = wrapLines(font, introText, 10.0, contentW - 10);
     for(const ln of introLines){
-      curPage.drawText(ln, { x:M, y, size:10.4, font, color:BLACK });
-      y -= 13;
+      curPage.drawText(ln, { x:M, y, size:10.0, font, color:BLACK });
+      y -= 11.5;
     }
-    y -= 8;
+    y -= 6;  // reduced from 8
   }
 
-  y -= 8;
+  y -= 4;  // reduced gap before top box
 
   // ---- TOP BOX: Lot # + (Seller for seller side) + Breed ----
-  // Calculate top box height
   const topBoxLines = [];
   if(lotNumber){ topBoxLines.push({ text: `Lot # ${lotNumber}`, bold: true, size: 10.6 }); }
   if(side === "seller"){ topBoxLines.push({ text: `Seller: ${consignor}`, bold: true, size: 10.6 }); }
   topBoxLines.push({ text: safeStr(breed), bold: side === "buyer", size: 9.6 });
 
-  const topBoxH = 10 + topBoxLines.length * 14;
+  const topBoxH = 8 + topBoxLines.length * 13;  // tighter
   curPage.drawRectangle({
     x:M, y:y-topBoxH, width:contentW, height:topBoxH,
     color:WHITE, borderWidth:1.0, borderColor:GRAY
   });
-  let bby = y - 12;
+  let bby = y - 11;
   for(const item of topBoxLines){
     curPage.drawText(item.text, {
       x: M+padX, y: bby,
@@ -1513,9 +1590,9 @@ async function buildSalesContractPdf({row, side}){
       font: item.bold ? fontBold : font,
       color: BLACK
     });
-    bby -= 14;
+    bby -= 13;
   }
-  y -= topBoxH + 4;
+  y -= topBoxH + 3;  // reduced from 4
 
   // ---- TABLE ----
   // Draw outer border first
@@ -1535,12 +1612,12 @@ async function buildSalesContractPdf({row, side}){
         x:M, y:ty-rh, width:tableW, height:rh,
         color:SECTION_BG, borderWidth:0
       });
-      // Redraw left + right borders (background overwrites them)
+      // Redraw left + right borders
       curPage.drawLine({ start:{x:M,     y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY });
       curPage.drawLine({ start:{x:M+tableW, y:ty}, end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY });
 
       curPage.drawText(item.section, {
-        x:M+padX, y:ty-13, size:10.0, font:fontBold, color:BLACK
+        x:M+padX, y:ty-11, size:9.5, font:fontBold, color:BLACK
       });
     } else {
       // Data row — redraw left + right side borders
@@ -1549,7 +1626,7 @@ async function buildSalesContractPdf({row, side}){
 
       // Label
       curPage.drawText(item.label, {
-        x:M+padX, y:ty-12, size:9.5, font, color:DARK_GRAY
+        x:M+padX, y:ty-11, size:9.0, font, color:DARK_GRAY
       });
 
       // Vertical divider
@@ -1559,15 +1636,15 @@ async function buildSalesContractPdf({row, side}){
       });
 
       // Value (may wrap)
-      const vLines = wrapLines(font, item.value, 10.0, valueW - padX*2);
-      let vy = ty - 12;
+      const vLines = wrapLines(font, item.value, 9.5, valueW - padX*2);
+      let vy = ty - 11;
       for(const vl of vLines){
-        curPage.drawText(vl, { x:M+labelW+padX, y:vy, size:10.0, font, color:BLACK });
-        vy -= 12;
+        curPage.drawText(vl, { x:M+labelW+padX, y:vy, size:9.5, font, color:BLACK });
+        vy -= 11;
       }
     }
 
-    // Row bottom divider (except last data row before price)
+    // Row bottom divider
     curPage.drawLine({
       start:{x:M, y:ty-rh}, end:{x:M+tableW, y:ty-rh},
       thickness:0.8, color:GRAY
@@ -1576,41 +1653,37 @@ async function buildSalesContractPdf({row, side}){
     ty -= rh;
   }
 
-  // ---- PRICE ROW (highlighted, left-aligned label) ----
+  // ---- PRICE ROW (highlighted, left-aligned, FULL BORDER BOX) ----
   curPage.drawRectangle({
     x:M, y:ty-priceRowH, width:tableW, height:priceRowH,
-    color:HIGHLIGHT_BG, borderWidth:0
+    color:HIGHLIGHT_BG, borderWidth:1.0, borderColor:GRAY  // Add full border
   });
-  // Restore all 4 borders on price row
-  curPage.drawLine({ start:{x:M,        y:ty},          end:{x:M,          y:ty-priceRowH}, thickness:1.0, color:GRAY });
-  curPage.drawLine({ start:{x:M+tableW, y:ty},          end:{x:M+tableW,   y:ty-priceRowH}, thickness:1.0, color:GRAY });
-  curPage.drawLine({ start:{x:M,        y:ty-priceRowH},end:{x:M+tableW,   y:ty-priceRowH}, thickness:1.0, color:GRAY });
 
-  // Left-aligned label + value matching other rows
+  // Left-aligned label + value
   curPage.drawText("Purchase Price:", {
-    x:M+padX, y:ty-14, size:9.5, font:fontBold, color:DARK_GRAY
+    x:M+padX, y:ty-13, size:9.0, font:fontBold, color:DARK_GRAY
   });
   curPage.drawLine({ start:{x:M+labelW,y:ty}, end:{x:M+labelW,y:ty-priceRowH}, thickness:0.8, color:GRAY });
   curPage.drawText(`${price}/cwt`, {
-    x:M+labelW+padX, y:ty-14, size:12.0, font:fontBold, color:BLACK
+    x:M+labelW+padX, y:ty-13, size:11.5, font:fontBold, color:BLACK
   });
 
   ty -= priceRowH;
   y = ty;
-  y -= 6;
+  y -= 4;  // reduced from 6
 
   // ---- NOTES (dynamic height, proper right padding) ----
   curPage.drawRectangle({
     x:M, y:y-notesH, width:contentW, height:notesH,
     color:WHITE, borderWidth:1.0, borderColor:GRAY
   });
-  let ny = y - 10;
+  let ny = y - 8;
   for(const ln of notesWrapped){
-    curPage.drawText(ln, { x:M+padX, y:ny, size:9.0, font, color:BLACK });
-    ny -= 11;
+    curPage.drawText(ln, { x:M+padX, y:ny, size:8.5, font, color:BLACK });
+    ny -= 10;
   }
   y -= notesH;
-  y -= 6;
+  y -= 4;  // reduced from 6
 
   // ---- DOWN MONEY (buyer only) ----
   if(side === "buyer"){
@@ -1620,7 +1693,7 @@ async function buildSalesContractPdf({row, side}){
         color:HIGHLIGHT_BG, borderWidth:1.0, borderColor:GRAY
       });
       curPage.drawText(`Down Money Due: ${downMoney}`, {
-        x:M+padX, y:y-15, size:11.0, font:fontBold, color:BLACK
+        x:M+padX, y:y-12, size:10.5, font:fontBold, color:BLACK
       });
     } else {
       curPage.drawRectangle({
@@ -1628,13 +1701,13 @@ async function buildSalesContractPdf({row, side}){
         color:WHITE, borderWidth:1.0, borderColor:GRAY
       });
       curPage.drawText(`Down Money Due: ${downMoney}`, {
-        x:M+padX, y:y-15, size:10.0, font, color:BLACK
+        x:M+padX, y:y-12, size:9.5, font, color:BLACK
       });
     }
     y -= dmH;
-    y -= 26;   // 2 clear lines before terms
+    y -= 18;   // reduced from 26
   } else {
-    y -= 26;   // 2 clear lines before terms (after notes on seller)
+    y -= 18;   // reduced from 26 (after notes on seller)
   }
 
   // ---- CONTRACT TERMS (never cut off, overflow gracefully) ----
@@ -1643,7 +1716,7 @@ async function buildSalesContractPdf({row, side}){
 
   // Signature block helper — draws side-by-side sigs on current page
   function drawSignatures(pg){
-    const sigY  = 72;
+    const sigY  = 60;  // tighter
     const sigW  = (contentW - 30) / 2;
     const lX    = M;
     const rX    = M + sigW + 30;
@@ -1652,8 +1725,8 @@ async function buildSalesContractPdf({row, side}){
     pg.drawLine({ start:{x:rX, y:sigY}, end:{x:rX+sigW, y:sigY}, thickness:1.0, color:BLACK });
 
     const lLabel = (side==="buyer") ? "Buyer Signature / Date" : "Seller Signature / Date";
-    pg.drawText(lLabel,                               { x:lX, y:sigY-14, size:9.2, font, color:BLACK });
-    pg.drawText("CMS Orita Calf Auctions, LLC Signature / Date", { x:rX, y:sigY-14, size:9.2, font, color:BLACK });
+    pg.drawText(lLabel,                               { x:lX, y:sigY-13, size:8.5, font, color:BLACK });
+    pg.drawText("CMS Livestock Auction Signature / Date", { x:rX, y:sigY-13, size:8.5, font, color:BLACK });
   }
 
   // Add a new page and return starting y
@@ -1661,19 +1734,11 @@ async function buildSalesContractPdf({row, side}){
     pageNum++;
     const pg = pdfDoc.addPage([W,H]);
     pages.push(pg);
-    // Page number on both pages now
-    const pnText = `Page ${pageNum}`;
-    const pnW = font.widthOfTextAtSize(pnText, 9);
-    pg.drawText(pnText, { x:W/2-pnW/2, y:20, size:9, font, color:GRAY });
-    // Also add page number to previous page
-    const prevPg = pages[pageNum-2];
-    const pnPrev = `Page ${pageNum-1}`;
-    const pnPrevW = font.widthOfTextAtSize(pnPrev, 9);
-    prevPg.drawText(pnPrev, { x:W/2-pnPrevW/2, y:20, size:9, font, color:GRAY });
-    return { pg, startY: H - 50 };
+    const startY = drawPageHeader(pg, pageNum);
+    return { pg, startY };
   }
 
-  const SIG_CLEARANCE = 90;  // space needed at bottom for signatures
+  const SIG_CLEARANCE = 80;  // space needed at bottom for signatures
 
   for(let i=0; i<termLines.length; i++){
     const tl = termLines[i];
@@ -1689,12 +1754,18 @@ async function buildSalesContractPdf({row, side}){
       const { pg, startY } = addContractPage();
       curPage = pg;
       y = startY;
+      
+      // Add page number to previous page
+      const prevPg = pages[pageNum-2];
+      const pnPrev = `Page ${pageNum-1}`;
+      const pnPrevW = font.widthOfTextAtSize(pnPrev, 9);
+      prevPg.drawText(pnPrev, { x:W/2-pnPrevW/2, y:20, size:9, font, color:GRAY });
     }
 
     curPage.drawText(tl.text, {
       x: termsX,
       y,
-      size: 9.5,
+      size: 9.0,
       font: tl.bold ? fontBold : font,
       color: BLACK
     });
