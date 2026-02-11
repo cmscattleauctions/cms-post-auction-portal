@@ -315,6 +315,16 @@ function safeStr(v){
     .replace(/['']/g, "'")
     .replace(/[–—]/g, "-")
     .replace(/…/g, "...")
+    // Remove other common problem characters
+    .replace(/[◆◇■□●○▪▫★☆♦♥♠♣]/g, "*")  // Shapes/symbols → asterisk
+    .replace(/[•]/g, "-")  // Bullet → dash
+    .replace(/[™®©]/g, "")  // Trademark symbols → remove
+    .replace(/[¢£¥€]/g, "$")  // Currency symbols → dollar
+    .replace(/[°]/g, " deg")  // Degree symbol
+    .replace(/[×]/g, "x")  // Multiplication sign
+    .replace(/[÷]/g, "/")  // Division sign
+    // Remove any remaining non-WinAnsi characters (keep only printable ASCII + extended Latin)
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1965,7 +1975,7 @@ function getWeightClass(baseWeight){
 
 function isPO(row){
   const p = safeStr(row[CONFIG.COLS.price]);
-  return p.toUpperCase() === 'PO' || p === '';
+  return p.toUpperCase() === 'PO' || p.toUpperCase() === 'SCRATCH' || p === '';
 }
 
 function groupLotsByType(rows){
@@ -2085,13 +2095,25 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
     const price = includePrice ? priceDisplay(row[CONFIG.COLS.price]) + "/cwt" : "-";
     const total = includePrice ? formatMoney(calculateLotTotal(row)) : "-";
 
-    page.drawText(lotNum, { x:M+2, y:y-9, size:8, font, color:BLACK });
-    page.drawText(head, { x:M+52, y:y-9, size:8, font, color:BLACK });
-    page.drawText(sex, { x:M+97, y:y-9, size:8, font, color:BLACK });
-    page.drawText(baseWt, { x:M+157, y:y-9, size:8, font, color:BLACK });
-    page.drawText(delivery, { x:M+217, y:y-9, size:8, font, color:BLACK });
-    page.drawText(price, { x:M+297, y:y-9, size:8, font, color:BLACK });
-    page.drawText(total, { x:M+367, y:y-9, size:8, font, color:BLACK });
+    // Truncate text if it's too wide for the column
+    function truncateText(text, maxWidth, fontSize) {
+      let truncated = text;
+      while (font.widthOfTextAtSize(truncated, fontSize) > maxWidth && truncated.length > 0) {
+        truncated = truncated.slice(0, -1);
+      }
+      if (truncated.length < text.length && truncated.length > 3) {
+        truncated = truncated.slice(0, -3) + "...";
+      }
+      return truncated;
+    }
+
+    page.drawText(truncateText(lotNum, 46, 8), { x:M+2, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(head, 41, 8), { x:M+52, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(sex, 56, 8), { x:M+97, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(baseWt, 56, 8), { x:M+157, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(delivery, 76, 8), { x:M+217, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(price, 66, 8), { x:M+297, y:y-9, size:8, font, color:BLACK });
+    page.drawText(truncateText(total, 71, 8), { x:M+367, y:y-9, size:8, font, color:BLACK });
     
     y -= 12;
   }
@@ -2137,11 +2159,11 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
     y -= 25;
   }
 
-  // PASSED/PO LOTS
+  // PASSED/PO/SCRATCH LOTS
   if(poRows.length > 0){
     if(y < 100){ newPage(); }
     
-    drawSectionHeader("PASSED/PO LOTS");
+    drawSectionHeader("PASSED/PO/SCRATCH LOTS");
     
     // PO header (no price/total columns)
     const poCols = [
@@ -2157,6 +2179,18 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
     }
     y -= 14;
 
+    // Truncate helper (same as in drawLotRow)
+    function truncateTextPO(text, maxWidth, fontSize) {
+      let truncated = text;
+      while (font.widthOfTextAtSize(truncated, fontSize) > maxWidth && truncated.length > 0) {
+        truncated = truncated.slice(0, -1);
+      }
+      if (truncated.length < text.length && truncated.length > 3) {
+        truncated = truncated.slice(0, -3) + "...";
+      }
+      return truncated;
+    }
+
     const poSorted = [...poRows].sort(sortLots);
     for(const row of poSorted){
       if(y < 50){ newPage(); }
@@ -2167,18 +2201,18 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
       const baseWt = safeStr(row[CONFIG.COLS.baseWeight]) + " lbs";
       const delivery = safeStr(row[CONFIG.COLS.delivery]);
 
-      page.drawText(lotNum, { x:M+2, y:y-9, size:8, font, color:DARK_GRAY });
-      page.drawText(head, { x:M+52, y:y-9, size:8, font, color:DARK_GRAY });
-      page.drawText(sex, { x:M+97, y:y-9, size:8, font, color:DARK_GRAY });
-      page.drawText(baseWt, { x:M+157, y:y-9, size:8, font, color:DARK_GRAY });
-      page.drawText(delivery, { x:M+217, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(truncateTextPO(lotNum, 46, 8), { x:M+2, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(truncateTextPO(head, 41, 8), { x:M+52, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(truncateTextPO(sex, 56, 8), { x:M+97, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(truncateTextPO(baseWt, 56, 8), { x:M+157, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(truncateTextPO(delivery, 76, 8), { x:M+217, y:y-9, size:8, font, color:DARK_GRAY });
       
       y -= 12;
     }
 
     const poHead = poRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
     if(y < 40){ newPage(); }
-    page.drawText(`PO'd: ${poHead} head`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+    page.drawText(`Not Sold: ${poHead} head`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
     y -= 20;
   }
 
