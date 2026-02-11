@@ -154,18 +154,26 @@ let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let chkPreConsignor, chkPreRep;
 let chkShowCmsNotes;
+let chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkAuctionRecap;
 let buildBtn, builderError;
+
+let csvPreview, csvPreviewContent;
 
 let listBuyerReports, listLotByLot, listConsignorReports, listRepReports;
 let listBuyerContracts, listSellerContracts;
 let listPreConsignorReports, listPreRepReports;
+let listSalesByConsignor, listSalesByBuyer, listSalesByRep;
+let listCompleteBuyer, listCompleteConsignor, listAuctionRecap;
 
 let zipBuyerReports, zipLotByLot, zipConsignorReports, zipRepReports, zipAll;
 let zipBuyerContracts, zipSellerContracts;
 let zipPreConsignorReports, zipPreRepReports;
+let zipSalesByConsignor, zipSalesByBuyer, zipSalesByRep, zipSpecialReports;
 
 let togBuyerReports, togLotByLot, togBuyerContracts, togSellerContracts, togConsignorReports, togRepReports;
 let togPreConsignorReports, togPreRepReports;
+let togSalesByConsignor, togSalesByBuyer, togSalesByRep;
+let togCompleteBuyer, togCompleteConsignor, togAuctionRecap;
 
 let backBtn, exitBtn, resultsMeta;
 
@@ -201,6 +209,9 @@ function bindDom(){
   buildBtn = mustGet("buildBtn");
   builderError = mustGet("builderError");
 
+  csvPreview = mustGet("csvPreview");
+  csvPreviewContent = mustGet("csvPreviewContent");
+
   listBuyerReports = mustGet("listBuyerReports");
   listLotByLot = mustGet("listLotByLot");
   listConsignorReports = mustGet("listConsignorReports");
@@ -211,6 +222,13 @@ function bindDom(){
   listPreConsignorReports = mustGet("listPreConsignorReports");
   listPreRepReports = mustGet("listPreRepReports");
 
+  listSalesByConsignor = mustGet("listSalesByConsignor");
+  listSalesByBuyer = mustGet("listSalesByBuyer");
+  listSalesByRep = mustGet("listSalesByRep");
+  listCompleteBuyer = mustGet("listCompleteBuyer");
+  listCompleteConsignor = mustGet("listCompleteConsignor");
+  listAuctionRecap = mustGet("listAuctionRecap");
+
   zipBuyerReports = mustGet("zipBuyerReports");
   zipLotByLot = mustGet("zipLotByLot");
   zipBuyerContracts = mustGet("zipBuyerContracts");
@@ -220,6 +238,12 @@ function bindDom(){
 
   zipPreConsignorReports = mustGet("zipPreConsignorReports");
   zipPreRepReports = mustGet("zipPreRepReports");
+  
+  zipSalesByConsignor = mustGet("zipSalesByConsignor");
+  zipSalesByBuyer = mustGet("zipSalesByBuyer");
+  zipSalesByRep = mustGet("zipSalesByRep");
+  zipSpecialReports = mustGet("zipSpecialReports");
+  
   zipAll = mustGet("zipAll");
 
   togBuyerReports = mustGet("togBuyerReports");
@@ -231,6 +255,13 @@ function bindDom(){
 
   togPreConsignorReports = mustGet("togPreConsignorReports");
   togPreRepReports = mustGet("togPreRepReports");
+
+  togSalesByConsignor = mustGet("togSalesByConsignor");
+  togSalesByBuyer = mustGet("togSalesByBuyer");
+  togSalesByRep = mustGet("togSalesByRep");
+  togCompleteBuyer = mustGet("togCompleteBuyer");
+  togCompleteConsignor = mustGet("togCompleteConsignor");
+  togAuctionRecap = mustGet("togAuctionRecap");
 
   backBtn = mustGet("backBtn");
   exitBtn = mustGet("exitBtn");
@@ -477,6 +508,162 @@ function setBuildEnabled(){
     chkPreRep.checked;
 
   buildBtn.disabled = !(csvRows.length > 0 && anyChecked);
+  
+  // Update CSV preview
+  updateCsvPreview();
+}
+
+function updateCsvPreview(){
+  if(csvRows.length === 0 || !anyChecked()){
+    hide(csvPreview);
+    return;
+  }
+
+  const counts = {
+    buyerReports: 0,
+    lotByLot: 0,
+    buyerContracts: 0,
+    sellerContracts: 0,
+    consignorReports: 0,
+    repReports: 0,
+    preConsignorReports: 0,
+    preRepReports: 0
+  };
+
+  // Count unique entities
+  if(chkBuyer.checked){
+    const buyers = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
+    counts.buyerReports = buyers.size;
+  }
+
+  if(chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked){
+    const contracts = csvRows.filter(r => getContract(r)).length;
+    if(chkLotByLot.checked) counts.lotByLot = contracts;
+    if(chkBuyerContracts.checked) counts.buyerContracts = contracts;
+    if(chkSellerContracts.checked) counts.sellerContracts = contracts;
+  }
+
+  if(chkConsignor.checked){
+    const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
+    counts.consignorReports = consignors.size;
+  }
+
+  if(chkRep.checked){
+    const reps = new Set(csvRows.map(r => getRepColumn(r)).filter(Boolean));
+    counts.repReports = reps.size;
+  }
+
+  if(chkPreConsignor.checked){
+    const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.consignor])).filter(Boolean));
+    counts.preConsignorReports = consignors.size;
+  }
+
+  if(chkPreRep.checked){
+    const reps = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.rep])).filter(Boolean));
+    counts.preRepReports = reps.size;
+  }
+
+  // Build preview HTML
+  const lines = [];
+  lines.push(`✓ CSV loaded: <b>${csvRows.length} rows</b>`);
+  lines.push(`✓ Will generate:`);
+  
+  const items = [];
+  if(counts.buyerReports) items.push(`${counts.buyerReports} Buyer Report${counts.buyerReports > 1 ? 's' : ''}`);
+  if(counts.lotByLot) items.push(`${counts.lotByLot} Contract Detail${counts.lotByLot > 1 ? 's' : ''}`);
+  if(counts.buyerContracts) items.push(`${counts.buyerContracts} Buyer Contract${counts.buyerContracts > 1 ? 's' : ''}`);
+  if(counts.sellerContracts) items.push(`${counts.sellerContracts} Seller Contract${counts.sellerContracts > 1 ? 's' : ''}`);
+  if(counts.consignorReports) items.push(`${counts.consignorReports} Consignor Trade Confirmation${counts.consignorReports > 1 ? 's' : ''}`);
+  if(counts.repReports) items.push(`${counts.repReports} Rep Trade Confirmation${counts.repReports > 1 ? 's' : ''}`);
+  if(counts.preConsignorReports) items.push(`${counts.preConsignorReports} Consignor Listing Confirmation${counts.preConsignorReports > 1 ? 's' : ''}`);
+  if(counts.preRepReports) items.push(`${counts.preRepReports} Rep Listing Confirmation${counts.preRepReports > 1 ? 's' : ''}`);
+
+  items.forEach(item => lines.push(`&nbsp;&nbsp;• ${item}`));
+
+  csvPreviewContent.innerHTML = lines.join('<br>');
+  show(csvPreview);
+}
+
+function anyChecked(){
+  return chkBuyer.checked ||
+    chkConsignor.checked ||
+    chkRep.checked ||
+    chkLotByLot.checked ||
+    chkBuyerContracts.checked ||
+    chkSellerContracts.checked ||
+    chkPreConsignor.checked ||
+    chkPreRep.checked;
+}
+
+/* ---------------- SECTION SELECT/DESELECT ---------------- */
+function wireSectionSelectors(){
+  // Pre-Auction
+  document.getElementById("selectAllPre").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkPreConsignor.checked = true;
+    chkPreRep.checked = true;
+    setBuildEnabled();
+  });
+  document.getElementById("deselectAllPre").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkPreConsignor.checked = false;
+    chkPreRep.checked = false;
+    setBuildEnabled();
+  });
+
+  // Post-Auction
+  document.getElementById("selectAllPost").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkBuyer.checked = true;
+    chkLotByLot.checked = true;
+    chkConsignor.checked = true;
+    chkRep.checked = true;
+    setBuildEnabled();
+  });
+  document.getElementById("deselectAllPost").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkBuyer.checked = false;
+    chkLotByLot.checked = false;
+    chkConsignor.checked = false;
+    chkRep.checked = false;
+    setBuildEnabled();
+  });
+
+  // Contracts
+  document.getElementById("selectAllContracts").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkBuyerContracts.checked = true;
+    chkSellerContracts.checked = true;
+    setBuildEnabled();
+  });
+  document.getElementById("deselectAllContracts").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkBuyerContracts.checked = false;
+    chkSellerContracts.checked = false;
+    setBuildEnabled();
+  });
+
+  // Special Reports
+  document.getElementById("selectAllSpecial").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkSalesByConsignor.checked = true;
+    chkSalesByBuyer.checked = true;
+    chkSalesByRep.checked = true;
+    chkCompleteBuyer.checked = true;
+    chkCompleteConsignor.checked = true;
+    chkAuctionRecap.checked = true;
+    setBuildEnabled();
+  });
+  document.getElementById("deselectAllSpecial").addEventListener("click", (e) => {
+    e.preventDefault();
+    chkSalesByConsignor.checked = false;
+    chkSalesByBuyer.checked = false;
+    chkSalesByRep.checked = false;
+    chkCompleteBuyer.checked = false;
+    chkCompleteConsignor.checked = false;
+    chkAuctionRecap.checked = false;
+    setBuildEnabled();
+  });
 }
 
 /* ---------------- RESULTS DROPDOWNS ---------------- */
@@ -490,6 +677,12 @@ function wireResultsDropdowns(){
     [togRepReports, listRepReports],
     [togPreConsignorReports, listPreConsignorReports],
     [togPreRepReports, listPreRepReports],
+    [togSalesByConsignor, listSalesByConsignor],
+    [togSalesByBuyer, listSalesByBuyer],
+    [togSalesByRep, listSalesByRep],
+    [togCompleteBuyer, listCompleteBuyer],
+    [togCompleteConsignor, listCompleteConsignor],
+    [togAuctionRecap, listAuctionRecap],
   ];
 
   for(const [btn, list] of pairs){
@@ -1781,6 +1974,631 @@ async function buildSalesContractPdf({row, side}){
   return await pdfDoc.save();
 }
 
+/* =========================================================================
+   SPECIAL REPORTS: HELPER FUNCTIONS
+   ========================================================================= */
+
+function getWeightClass(baseWeight){
+  const w = toNumber(baseWeight);
+  if(w < 400) return "<400 lbs";
+  if(w <= 500) return "400-500 lbs";
+  return "500+ lbs";
+}
+
+function isPO(row){
+  const p = safeStr(row[CONFIG.COLS.price]);
+  return p.toUpperCase() === 'PO' || p === '';
+}
+
+function groupLotsByType(rows){
+  const groups = new Map();
+  for(const r of rows){
+    const type = safeStr(r[CONFIG.COLS.type]) || "Other";
+    if(!groups.has(type)) groups.set(type, []);
+    groups.get(type).push(r);
+  }
+  return groups;
+}
+
+function calculateLotTotal(row){
+  if(isPO(row)) return 0;
+  const head = toNumber(row[CONFIG.COLS.head]);
+  const baseWt = toNumber(row[CONFIG.COLS.baseWeight]);
+  const price = toNumber(row[CONFIG.COLS.price]);
+  return (head * baseWt * price) / 100;
+}
+
+
+/* =========================================================================
+   SPECIAL REPORT 1-3: SALES SUMMARY (Consignor/Buyer/Rep)
+   Individual PDFs with sold/PO sections, grouped by type
+   ========================================================================= */
+async function buildSalesSummaryPdf({entityName, rows, mode}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const W = 612;
+  const H = 792;
+  const M = 36;
+  const contentW = W - 2*M;
+
+  const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.55, 0.55, 0.55);
+  const DARK_GRAY = rgb(0.3,0.3,0.3);
+  const LIGHT_BG = rgb(0.95, 0.95, 0.95);
+
+  let page = pdfDoc.addPage([W,H]);
+  let y = H - 50;
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+
+  // Header
+  const title = mode === "consignor" ? "SALES SUMMARY - CONSIGNOR" : 
+                mode === "buyer" ? "SALES SUMMARY - BUYER" : "SALES SUMMARY - REPRESENTATIVE";
+  page.drawText(title, { x:M, y, size:14, font:fontBold, color:BLACK });
+  y -= 16;
+  page.drawText(entityName, { x:M, y, size:12, font:fontBold, color:BLACK });
+  y -= 14;
+  page.drawText(auctionTitle, { x:M, y, size:9, font, color:DARK_GRAY });
+  y -= 20;
+
+  // Calculate totals
+  const soldRows = rows.filter(r => !isPO(r));
+  const poRows = rows.filter(r => isPO(r));
+  
+  const totalHead = soldRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+  const totalSales = soldRows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+  const avgPrice = totalHead > 0 ? (totalSales / (soldRows.reduce((sum,r) => sum + (toNumber(r[CONFIG.COLS.head]) * toNumber(r[CONFIG.COLS.baseWeight])), 0) / 100)) : 0;
+
+  // Summary box
+  page.drawText(`Total Head: ${totalHead}`, { x:M, y, size:10, font:fontBold, color:BLACK });
+  page.drawText(`Total Sales: ${formatMoney(totalSales)}`, { x:M+200, y, size:10, font:fontBold, color:BLACK });
+  page.drawText(`Avg Price: $${avgPrice.toFixed(2)}/cwt`, { x:M+380, y, size:10, font:fontBold, color:BLACK });
+  y -= 25;
+
+  // Draw horizontal line
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+  y -= 15;
+
+  function newPage(){
+    page = pdfDoc.addPage([W,H]);
+    y = H - 50;
+  }
+
+  function drawSectionHeader(text){
+    if(y < 80){ newPage(); }
+    page.drawRectangle({ x:M, y:y-16, width:contentW, height:16, color:LIGHT_BG, borderWidth:0 });
+    page.drawText(text, { x:M+4, y:y-12, size:10, font:fontBold, color:BLACK });
+    y -= 18;
+  }
+
+  function drawTableHeader(){
+    if(y < 80){ newPage(); }
+    const cols = [
+      {label:"Lot #", x:M, w:50},
+      {label:"Head", x:M+50, w:45},
+      {label:"Sex", x:M+95, w:60},
+      {label:"Base Wt", x:M+155, w:60},
+      {label:"Delivery", x:M+215, w:80},
+      {label:"Price", x:M+295, w:70},
+      {label:"Total", x:M+365, w:75},
+    ];
+    
+    for(const c of cols){
+      page.drawText(c.label, { x:c.x+2, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+    }
+    y -= 14;
+  }
+
+  function drawLotRow(row, includePrice=true){
+    if(y < 50){ newPage(); drawTableHeader(); }
+    
+    const lotNum = safeStr(row[CONFIG.COLS.lotNumber]) || "";
+    const head = safeStr(row[CONFIG.COLS.head]);
+    const sex = safeStr(row[CONFIG.COLS.sex]);
+    const baseWt = safeStr(row[CONFIG.COLS.baseWeight]) + " lbs";
+    const delivery = safeStr(row[CONFIG.COLS.delivery]);
+    const price = includePrice ? priceDisplay(row[CONFIG.COLS.price]) + "/cwt" : "-";
+    const total = includePrice ? formatMoney(calculateLotTotal(row)) : "-";
+
+    page.drawText(lotNum, { x:M+2, y:y-9, size:8, font, color:BLACK });
+    page.drawText(head, { x:M+52, y:y-9, size:8, font, color:BLACK });
+    page.drawText(sex, { x:M+97, y:y-9, size:8, font, color:BLACK });
+    page.drawText(baseWt, { x:M+157, y:y-9, size:8, font, color:BLACK });
+    page.drawText(delivery, { x:M+217, y:y-9, size:8, font, color:BLACK });
+    page.drawText(price, { x:M+297, y:y-9, size:8, font, color:BLACK });
+    page.drawText(total, { x:M+367, y:y-9, size:8, font, color:BLACK });
+    
+    y -= 12;
+  }
+
+  // SOLD LOTS
+  if(soldRows.length > 0){
+    drawSectionHeader("SOLD LOTS");
+    drawTableHeader();
+
+    const byType = groupLotsByType(soldRows);
+    const sortedTypes = Array.from(byType.keys()).sort();
+
+    for(const type of sortedTypes){
+      const typeRows = byType.get(type).sort(sortLots);
+      
+      // Type header
+      if(y < 60){ newPage(); }
+      page.drawText(type.toUpperCase(), { x:M, y:y-10, size:9, font:fontBold, color:BLACK });
+      y -= 14;
+
+      for(const row of typeRows){
+        drawLotRow(row, true);
+      }
+
+      // Type subtotal
+      const typeHead = typeRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+      const typeTotal = typeRows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+      
+      if(y < 40){ newPage(); }
+      page.drawText(`${type} Subtotal:`, { x:M+217, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+      page.drawText(`${typeHead} head`, { x:M+297, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+      page.drawText(formatMoney(typeTotal), { x:M+367, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+      y -= 18;
+    }
+
+    // Grand total for sold
+    if(y < 40){ newPage(); }
+    page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+    y -= 14;
+    page.drawText("TOTAL SOLD:", { x:M+217, y:y-10, size:9, font:fontBold, color:BLACK });
+    page.drawText(`${totalHead} head`, { x:M+297, y:y-10, size:9, font:fontBold, color:BLACK });
+    page.drawText(formatMoney(totalSales), { x:M+367, y:y-10, size:9, font:fontBold, color:BLACK });
+    y -= 25;
+  }
+
+  // PASSED/PO LOTS
+  if(poRows.length > 0){
+    if(y < 100){ newPage(); }
+    
+    drawSectionHeader("PASSED/PO LOTS");
+    
+    // PO header (no price/total columns)
+    const poCols = [
+      {label:"Lot #", x:M},
+      {label:"Head", x:M+50},
+      {label:"Sex", x:M+95},
+      {label:"Base Wt", x:M+155},
+      {label:"Delivery", x:M+215},
+    ];
+    
+    for(const c of poCols){
+      page.drawText(c.label, { x:c.x+2, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+    }
+    y -= 14;
+
+    const poSorted = [...poRows].sort(sortLots);
+    for(const row of poSorted){
+      if(y < 50){ newPage(); }
+      
+      const lotNum = safeStr(row[CONFIG.COLS.lotNumber]) || "";
+      const head = safeStr(row[CONFIG.COLS.head]);
+      const sex = safeStr(row[CONFIG.COLS.sex]);
+      const baseWt = safeStr(row[CONFIG.COLS.baseWeight]) + " lbs";
+      const delivery = safeStr(row[CONFIG.COLS.delivery]);
+
+      page.drawText(lotNum, { x:M+2, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(head, { x:M+52, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(sex, { x:M+97, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(baseWt, { x:M+157, y:y-9, size:8, font, color:DARK_GRAY });
+      page.drawText(delivery, { x:M+217, y:y-9, size:8, font, color:DARK_GRAY });
+      
+      y -= 12;
+    }
+
+    const poHead = poRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+    if(y < 40){ newPage(); }
+    page.drawText(`PO'd: ${poHead} head`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+    y -= 20;
+  }
+
+  // Buyer-specific: Down Money
+  if(mode === "buyer"){
+    const totalDownMoney = soldRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.downMoney]), 0);
+    if(totalDownMoney > 0){
+      if(y < 40){ newPage(); }
+      page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+      y -= 14;
+      page.drawText("Total Down Money Due:", { x:M, y:y-10, size:10, font:fontBold, color:BLACK });
+      page.drawText(formatMoney(totalDownMoney), { x:M+367, y:y-10, size:10, font:fontBold, color:BLACK });
+    }
+  }
+
+  return await pdfDoc.save();
+}
+
+
+/* =========================================================================
+   SPECIAL REPORT 4-5: COMPLETE BUYER/CONSIGNOR SUMMARY
+   Single portrait PDF listing all entities with totals
+   ========================================================================= */
+async function buildCompleteSummaryPdf({summaries, mode}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const W = 612;
+  const H = 792;
+  const M = 36;
+  const contentW = W - 2*M;
+
+  const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.55, 0.55, 0.55);
+  const DARK_GRAY = rgb(0.3,0.3,0.3);
+
+  let page = pdfDoc.addPage([W,H]);
+  let y = H - 50;
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+
+  // Header
+  const title = mode === "buyer" ? "COMPLETE BUYER SUMMARY" : "COMPLETE CONSIGNOR SUMMARY";
+  page.drawText(title, { x:M, y, size:14, font:fontBold, color:BLACK });
+  y -= 16;
+  page.drawText(auctionTitle, { x:M, y, size:9, font, color:DARK_GRAY });
+  y -= 25;
+
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+  y -= 15;
+
+  // Table header
+  const nameCol = mode === "buyer" ? "Buyer Name" : "Consignor Name";
+  page.drawText(nameCol, { x:M+5, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("# Lots", { x:M+280, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("Head", { x:M+350, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("Total $", { x:M+420, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  y -= 14;
+
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:0.5, color:GRAY });
+  y -= 12;
+
+  function newPage(){
+    page = pdfDoc.addPage([W,H]);
+    y = H - 50;
+  }
+
+  // Sort by total $ descending
+  const sorted = [...summaries].sort((a,b) => b.totalSales - a.totalSales);
+
+  for(const s of sorted){
+    if(y < 50){ newPage(); }
+
+    page.drawText(s.name, { x:M+5, y:y-9, size:9, font, color:BLACK });
+    page.drawText(s.lotCount.toString(), { x:M+280, y:y-9, size:9, font, color:BLACK });
+    page.drawText(s.totalHead.toString(), { x:M+350, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatMoney(s.totalSales), { x:M+420, y:y-9, size:9, font, color:BLACK });
+    
+    y -= 12;
+  }
+
+  // Grand totals
+  const grandLots = summaries.reduce((sum, s) => sum + s.lotCount, 0);
+  const grandHead = summaries.reduce((sum, s) => sum + s.totalHead, 0);
+  const grandSales = summaries.reduce((sum, s) => sum + s.totalSales, 0);
+
+  if(y < 50){ newPage(); }
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+  y -= 14;
+
+  page.drawText("TOTALS:", { x:M+5, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(grandLots.toString(), { x:M+280, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(grandHead.toString(), { x:M+350, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatMoney(grandSales), { x:M+420, y:y-10, size:10, font:fontBold, color:BLACK });
+
+  return await pdfDoc.save();
+}
+
+
+/* =========================================================================
+   SPECIAL REPORT 6: AUCTION RECAP SUMMARY
+   Single portrait PDF (can overflow to page 2) with comprehensive stats
+   ========================================================================= */
+async function buildAuctionRecapPdf({allRows}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const W = 612;
+  const H = 792;
+  const M = 36;
+  const contentW = W - 2*M;
+
+  const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.55, 0.55, 0.55);
+  const DARK_GRAY = rgb(0.3,0.3,0.3);
+  const SECTION_BG = rgb(0.94, 0.94, 0.94);
+
+  let page = pdfDoc.addPage([W,H]);
+  let y = H - 50;
+  let pageNum = 1;
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate = safeStr(auctionDate.value) || "";
+
+  function newPage(){
+    pageNum++;
+    page = pdfDoc.addPage([W,H]);
+    y = H - 50;
+    // Add page number
+    page.drawText(`Page ${pageNum}`, { x:W/2-15, y:20, size:8, font, color:GRAY });
+  }
+
+  function drawSectionHeader(text){
+    if(y < 60){ newPage(); }
+    page.drawRectangle({ x:M, y:y-14, width:contentW, height:14, color:SECTION_BG, borderWidth:0 });
+    page.drawText(text, { x:M+4, y:y-10, size:9, font:fontBold, color:BLACK });
+    y -= 18;
+  }
+
+  function drawLine(label, value){
+    if(y < 30){ newPage(); }
+    page.drawText(label, { x:M+10, y:y-9, size:8.5, font, color:BLACK });
+    page.drawText(value, { x:M+250, y:y-9, size:8.5, font:fontBold, color:BLACK });
+    y -= 11;
+  }
+
+  // Header
+  page.drawText("AUCTION RECAP SUMMARY", { x:M, y, size:14, font:fontBold, color:BLACK });
+  y -= 16;
+  page.drawText(auctionTitle, { x:M, y, size:10, font:fontBold, color:DARK_GRAY });
+  y -= 12;
+  if(aDate){ page.drawText(aDate, { x:M, y, size:9, font, color:DARK_GRAY }); y -= 16; }
+  else { y -= 10; }
+
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
+  y -= 15;
+
+  // Calculate all metrics
+  const soldRows = allRows.filter(r => !isPO(r));
+  const poRows = allRows.filter(r => isPO(r));
+
+  const totalLotsOffered = allRows.length;
+  const totalLotsSold = soldRows.length;
+  const sellThroughPct = totalLotsOffered > 0 ? ((totalLotsSold / totalLotsOffered) * 100).toFixed(1) : "0.0";
+
+  const totalHeadOffered = allRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+  const totalHeadSold = soldRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+  const headSoldPct = totalHeadOffered > 0 ? ((totalHeadSold / totalHeadOffered) * 100).toFixed(1) : "0.0";
+
+  const lotsPO = poRows.length;
+  const headPO = poRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+
+  const grossSales = soldRows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+  
+  const prices = soldRows.map(r => toNumber(r[CONFIG.COLS.price])).filter(p => p > 0);
+  const avgPrice = prices.length > 0 ? (prices.reduce((s,p)=>s+p,0) / prices.length).toFixed(2) : "0.00";
+  const minPrice = prices.length > 0 ? Math.min(...prices).toFixed(2) : "0.00";
+  const maxPrice = prices.length > 0 ? Math.max(...prices).toFixed(2) : "0.00";
+
+  const totalDownMoney = soldRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.downMoney]), 0);
+
+  const buyers = new Set(soldRows.map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
+  const consignors = new Set(allRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
+  const reps = new Set(allRows.map(r => getRepColumn(r)).filter(Boolean));
+
+  // AUCTION OVERVIEW
+  drawSectionHeader("📊 AUCTION OVERVIEW");
+  drawLine("Total Lots Offered:", totalLotsOffered.toString());
+  drawLine("Total Lots Sold:", totalLotsSold.toString());
+  drawLine("Sell-Through Rate:", `${sellThroughPct}%`);
+  y -= 4;
+  drawLine("Total Head Offered:", totalHeadOffered.toString());
+  drawLine("Total Head Sold:", totalHeadSold.toString());
+  drawLine("Head Sold Rate:", `${headSoldPct}%`);
+  y -= 4;
+  drawLine("Lots Passed/PO:", `${lotsPO} (${((lotsPO/totalLotsOffered)*100).toFixed(1)}%)`);
+  drawLine("Head Passed/PO:", `${headPO} (${((headPO/totalHeadOffered)*100).toFixed(1)}%)`);
+  y -= 8;
+
+  // FINANCIAL SUMMARY
+  drawSectionHeader("💰 FINANCIAL SUMMARY");
+  drawLine("Gross Sales:", formatMoney(grossSales));
+  drawLine("Average Price (all sold):", `$${avgPrice}/cwt`);
+  drawLine("Price Range:", `$${minPrice} - $${maxPrice}/cwt`);
+  if(totalDownMoney > 0){
+    drawLine("Total Down Money Due:", formatMoney(totalDownMoney));
+  }
+  y -= 8;
+
+  // PARTICIPATION
+  drawSectionHeader("👥 PARTICIPATION");
+  drawLine("Number of Buyers:", buyers.size.toString());
+  drawLine("Number of Consignors:", consignors.size.toString());
+  drawLine("Number of Representatives:", reps.size.toString());
+
+  // Top buyer/consignor by head
+  const byBuyer = new Map();
+  for(const r of soldRows){
+    const buyer = safeStr(r[CONFIG.COLS.buyer]);
+    if(!buyer) continue;
+    if(!byBuyer.has(buyer)) byBuyer.set(buyer, 0);
+    byBuyer.set(buyer, byBuyer.get(buyer) + toNumber(r[CONFIG.COLS.head]));
+  }
+  const topBuyer = Array.from(byBuyer.entries()).sort((a,b) => b[1] - a[1])[0];
+  if(topBuyer) drawLine("Top Buyer:", `${topBuyer[0]} (${topBuyer[1]} head)`);
+
+  const byConsignor = new Map();
+  for(const r of soldRows){
+    const consignor = safeStr(r[CONFIG.COLS.consignor]);
+    if(!consignor) continue;
+    if(!byConsignor.has(consignor)) byConsignor.set(consignor, 0);
+    byConsignor.set(consignor, byConsignor.get(consignor) + toNumber(r[CONFIG.COLS.head]));
+  }
+  const topConsignor = Array.from(byConsignor.entries()).sort((a,b) => b[1] - a[1])[0];
+  if(topConsignor) drawLine("Top Consignor:", `${topConsignor[0]} (${topConsignor[1]} head)`);
+  y -= 8;
+
+  // TOP 3 REPS
+  drawSectionHeader("🏆 TOP 3 REPS");
+  const byRep = new Map();
+  for(const r of soldRows){
+    const rep = getRepColumn(r);
+    if(!rep) continue;
+    if(!byRep.has(rep)) byRep.set(rep, {head:0, sales:0});
+    const stats = byRep.get(rep);
+    stats.head += toNumber(r[CONFIG.COLS.head]);
+    stats.sales += calculateLotTotal(r);
+  }
+  const topReps = Array.from(byRep.entries())
+    .sort((a,b) => b[1].sales - a[1].sales)
+    .slice(0, 3);
+  
+  for(let i=0; i<topReps.length; i++){
+    const [rep, stats] = topReps[i];
+    drawLine(`${i+1}. ${rep}:`, `${stats.head} head, ${formatMoney(stats.sales)}`);
+  }
+  y -= 8;
+
+  // PRICE ANALYSIS BY TYPE, SEX & WEIGHT
+  drawSectionHeader("📈 PRICE ANALYSIS BY TYPE, SEX & WEIGHT");
+  y -= 4;
+
+  // Group by type, sex, weight
+  const priceData = new Map();
+  for(const r of soldRows){
+    const type = safeStr(r[CONFIG.COLS.type]) || "Other";
+    const sex = safeStr(r[CONFIG.COLS.sex]) || "Unknown";
+    const weightClass = getWeightClass(toNumber(r[CONFIG.COLS.baseWeight]));
+    const price = toNumber(r[CONFIG.COLS.price]);
+    
+    const key = `${type}|${sex}|${weightClass}`;
+    if(!priceData.has(key)) priceData.set(key, []);
+    priceData.get(key).push(price);
+  }
+
+  // Build nested structure
+  const typeMap = new Map();
+  for(const [key, prices] of priceData.entries()){
+    const [type, sex, weightClass] = key.split('|');
+    if(!typeMap.has(type)) typeMap.set(type, new Map());
+    if(!typeMap.get(type).has(sex)) typeMap.get(type).set(sex, new Map());
+    typeMap.get(type).get(sex).set(weightClass, prices);
+  }
+
+  const sortedTypes = Array.from(typeMap.keys()).sort();
+  
+  for(const type of sortedTypes){
+    if(y < 100){ newPage(); drawSectionHeader("📈 PRICE ANALYSIS (continued)"); y -= 4; }
+    
+    page.drawText(type.toUpperCase(), { x:M+10, y:y-9, size:8.5, font:fontBold, color:BLACK });
+    y -= 12;
+
+    const sexMap = typeMap.get(type);
+    const sortedSexes = Array.from(sexMap.keys()).sort();
+
+    for(const sex of sortedSexes){
+      if(y < 50){ newPage(); }
+      
+      page.drawText(`  ${sex}:`, { x:M+15, y:y-9, size:8, font:fontBold, color:DARK_GRAY });
+      y -= 11;
+
+      const weightMap = sexMap.get(sex);
+      const weightOrder = ["<400 lbs", "400-500 lbs", "500+ lbs"];
+      
+      for(const wc of weightOrder){
+        if(!weightMap.has(wc)) continue;
+        if(y < 40){ newPage(); }
+
+        const prices = weightMap.get(wc);
+        const min = Math.min(...prices).toFixed(2);
+        const max = Math.max(...prices).toFixed(2);
+        
+        page.drawText(`    ${wc}:`, { x:M+20, y:y-8, size:7.5, font, color:BLACK });
+        page.drawText(`$${min}-$${max}/cwt`, { x:M+100, y:y-8, size:7.5, font, color:DARK_GRAY });
+        y -= 10;
+      }
+    }
+    y -= 4;
+  }
+
+  y -= 6;
+
+  // CATTLE BREAKDOWN
+  if(y < 80){ newPage(); }
+  drawSectionHeader("🐄 CATTLE BREAKDOWN");
+  
+  // By Type
+  const headByType = new Map();
+  for(const r of soldRows){
+    const type = safeStr(r[CONFIG.COLS.type]) || "Other";
+    headByType.set(type, (headByType.get(type) || 0) + toNumber(r[CONFIG.COLS.head]));
+  }
+  const sortedByType = Array.from(headByType.entries()).sort((a,b) => b[1] - a[1]);
+  
+  page.drawText("By Type:", { x:M+10, y:y-9, size:8.5, font:fontBold, color:BLACK });
+  y -= 11;
+  for(const [type, head] of sortedByType){
+    if(y < 40){ newPage(); }
+    const pct = ((head / totalHeadSold) * 100).toFixed(1);
+    page.drawText(`  ${type}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
+    page.drawText(`${head} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    y -= 10;
+  }
+  y -= 4;
+
+  // By Sex
+  const headBySex = new Map();
+  for(const r of soldRows){
+    const sex = safeStr(r[CONFIG.COLS.sex]) || "Unknown";
+    headBySex.set(sex, (headBySex.get(sex) || 0) + toNumber(r[CONFIG.COLS.head]));
+  }
+  const sortedBySex = Array.from(headBySex.entries()).sort((a,b) => b[1] - a[1]);
+  
+  if(y < 50){ newPage(); }
+  page.drawText("By Sex:", { x:M+10, y:y-9, size:8.5, font:fontBold, color:BLACK });
+  y -= 11;
+  for(const [sex, head] of sortedBySex){
+    if(y < 40){ newPage(); }
+    const pct = ((head / totalHeadSold) * 100).toFixed(1);
+    page.drawText(`  ${sex}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
+    page.drawText(`${head} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    y -= 10;
+  }
+  y -= 8;
+
+  // DELIVERY SCHEDULE
+  if(y < 80){ newPage(); }
+  drawSectionHeader("📅 DELIVERY SCHEDULE");
+  
+  const headByDelivery = new Map();
+  for(const r of soldRows){
+    const delivery = safeStr(r[CONFIG.COLS.delivery]) || "Unknown";
+    headByDelivery.set(delivery, (headByDelivery.get(delivery) || 0) + toNumber(r[CONFIG.COLS.head]));
+  }
+  const sortedByDelivery = Array.from(headByDelivery.entries()).sort((a,b) => b[1] - a[1]);
+  
+  for(const [delivery, head] of sortedByDelivery){
+    if(y < 40){ newPage(); }
+    page.drawText(`  ${delivery}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
+    page.drawText(`${head} head`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    y -= 10;
+  }
+
+  return await pdfDoc.save();
+}
+
 
 /* ---------------- DOWNLOAD / ZIP ---------------- */
 function downloadBytes(bytes, filename, mime="application/pdf"){
@@ -1801,9 +2619,13 @@ function downloadBytes(bytes, filename, mime="application/pdf"){
   }, 20000);
 }
 
-async function downloadZip(items, zipName){
+async function downloadZip(items, zipName, folderName=null){
   const zip = new JSZip();
-  for(const it of items) zip.file(it.filename, it.bytes);
+  
+  // If folder name provided, create subfolder structure
+  const folder = folderName ? zip.folder(folderName) : zip;
+  
+  for(const it of items) folder.file(it.filename, it.bytes);
 
   const blob = await zip.generateAsync({type:"blob"});
   const url = URL.createObjectURL(blob);
@@ -1869,7 +2691,13 @@ function renderResults(){
     generated.consignorReports.length +
     generated.repReports.length +
     generated.preConsignorReports.length +
-    generated.preRepReports.length;
+    generated.preRepReports.length +
+    generated.salesByConsignor.length +
+    generated.salesByBuyer.length +
+    generated.salesByRep.length +
+    (generated.completeBuyer ? 1 : 0) +
+    (generated.completeConsignor ? 1 : 0) +
+    (generated.auctionRecap ? 1 : 0);
 
   resultsMeta.textContent = `Generated ${total} file(s) from ${csvRows.length} row(s).`;
 
@@ -1881,6 +2709,14 @@ function renderResults(){
   renderList(listRepReports, generated.repReports);
   renderList(listPreConsignorReports, generated.preConsignorReports);
   renderList(listPreRepReports, generated.preRepReports);
+  
+  // Special reports
+  renderList(listSalesByConsignor, generated.salesByConsignor);
+  renderList(listSalesByBuyer, generated.salesByBuyer);
+  renderList(listSalesByRep, generated.salesByRep);
+  renderList(listCompleteBuyer, generated.completeBuyer ? [generated.completeBuyer] : []);
+  renderList(listCompleteConsignor, generated.completeConsignor ? [generated.completeConsignor] : []);
+  renderList(listAuctionRecap, generated.auctionRecap ? [generated.auctionRecap] : []);
 
   zipBuyerReports.disabled = generated.buyerReports.length === 0;
   zipLotByLot.disabled = generated.lotByLot.length === 0;
@@ -1890,6 +2726,20 @@ function renderResults(){
   zipRepReports.disabled = generated.repReports.length === 0;
   zipPreConsignorReports.disabled = generated.preConsignorReports.length === 0;
   zipPreRepReports.disabled = generated.preRepReports.length === 0;
+  
+  // Special reports ZIP buttons
+  zipSalesByConsignor.disabled = generated.salesByConsignor.length === 0;
+  zipSalesByBuyer.disabled = generated.salesByBuyer.length === 0;
+  zipSalesByRep.disabled = generated.salesByRep.length === 0;
+  
+  const hasSpecialReports = generated.salesByConsignor.length > 0 || 
+                            generated.salesByBuyer.length > 0 || 
+                            generated.salesByRep.length > 0 ||
+                            generated.completeBuyer ||
+                            generated.completeConsignor ||
+                            generated.auctionRecap;
+  zipSpecialReports.disabled = !hasSpecialReports;
+  
   zipAll.disabled = total === 0;
 }
 
@@ -1899,6 +2749,8 @@ function wireBuild(){
     setError(builderError, "");
     buildBtn.disabled = true;
     buildBtn.textContent = "Generating…";
+
+    const errors = []; // Track errors
 
     try{
       assertLibsLoaded();
@@ -1957,8 +2809,12 @@ function wireBuild(){
         if(chkBuyer.checked){
           for(const [buyer, rows] of byBuyer.entries()){
             if(!buyer) continue;
-            const bytes = await buildPdfForGroup({ entityName: buyer, rows, mode:"buyer", singleLotMode:false, forceBuyerName:buyer });
-            generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap.pdf`, bytes, count: rows.length });
+            try{
+              const bytes = await buildPdfForGroup({ entityName: buyer, rows, mode:"buyer", singleLotMode:false, forceBuyerName:buyer });
+              generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap.pdf`, bytes, count: rows.length });
+            } catch(err){
+              errors.push(`Buyer Report for "${buyer}": ${err.message}`);
+            }
           }
         }
 
@@ -1967,15 +2823,19 @@ function wireBuild(){
           for(const row of sorted){
             const contract = safeStr(getContract(row)) || "Contract";
             const buyer = safeStr(row[CONFIG.COLS.buyer]) || "Buyer";
-            const bytes = await buildPdfForGroup({
-              entityName: buyer,
-              rows: [row],
-              mode: "buyer",
-              singleLotMode: true,
-              forceBuyerName: buyer,
-              headerRightBig: `Contract # ${contract}`
-            });
-            generated.lotByLot.push({ filename: `Contract-Details-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+            try{
+              const bytes = await buildPdfForGroup({
+                entityName: buyer,
+                rows: [row],
+                mode: "buyer",
+                singleLotMode: true,
+                forceBuyerName: buyer,
+                headerRightBig: `Contract # ${contract}`
+              });
+              generated.lotByLot.push({ filename: `Contract-Details-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Contract Details for "${contract}": ${err.message}`);
+            }
           }
         }
 
@@ -1984,8 +2844,12 @@ function wireBuild(){
           for(const row of sorted){
             const contract = safeStr(getContract(row)) || "Contract";
             const buyer = safeStr(row[CONFIG.COLS.buyer]) || "Buyer";
-            const bytes = await buildSalesContractPdf({ row, side:"buyer" });
-            generated.buyerContracts.push({ filename: `${fileSafeName(contract)}-${fileSafeName(buyer)}.pdf`, bytes, count: 1 });
+            try{
+              const bytes = await buildSalesContractPdf({ row, side:"buyer" });
+              generated.buyerContracts.push({ filename: `${fileSafeName(contract)}-${fileSafeName(buyer)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Buyer Contract "${contract}": ${err.message}`);
+            }
           }
         }
 
@@ -1994,24 +2858,36 @@ function wireBuild(){
           for(const row of sorted){
             const contract = safeStr(getContract(row)) || "Contract";
             const seller = safeStr(row[CONFIG.COLS.consignor]) || "Seller";
-            const bytes = await buildSalesContractPdf({ row, side:"seller" });
-            generated.sellerContracts.push({ filename: `${fileSafeName(seller)}-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+            try{
+              const bytes = await buildSalesContractPdf({ row, side:"seller" });
+              generated.sellerContracts.push({ filename: `${fileSafeName(seller)}-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Seller Contract "${contract}": ${err.message}`);
+            }
           }
         }
 
         if(chkConsignor.checked){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
-            const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor" });
-            generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`, bytes, count: rows.length });
+            try{
+              const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor" });
+              generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`, bytes, count: rows.length });
+            } catch(err){
+              errors.push(`Consignor Report for "${consignor}": ${err.message}`);
+            }
           }
         }
 
         if(chkRep.checked){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
-            const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
-            generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations.pdf`, bytes, count: rows.length });
+            try{
+              const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
+              generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations.pdf`, bytes, count: rows.length });
+            } catch(err){
+              errors.push(`Rep Report for "${rep}": ${err.message}`);
+            }
           }
         }
       }
@@ -2037,12 +2913,16 @@ function wireBuild(){
           const byConsignor = groupBy(csvRows, CONFIG.PRE_COLS.consignor);
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
-            const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor" });
-            generated.preConsignorReports.push({ 
-              filename: `Listing-Confirmations-${fileSafeName(consignor)}.pdf`, 
-              bytes, 
-              count: rows.length 
-            });
+            try{
+              const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor" });
+              generated.preConsignorReports.push({ 
+                filename: `Listing-Confirmations-${fileSafeName(consignor)}.pdf`, 
+                bytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Pre-Auction Consignor for "${consignor}": ${err.message}`);
+            }
           }
         }
 
@@ -2052,14 +2932,24 @@ function wireBuild(){
           const byRep = groupBy(repRows, CONFIG.PRE_COLS.rep);
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
-            const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
-            generated.preRepReports.push({ 
-              filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
-              bytes, 
-              count: rows.length 
-            });
+            try{
+              const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
+              generated.preRepReports.push({ 
+                filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
+                bytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Pre-Auction Rep for "${rep}": ${err.message}`);
+            }
           }
         }
+      }
+
+      // Show errors if any
+      if(errors.length > 0){
+        const errorMsg = `⚠ ${errors.length} PDF(s) failed to generate:\n\n${errors.map((e,i) => `${i+1}. ${e}`).join('\n')}`;
+        alert(errorMsg);
       }
 
       renderResults();
@@ -2084,18 +2974,114 @@ function wireBuild(){
   zipPreConsignorReports.addEventListener("click", async ()=> generated.preConsignorReports.length && downloadZip(generated.preConsignorReports, "Listing-Confirmations-Consignor.zip"));
   zipPreRepReports.addEventListener("click", async ()=> generated.preRepReports.length && downloadZip(generated.preRepReports, "Listing-Confirmations-Rep.zip"));
 
+  // Special Reports ZIP handlers
+  zipSalesByConsignor.addEventListener("click", async ()=> generated.salesByConsignor.length && downloadZip(generated.salesByConsignor, "Sales-Summaries-Consignor.zip"));
+  zipSalesByBuyer.addEventListener("click", async ()=> generated.salesByBuyer.length && downloadZip(generated.salesByBuyer, "Sales-Summaries-Buyer.zip"));
+  zipSalesByRep.addEventListener("click", async ()=> generated.salesByRep.length && downloadZip(generated.salesByRep, "Sales-Summaries-Rep.zip"));
+
+  zipSpecialReports.addEventListener("click", async ()=>{
+    const zip = new JSZip();
+    const folder = zip.folder("Special-Reports");
+    
+    for(const it of generated.salesByConsignor) folder.file(it.filename, it.bytes);
+    for(const it of generated.salesByBuyer) folder.file(it.filename, it.bytes);
+    for(const it of generated.salesByRep) folder.file(it.filename, it.bytes);
+    if(generated.completeBuyer) folder.file(generated.completeBuyer.filename, generated.completeBuyer.bytes);
+    if(generated.completeConsignor) folder.file(generated.completeConsignor.filename, generated.completeConsignor.bytes);
+    if(generated.auctionRecap) folder.file(generated.auctionRecap.filename, generated.auctionRecap.bytes);
+
+    if(Object.keys(zip.files).length > 0){
+      const blob = await zip.generateAsync({type:"blob"});
+      const url = URL.createObjectURL(blob);
+      blobUrls.push(url);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Special-Reports.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(()=>{
+        try{ URL.revokeObjectURL(url); }catch{}
+        blobUrls = blobUrls.filter(u => u !== url);
+      }, 25000);
+    }
+  });
+
   zipAll.addEventListener("click", async ()=>{
-    const all = [
-      ...generated.buyerReports,
-      ...generated.lotByLot,
-      ...generated.buyerContracts,
-      ...generated.sellerContracts,
-      ...generated.consignorReports,
-      ...generated.repReports,
-      ...generated.preConsignorReports,
-      ...generated.preRepReports,
-    ];
-    all.length && downloadZip(all, "CMS-Auction-All.zip");
+    const zip = new JSZip();
+    
+    // Create organized folder structure
+    if(generated.buyerContracts.length > 0){
+      const folder = zip.folder("Buyer-Contracts");
+      for(const it of generated.buyerContracts) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.sellerContracts.length > 0){
+      const folder = zip.folder("Seller-Contracts");
+      for(const it of generated.sellerContracts) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.buyerReports.length > 0){
+      const folder = zip.folder("Buyer-Reports");
+      for(const it of generated.buyerReports) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.lotByLot.length > 0){
+      const folder = zip.folder("Contract-Details");
+      for(const it of generated.lotByLot) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.consignorReports.length > 0){
+      const folder = zip.folder("Consignor-Trade-Confirmations");
+      for(const it of generated.consignorReports) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.repReports.length > 0){
+      const folder = zip.folder("Rep-Trade-Confirmations");
+      for(const it of generated.repReports) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.preConsignorReports.length > 0){
+      const folder = zip.folder("Consignor-Listing-Confirmations");
+      for(const it of generated.preConsignorReports) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.preRepReports.length > 0){
+      const folder = zip.folder("Rep-Listing-Confirmations");
+      for(const it of generated.preRepReports) folder.file(it.filename, it.bytes);
+    }
+
+    // Special Reports
+    if(generated.salesByConsignor.length > 0 || generated.salesByBuyer.length > 0 || generated.salesByRep.length > 0 ||
+       generated.completeBuyer || generated.completeConsignor || generated.auctionRecap){
+      const folder = zip.folder("Special-Reports");
+      for(const it of generated.salesByConsignor) folder.file(it.filename, it.bytes);
+      for(const it of generated.salesByBuyer) folder.file(it.filename, it.bytes);
+      for(const it of generated.salesByRep) folder.file(it.filename, it.bytes);
+      if(generated.completeBuyer) folder.file(generated.completeBuyer.filename, generated.completeBuyer.bytes);
+      if(generated.completeConsignor) folder.file(generated.completeConsignor.filename, generated.completeConsignor.bytes);
+      if(generated.auctionRecap) folder.file(generated.auctionRecap.filename, generated.auctionRecap.bytes);
+    }
+    
+    if(zip.files && Object.keys(zip.files).length > 0){
+      const blob = await zip.generateAsync({type:"blob"});
+      const url = URL.createObjectURL(blob);
+      blobUrls.push(url);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "CMS-Auction-All.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(()=>{
+        try{ URL.revokeObjectURL(url); }catch{}
+        blobUrls = blobUrls.filter(u => u !== url);
+      }, 25000);
+    }
   });
 }
 
@@ -2158,15 +3144,39 @@ function init(){
 
   wireDropZone({ zoneEl: dropZone, inputEl: fileInput, onFile: handleCsvFile, metaEl: fileMeta });
 
-  [chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts, chkPreConsignor, chkPreRep]
+  [chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts, chkPreConsignor, chkPreRep,
+   chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkAuctionRecap]
     .forEach(el => el.addEventListener("change", setBuildEnabled));
 
+  wireSectionSelectors();
   wireBuild();
   wireExit();
   wireResultsDropdowns();
 
   goto(pageAuth);
   setBuildEnabled();
+  
+  // Ensure everything is cleared on page load/refresh
+  csvRows = [];
+  contractColName = null;
+  blobUrls.forEach(url => { try{ URL.revokeObjectURL(url); }catch{} });
+  blobUrls = [];
+  generated = { 
+    buyerReports:[], 
+    lotByLot:[], 
+    buyerContracts:[], 
+    sellerContracts:[], 
+    consignorReports:[], 
+    repReports:[],
+    preConsignorReports: [],
+    preRepReports: [],
+  };
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+// Also clear on page unload (browser refresh, navigation away, tab close)
+window.addEventListener("beforeunload", ()=>{
+  for(const u of blobUrls){ try{ URL.revokeObjectURL(u); }catch{} }
+  blobUrls = [];
+});
