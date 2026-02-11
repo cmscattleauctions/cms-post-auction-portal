@@ -118,7 +118,12 @@
                   <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports</label>
                   <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
                   <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
-                  <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
+                  <label class="pill">
+                    <input type="checkbox" id="chkRep" /> Rep Trade Confirmations
+                    <span style="margin-left: 8px; font-size: 11px; color: #666;">
+                      (<label style="cursor: pointer;"><input type="checkbox" id="chkShowCmsNotes" style="margin: 0 4px 0 0;" />Include CMS Notes</label>)
+                    </span>
+                  </label>
                 </div>
               </div>
 
@@ -158,22 +163,14 @@
                 </div>
               </div>
 
-              <!-- REP OPTIONS -->
-              <div style="margin-top: 12px;">
-                <div class="sectionLabel">Rep PDF Options</div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkShowCmsNotes" /> Show CMS Internal Notes on Rep PDFs</label>
-                </div>
-              </div>
-
               <div class="muted small" style="margin-top:6px;">
                 Rep PDFs ignore rows where <b>Representative</b> or <b>Rep</b> is blank.
               </div>
               
               <!-- CSV VALIDATION PREVIEW -->
-              <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 12px; background: #f0f6ff; border: 1px solid #336699; border-radius: 4px;">
+              <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 12px; background: #e8f4f8; border: 1px solid #336699; border-radius: 4px;">
                 <div style="font-weight: 600; margin-bottom: 8px; color: #336699;">📋 Ready to Generate</div>
-                <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.6;"></div>
+                <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.6; color: #333;"></div>
               </div>
             </div>
 
