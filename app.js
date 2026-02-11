@@ -323,8 +323,8 @@ function safeStr(v){
     .replace(/[°]/g, " deg")  // Degree symbol
     .replace(/[×]/g, "x")  // Multiplication sign
     .replace(/[÷]/g, "/")  // Division sign
-    // Remove any remaining non-WinAnsi characters (keep only printable ASCII + extended Latin)
-    .replace(/[^\x20-\x7E\xA0-\xFF]/g, "")
+    // AGGRESSIVE: Remove ALL non-ASCII characters (only keep 32-126)
+    .replace(/[^\x20-\x7E]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
