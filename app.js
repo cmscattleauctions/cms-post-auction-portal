@@ -2743,6 +2743,102 @@ function renderResults(){
   zipAll.disabled = total === 0;
 }
 
+
+/* ---------------- SECTION SELECT/DESELECT ALL ---------------- */
+function wireSectionSelectors(){
+  // Pre-Auction
+  const selectAllPre = document.getElementById("selectAllPre");
+  const deselectAllPre = document.getElementById("deselectAllPre");
+  if(selectAllPre){
+    selectAllPre.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkPreConsignor.checked = true;
+      chkPreRep.checked = true;
+      setBuildEnabled();
+    });
+  }
+  if(deselectAllPre){
+    deselectAllPre.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkPreConsignor.checked = false;
+      chkPreRep.checked = false;
+      setBuildEnabled();
+    });
+  }
+
+  // Post-Auction
+  const selectAllPost = document.getElementById("selectAllPost");
+  const deselectAllPost = document.getElementById("deselectAllPost");
+  if(selectAllPost){
+    selectAllPost.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkBuyer.checked = true;
+      chkLotByLot.checked = true;
+      chkConsignor.checked = true;
+      chkRep.checked = true;
+      setBuildEnabled();
+    });
+  }
+  if(deselectAllPost){
+    deselectAllPost.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkBuyer.checked = false;
+      chkLotByLot.checked = false;
+      chkConsignor.checked = false;
+      chkRep.checked = false;
+      setBuildEnabled();
+    });
+  }
+
+  // Contracts
+  const selectAllContracts = document.getElementById("selectAllContracts");
+  const deselectAllContracts = document.getElementById("deselectAllContracts");
+  if(selectAllContracts){
+    selectAllContracts.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkBuyerContracts.checked = true;
+      chkSellerContracts.checked = true;
+      setBuildEnabled();
+    });
+  }
+  if(deselectAllContracts){
+    deselectAllContracts.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkBuyerContracts.checked = false;
+      chkSellerContracts.checked = false;
+      setBuildEnabled();
+    });
+  }
+
+  // Special Reports
+  const selectAllSpecial = document.getElementById("selectAllSpecial");
+  const deselectAllSpecial = document.getElementById("deselectAllSpecial");
+  if(selectAllSpecial){
+    selectAllSpecial.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkSalesByConsignor.checked = true;
+      chkSalesByBuyer.checked = true;
+      chkSalesByRep.checked = true;
+      chkCompleteBuyer.checked = true;
+      chkCompleteConsignor.checked = true;
+      chkAuctionRecap.checked = true;
+      setBuildEnabled();
+    });
+  }
+  if(deselectAllSpecial){
+    deselectAllSpecial.addEventListener("click", (e) => {
+      e.preventDefault();
+      chkSalesByConsignor.checked = false;
+      chkSalesByBuyer.checked = false;
+      chkSalesByRep.checked = false;
+      chkCompleteBuyer.checked = false;
+      chkCompleteConsignor.checked = false;
+      chkAuctionRecap.checked = false;
+      setBuildEnabled();
+    });
+  }
+}
+
 /* ---------------- BUILD ---------------- */
 function wireBuild(){
   buildBtn.addEventListener("click", async ()=>{
@@ -2764,7 +2860,13 @@ function wireBuild(){
         chkBuyerContracts.checked ||
         chkSellerContracts.checked ||
         chkPreConsignor.checked ||
-        chkPreRep.checked;
+        chkPreRep.checked ||
+        chkSalesByConsignor.checked ||
+        chkSalesByBuyer.checked ||
+        chkSalesByRep.checked ||
+        chkCompleteBuyer.checked ||
+        chkCompleteConsignor.checked ||
+        chkAuctionRecap.checked;
 
       if(!anyChecked) throw new Error("Select at least one output option.");
 
@@ -2777,6 +2879,12 @@ function wireBuild(){
         repReports:[],
         preConsignorReports: [],
         preRepReports: [],
+        salesByConsignor: [],
+        salesByBuyer: [],
+        salesByRep: [],
+        completeBuyer: null,
+        completeConsignor: null,
+        auctionRecap: null,
       };
 
       // POST-AUCTION GENERATION
