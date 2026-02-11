@@ -2411,7 +2411,7 @@ async function buildAuctionRecapPdf({allRows}){
   const reps = new Set(allRows.map(r => getRepColumn(r)).filter(Boolean));
 
   // AUCTION OVERVIEW
-  drawSectionHeader("📊 AUCTION OVERVIEW");
+  drawSectionHeader("AUCTION OVERVIEW");
   drawLine("Total Lots Offered:", totalLotsOffered.toString());
   drawLine("Total Lots Sold:", totalLotsSold.toString());
   drawLine("Sell-Through Rate:", `${sellThroughPct}%`);
@@ -2425,7 +2425,7 @@ async function buildAuctionRecapPdf({allRows}){
   y -= 8;
 
   // FINANCIAL SUMMARY
-  drawSectionHeader("💰 FINANCIAL SUMMARY");
+  drawSectionHeader("FINANCIAL SUMMARY");
   drawLine("Gross Sales:", formatMoney(grossSales));
   drawLine("Average Price (all sold):", `$${avgPrice}/cwt`);
   drawLine("Price Range:", `$${minPrice} - $${maxPrice}/cwt`);
@@ -2435,7 +2435,7 @@ async function buildAuctionRecapPdf({allRows}){
   y -= 8;
 
   // PARTICIPATION
-  drawSectionHeader("👥 PARTICIPATION");
+  drawSectionHeader("PARTICIPATION");
   drawLine("Number of Buyers:", buyers.size.toString());
   drawLine("Number of Consignors:", consignors.size.toString());
   drawLine("Number of Representatives:", reps.size.toString());
@@ -2463,7 +2463,7 @@ async function buildAuctionRecapPdf({allRows}){
   y -= 8;
 
   // TOP 3 REPS
-  drawSectionHeader("🏆 TOP 3 REPS");
+  drawSectionHeader("TOP 3 REPS");
   const byRep = new Map();
   for(const r of soldRows){
     const rep = getRepColumn(r);
@@ -2484,7 +2484,7 @@ async function buildAuctionRecapPdf({allRows}){
   y -= 8;
 
   // PRICE ANALYSIS BY TYPE, SEX & WEIGHT
-  drawSectionHeader("📈 PRICE ANALYSIS BY TYPE, SEX & WEIGHT");
+  drawSectionHeader("PRICE ANALYSIS BY TYPE, SEX & WEIGHT");
   y -= 4;
 
   // Group by type, sex, weight
@@ -2512,7 +2512,7 @@ async function buildAuctionRecapPdf({allRows}){
   const sortedTypes = Array.from(typeMap.keys()).sort();
   
   for(const type of sortedTypes){
-    if(y < 100){ newPage(); drawSectionHeader("📈 PRICE ANALYSIS (continued)"); y -= 4; }
+    if(y < 100){ newPage(); drawSectionHeader("PRICE ANALYSIS (continued)"); y -= 4; }
     
     page.drawText(type.toUpperCase(), { x:M+10, y:y-9, size:8.5, font:fontBold, color:BLACK });
     y -= 12;
@@ -2549,7 +2549,7 @@ async function buildAuctionRecapPdf({allRows}){
 
   // CATTLE BREAKDOWN
   if(y < 80){ newPage(); }
-  drawSectionHeader("🐄 CATTLE BREAKDOWN");
+  drawSectionHeader("CATTLE BREAKDOWN");
   
   // By Type
   const headByType = new Map();
@@ -2592,7 +2592,7 @@ async function buildAuctionRecapPdf({allRows}){
 
   // DELIVERY SCHEDULE
   if(y < 80){ newPage(); }
-  drawSectionHeader("📅 DELIVERY SCHEDULE");
+  drawSectionHeader("DELIVERY SCHEDULE");
   
   const headByDelivery = new Map();
   for(const r of soldRows){
