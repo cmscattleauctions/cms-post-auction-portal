@@ -342,6 +342,11 @@ function formatMoney(n){
   return "$" + fmt.format(Number.isFinite(n) ? n : 0);
 }
 
+function formatNumber(n){
+  const fmt = new Intl.NumberFormat("en-US");
+  return fmt.format(Number.isFinite(n) ? n : 0);
+}
+
 function priceDisplay(v){
   const n = toNumber(v);
   return (n === 0) ? "PO" : formatMoney(n);
@@ -2045,7 +2050,7 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
   const avgPrice = totalHead > 0 ? (totalSales / (soldRows.reduce((sum,r) => sum + (toNumber(r[CONFIG.COLS.head]) * toNumber(r[CONFIG.COLS.baseWeight])), 0) / 100)) : 0;
 
   // Summary box
-  page.drawText(`Total Head: ${totalHead}`, { x:M, y, size:10, font:fontBold, color:BLACK });
+  page.drawText(`Total Head: ${formatNumber(totalHead)}`, { x:M, y, size:10, font:fontBold, color:BLACK });
   page.drawText(`Total Sales: ${formatMoney(totalSales)}`, { x:M+200, y, size:10, font:fontBold, color:BLACK });
   page.drawText(`Avg Price: $${avgPrice.toFixed(2)}/cwt`, { x:M+380, y, size:10, font:fontBold, color:BLACK });
   y -= 25;
@@ -2143,8 +2148,8 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
       const typeTotal = typeRows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
       
       if(y < 40){ newPage(); }
-      page.drawText(`${type} Subtotal:`, { x:M+217, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
-      page.drawText(`${typeHead} head`, { x:M+297, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+      page.drawText(`${type} Subtotal:`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+      page.drawText(`${formatNumber(typeHead)} head`, { x:M+297, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
       page.drawText(formatMoney(typeTotal), { x:M+367, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
       y -= 18;
     }
@@ -2154,7 +2159,7 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
     page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
     y -= 14;
     page.drawText("TOTAL SOLD:", { x:M+217, y:y-10, size:9, font:fontBold, color:BLACK });
-    page.drawText(`${totalHead} head`, { x:M+297, y:y-10, size:9, font:fontBold, color:BLACK });
+    page.drawText(`${formatNumber(totalHead)} head`, { x:M+297, y:y-10, size:9, font:fontBold, color:BLACK });
     page.drawText(formatMoney(totalSales), { x:M+367, y:y-10, size:9, font:fontBold, color:BLACK });
     y -= 25;
   }
@@ -2212,7 +2217,7 @@ async function buildSalesSummaryPdf({entityName, rows, mode}){
 
     const poHead = poRows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
     if(y < 40){ newPage(); }
-    page.drawText(`Not Sold: ${poHead} head`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
+    page.drawText(`Not Sold: ${formatNumber(poHead)} head`, { x:M, y:y-10, size:8, font:fontBold, color:DARK_GRAY });
     y -= 20;
   }
 
@@ -2286,32 +2291,59 @@ async function buildCompleteSummaryPdf({summaries, mode}){
     y = H - 50;
   }
 
-  // Sort by total $ descending
-  const sorted = [...summaries].sort((a,b) => b.totalSales - a.totalSales);
+  // Separate sold and PO summaries
+  const soldSummaries = summaries.filter(s => !s.isPO);
+  const poSummaries = summaries.filter(s => s.isPO);
+  
+  // Sort sold by total $ descending
+  const sortedSold = [...soldSummaries].sort((a,b) => b.totalSales - a.totalSales);
+  
+  // Sort PO alphabetically
+  const sortedPO = [...poSummaries].sort((a,b) => a.name.localeCompare(b.name));
 
-  for(const s of sorted){
+  // Render sold buyers/consignors
+  for(const s of sortedSold){
     if(y < 50){ newPage(); }
 
     page.drawText(s.name, { x:M+5, y:y-9, size:9, font, color:BLACK });
-    page.drawText(s.lotCount.toString(), { x:M+280, y:y-9, size:9, font, color:BLACK });
-    page.drawText(s.totalHead.toString(), { x:M+350, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatNumber(s.lotCount), { x:M+280, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatNumber(s.totalHead), { x:M+350, y:y-9, size:9, font, color:BLACK });
     page.drawText(formatMoney(s.totalSales), { x:M+420, y:y-9, size:9, font, color:BLACK });
     
     y -= 12;
   }
+  
+  // Render PO buyers/consignors (if any) in gray
+  if(sortedPO.length > 0){
+    if(y < 50){ newPage(); }
+    y -= 8;
+    page.drawText("--- PO/SCRATCH ---", { x:M+5, y:y-9, size:9, font:fontBold, color:DARK_GRAY });
+    y -= 12;
+    
+    for(const s of sortedPO){
+      if(y < 50){ newPage(); }
 
-  // Grand totals
-  const grandLots = summaries.reduce((sum, s) => sum + s.lotCount, 0);
-  const grandHead = summaries.reduce((sum, s) => sum + s.totalHead, 0);
-  const grandSales = summaries.reduce((sum, s) => sum + s.totalSales, 0);
+      page.drawText(s.name, { x:M+5, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText(formatNumber(s.lotCount), { x:M+280, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText(formatNumber(s.totalHead), { x:M+350, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText("PO", { x:M+420, y:y-9, size:9, font, color:DARK_GRAY });
+      
+      y -= 12;
+    }
+  }
+
+  // Grand totals (only sold)
+  const grandLots = soldSummaries.reduce((sum, s) => sum + s.lotCount, 0);
+  const grandHead = soldSummaries.reduce((sum, s) => sum + s.totalHead, 0);
+  const grandSales = soldSummaries.reduce((sum, s) => sum + s.totalSales, 0);
 
   if(y < 50){ newPage(); }
   page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
   y -= 14;
 
   page.drawText("TOTALS:", { x:M+5, y:y-10, size:10, font:fontBold, color:BLACK });
-  page.drawText(grandLots.toString(), { x:M+280, y:y-10, size:10, font:fontBold, color:BLACK });
-  page.drawText(grandHead.toString(), { x:M+350, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatNumber(grandLots), { x:M+280, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatNumber(grandHead), { x:M+350, y:y-10, size:10, font:fontBold, color:BLACK });
   page.drawText(formatMoney(grandSales), { x:M+420, y:y-10, size:10, font:fontBold, color:BLACK });
 
   return await pdfDoc.save();
@@ -2412,16 +2444,16 @@ async function buildAuctionRecapPdf({allRows}){
 
   // AUCTION OVERVIEW
   drawSectionHeader("AUCTION OVERVIEW");
-  drawLine("Total Lots Offered:", totalLotsOffered.toString());
-  drawLine("Total Lots Sold:", totalLotsSold.toString());
+  drawLine("Total Lots Offered:", formatNumber(totalLotsOffered));
+  drawLine("Total Lots Sold:", formatNumber(totalLotsSold));
   drawLine("Sell-Through Rate:", `${sellThroughPct}%`);
   y -= 4;
-  drawLine("Total Head Offered:", totalHeadOffered.toString());
-  drawLine("Total Head Sold:", totalHeadSold.toString());
+  drawLine("Total Head Offered:", formatNumber(totalHeadOffered));
+  drawLine("Total Head Sold:", formatNumber(totalHeadSold));
   drawLine("Head Sold Rate:", `${headSoldPct}%`);
   y -= 4;
-  drawLine("Lots Passed/PO:", `${lotsPO} (${((lotsPO/totalLotsOffered)*100).toFixed(1)}%)`);
-  drawLine("Head Passed/PO:", `${headPO} (${((headPO/totalHeadOffered)*100).toFixed(1)}%)`);
+  drawLine("Lots Passed/PO:", `${formatNumber(lotsPO)} (${((lotsPO/totalLotsOffered)*100).toFixed(1)}%)`);
+  drawLine("Head Passed/PO:", `${formatNumber(headPO)} (${((headPO/totalHeadOffered)*100).toFixed(1)}%)`);
   y -= 8;
 
   // FINANCIAL SUMMARY
@@ -2439,8 +2471,10 @@ async function buildAuctionRecapPdf({allRows}){
   drawLine("Number of Buyers:", buyers.size.toString());
   drawLine("Number of Consignors:", consignors.size.toString());
   drawLine("Number of Representatives:", reps.size.toString());
+  y -= 8;
 
-  // Top buyer/consignor by head
+  // TOP 3 BUYERS
+  drawSectionHeader("TOP 3 BUYERS");
   const byBuyer = new Map();
   for(const r of soldRows){
     const buyer = safeStr(r[CONFIG.COLS.buyer]);
@@ -2448,9 +2482,18 @@ async function buildAuctionRecapPdf({allRows}){
     if(!byBuyer.has(buyer)) byBuyer.set(buyer, 0);
     byBuyer.set(buyer, byBuyer.get(buyer) + toNumber(r[CONFIG.COLS.head]));
   }
-  const topBuyer = Array.from(byBuyer.entries()).sort((a,b) => b[1] - a[1])[0];
-  if(topBuyer) drawLine("Top Buyer:", `${topBuyer[0]} (${topBuyer[1]} head)`);
+  const topBuyers = Array.from(byBuyer.entries())
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 3);
+  
+  for(let i=0; i<topBuyers.length; i++){
+    const [buyer, head] = topBuyers[i];
+    drawLine(`${i+1}. ${buyer}:`, `${formatNumber(head)} head`);
+  }
+  y -= 8;
 
+  // TOP 3 CONSIGNORS
+  drawSectionHeader("TOP 3 CONSIGNORS");
   const byConsignor = new Map();
   for(const r of soldRows){
     const consignor = safeStr(r[CONFIG.COLS.consignor]);
@@ -2458,8 +2501,14 @@ async function buildAuctionRecapPdf({allRows}){
     if(!byConsignor.has(consignor)) byConsignor.set(consignor, 0);
     byConsignor.set(consignor, byConsignor.get(consignor) + toNumber(r[CONFIG.COLS.head]));
   }
-  const topConsignor = Array.from(byConsignor.entries()).sort((a,b) => b[1] - a[1])[0];
-  if(topConsignor) drawLine("Top Consignor:", `${topConsignor[0]} (${topConsignor[1]} head)`);
+  const topConsignors = Array.from(byConsignor.entries())
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 3);
+  
+  for(let i=0; i<topConsignors.length; i++){
+    const [consignor, head] = topConsignors[i];
+    drawLine(`${i+1}. ${consignor}:`, `${formatNumber(head)} head`);
+  }
   y -= 8;
 
   // TOP 3 REPS
@@ -2479,73 +2528,9 @@ async function buildAuctionRecapPdf({allRows}){
   
   for(let i=0; i<topReps.length; i++){
     const [rep, stats] = topReps[i];
-    drawLine(`${i+1}. ${rep}:`, `${stats.head} head, ${formatMoney(stats.sales)}`);
+    drawLine(`${i+1}. ${rep}:`, `${formatNumber(stats.head)} head, ${formatMoney(stats.sales)}`);
   }
   y -= 8;
-
-  // PRICE ANALYSIS BY TYPE, SEX & WEIGHT
-  drawSectionHeader("PRICE ANALYSIS BY TYPE, SEX & WEIGHT");
-  y -= 4;
-
-  // Group by type, sex, weight
-  const priceData = new Map();
-  for(const r of soldRows){
-    const type = safeStr(r[CONFIG.COLS.type]) || "Other";
-    const sex = safeStr(r[CONFIG.COLS.sex]) || "Unknown";
-    const weightClass = getWeightClass(toNumber(r[CONFIG.COLS.baseWeight]));
-    const price = toNumber(r[CONFIG.COLS.price]);
-    
-    const key = `${type}|${sex}|${weightClass}`;
-    if(!priceData.has(key)) priceData.set(key, []);
-    priceData.get(key).push(price);
-  }
-
-  // Build nested structure
-  const typeMap = new Map();
-  for(const [key, prices] of priceData.entries()){
-    const [type, sex, weightClass] = key.split('|');
-    if(!typeMap.has(type)) typeMap.set(type, new Map());
-    if(!typeMap.get(type).has(sex)) typeMap.get(type).set(sex, new Map());
-    typeMap.get(type).get(sex).set(weightClass, prices);
-  }
-
-  const sortedTypes = Array.from(typeMap.keys()).sort();
-  
-  for(const type of sortedTypes){
-    if(y < 100){ newPage(); drawSectionHeader("PRICE ANALYSIS (continued)"); y -= 4; }
-    
-    page.drawText(type.toUpperCase(), { x:M+10, y:y-9, size:8.5, font:fontBold, color:BLACK });
-    y -= 12;
-
-    const sexMap = typeMap.get(type);
-    const sortedSexes = Array.from(sexMap.keys()).sort();
-
-    for(const sex of sortedSexes){
-      if(y < 50){ newPage(); }
-      
-      page.drawText(`  ${sex}:`, { x:M+15, y:y-9, size:8, font:fontBold, color:DARK_GRAY });
-      y -= 11;
-
-      const weightMap = sexMap.get(sex);
-      const weightOrder = ["<400 lbs", "400-500 lbs", "500+ lbs"];
-      
-      for(const wc of weightOrder){
-        if(!weightMap.has(wc)) continue;
-        if(y < 40){ newPage(); }
-
-        const prices = weightMap.get(wc);
-        const min = Math.min(...prices).toFixed(2);
-        const max = Math.max(...prices).toFixed(2);
-        
-        page.drawText(`    ${wc}:`, { x:M+20, y:y-8, size:7.5, font, color:BLACK });
-        page.drawText(`$${min}-$${max}/cwt`, { x:M+100, y:y-8, size:7.5, font, color:DARK_GRAY });
-        y -= 10;
-      }
-    }
-    y -= 4;
-  }
-
-  y -= 6;
 
   // CATTLE BREAKDOWN
   if(y < 80){ newPage(); }
@@ -2565,7 +2550,7 @@ async function buildAuctionRecapPdf({allRows}){
     if(y < 40){ newPage(); }
     const pct = ((head / totalHeadSold) * 100).toFixed(1);
     page.drawText(`  ${type}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
-    page.drawText(`${head} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    page.drawText(`${formatNumber(head)} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
     y -= 10;
   }
   y -= 4;
@@ -2585,26 +2570,68 @@ async function buildAuctionRecapPdf({allRows}){
     if(y < 40){ newPage(); }
     const pct = ((head / totalHeadSold) * 100).toFixed(1);
     page.drawText(`  ${sex}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
-    page.drawText(`${head} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    page.drawText(`${formatNumber(head)} head (${pct}%)`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
     y -= 10;
   }
   y -= 8;
 
-  // DELIVERY SCHEDULE
+  // DELIVERY SCHEDULE (by month from Delivery Start Date column)
   if(y < 80){ newPage(); }
   drawSectionHeader("DELIVERY SCHEDULE");
   
-  const headByDelivery = new Map();
+  // Extract month/year from Delivery Start Date column
+  const headByMonth = new Map();
   for(const r of soldRows){
-    const delivery = safeStr(r[CONFIG.COLS.delivery]) || "Unknown";
-    headByDelivery.set(delivery, (headByDelivery.get(delivery) || 0) + toNumber(r[CONFIG.COLS.head]));
+    // Try to get delivery start date, fall back to delivery if not present
+    const deliveryStartDate = safeStr(r["Delivery Start Date"]) || safeStr(r[CONFIG.COLS.delivery]);
+    if(!deliveryStartDate) continue;
+    
+    // Try to parse as date and extract month/year
+    let monthYear = deliveryStartDate;
+    try {
+      // Try to parse date formats like "1/16/2026" or "January 16, 2026" or "January 2026"
+      const dateMatch = deliveryStartDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(dateMatch){
+        const month = parseInt(dateMatch[1]);
+        const year = dateMatch[2];
+        const monthNames = ["January", "February", "March", "April", "May", "June", 
+                           "July", "August", "September", "October", "November", "December"];
+        monthYear = `${monthNames[month-1]} ${year}`;
+      } else {
+        // Try to extract month name and year from text
+        const textMatch = deliveryStartDate.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d{4})?/i);
+        if(textMatch){
+          monthYear = textMatch[2] ? `${textMatch[1]} ${textMatch[2]}` : textMatch[1];
+        } else {
+          // Just use as-is if we can't parse it
+          monthYear = deliveryStartDate;
+        }
+      }
+    } catch(e){
+      monthYear = deliveryStartDate;
+    }
+    
+    headByMonth.set(monthYear, (headByMonth.get(monthYear) || 0) + toNumber(r[CONFIG.COLS.head]));
   }
-  const sortedByDelivery = Array.from(headByDelivery.entries()).sort((a,b) => b[1] - a[1]);
   
-  for(const [delivery, head] of sortedByDelivery){
+  const sortedByMonth = Array.from(headByMonth.entries()).sort((a,b) => {
+    // Sort by month order if possible
+    const monthOrder = {
+      "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
+      "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12
+    };
+    const aMonth = a[0].match(/January|February|March|April|May|June|July|August|September|October|November|December/i);
+    const bMonth = b[0].match(/January|February|March|April|May|June|July|August|September|October|November|December/i);
+    if(aMonth && bMonth){
+      return monthOrder[aMonth[0]] - monthOrder[bMonth[0]];
+    }
+    return b[1] - a[1]; // fallback to head count
+  });
+  
+  for(const [month, head] of sortedByMonth){
     if(y < 40){ newPage(); }
-    page.drawText(`  ${delivery}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
-    page.drawText(`${head} head`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
+    page.drawText(`  ${month}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
+    page.drawText(`${formatNumber(head)} head`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
     y -= 10;
   }
 
@@ -3139,8 +3166,19 @@ function wireBuild(){
               const lotCount = rows.length;
               const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
               const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
-              summaries.push({ name: buyer, lotCount, totalHead, totalSales });
+              summaries.push({ name: buyer, lotCount, totalHead, totalSales, isPO: false });
             }
+            
+            // Add PO/SCRATCH buyers at the bottom
+            const poRows = csvRows.filter(r => isPO(r));
+            const byPOBuyer = groupBy(poRows, CONFIG.COLS.buyer);
+            for(const [buyer, rows] of byPOBuyer.entries()){
+              if(!buyer) continue;
+              const lotCount = rows.length;
+              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+              summaries.push({ name: buyer, lotCount, totalHead, totalSales: 0, isPO: true });
+            }
+            
             const bytes = await buildCompleteSummaryPdf({ summaries, mode: "buyer" });
             generated.completeBuyer = { filename: "Complete-Buyer-Summary.pdf", bytes, count: 1 };
           } catch(err){
