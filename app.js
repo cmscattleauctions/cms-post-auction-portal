@@ -3032,6 +3032,118 @@ function wireBuild(){
         }
       }
 
+      // SPECIAL REPORTS GENERATION
+      const specialReportsRequested = chkSalesByConsignor.checked || chkSalesByBuyer.checked || chkSalesByRep.checked ||
+                                      chkCompleteBuyer.checked || chkCompleteConsignor.checked || chkAuctionRecap.checked;
+
+      if(specialReportsRequested){
+        // These all require contract column
+        const chk = requiredColsPresent(csvRows);
+        if(!chk.ok) throw new Error(`CSV missing required column(s) for special reports: ${chk.missing.join(", ")}`);
+        
+        contractColName = detectContractColumn(csvRows);
+        if(!contractColName) throw new Error(`CSV is missing a Contract column for special reports.`);
+
+        const soldRows = csvRows.filter(r => !isPO(r));
+
+        // Sales Summary by Consignor
+        if(chkSalesByConsignor.checked){
+          const byConsignor = groupBy(csvRows, CONFIG.COLS.consignor);
+          for(const [consignor, rows] of byConsignor.entries()){
+            if(!consignor) continue;
+            try{
+              const bytes = await buildSalesSummaryPdf({ entityName: consignor, rows, mode: "consignor" });
+              generated.salesByConsignor.push({ filename: `Sales-Summary-${fileSafeName(consignor)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Sales Summary for Consignor "${consignor}": ${err.message}`);
+            }
+          }
+        }
+
+        // Sales Summary by Buyer
+        if(chkSalesByBuyer.checked){
+          const byBuyer = groupBy(csvRows, CONFIG.COLS.buyer);
+          for(const [buyer, rows] of byBuyer.entries()){
+            if(!buyer) continue;
+            try{
+              const bytes = await buildSalesSummaryPdf({ entityName: buyer, rows, mode: "buyer" });
+              generated.salesByBuyer.push({ filename: `Sales-Summary-${fileSafeName(buyer)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Sales Summary for Buyer "${buyer}": ${err.message}`);
+            }
+          }
+        }
+
+        // Sales Summary by Rep
+        if(chkSalesByRep.checked){
+          const repRows = csvRows.filter(r => getRepColumn(r));
+          const byRep = new Map();
+          for(const r of repRows){
+            const rep = safeStr(getRepColumn(r));
+            if(!rep) continue;
+            if(!byRep.has(rep)) byRep.set(rep, []);
+            byRep.get(rep).push(r);
+          }
+          for(const [rep, rows] of byRep.entries()){
+            if(!rep) continue;
+            try{
+              const bytes = await buildSalesSummaryPdf({ entityName: rep, rows, mode: "rep" });
+              generated.salesByRep.push({ filename: `Sales-Summary-${fileSafeName(rep)}.pdf`, bytes, count: 1 });
+            } catch(err){
+              errors.push(`Sales Summary for Rep "${rep}": ${err.message}`);
+            }
+          }
+        }
+
+        // Complete Buyer Summary
+        if(chkCompleteBuyer.checked){
+          try{
+            const byBuyer = groupBy(soldRows, CONFIG.COLS.buyer);
+            const summaries = [];
+            for(const [buyer, rows] of byBuyer.entries()){
+              if(!buyer) continue;
+              const lotCount = rows.length;
+              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+              const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+              summaries.push({ name: buyer, lotCount, totalHead, totalSales });
+            }
+            const bytes = await buildCompleteSummaryPdf({ summaries, mode: "buyer" });
+            generated.completeBuyer = { filename: "Complete-Buyer-Summary.pdf", bytes, count: 1 };
+          } catch(err){
+            errors.push(`Complete Buyer Summary: ${err.message}`);
+          }
+        }
+
+        // Complete Consignor Summary
+        if(chkCompleteConsignor.checked){
+          try{
+            const byConsignor = groupBy(soldRows, CONFIG.COLS.consignor);
+            const summaries = [];
+            for(const [consignor, rows] of byConsignor.entries()){
+              if(!consignor) continue;
+              const lotCount = rows.length;
+              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+              const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+              summaries.push({ name: consignor, lotCount, totalHead, totalSales });
+            }
+            const bytes = await buildCompleteSummaryPdf({ summaries, mode: "consignor" });
+            generated.completeConsignor = { filename: "Complete-Consignor-Summary.pdf", bytes, count: 1 };
+          } catch(err){
+            errors.push(`Complete Consignor Summary: ${err.message}`);
+          }
+        }
+
+        // Auction Recap Summary
+        if(chkAuctionRecap.checked){
+          try{
+            const bytes = await buildAuctionRecapPdf({ allRows: csvRows });
+            generated.auctionRecap = { filename: "Auction-Recap-Summary.pdf", bytes, count: 1 };
+          } catch(err){
+            errors.push(`Auction Recap Summary: ${err.message}`);
+          }
+        }
+      }
+
       // Show errors if any
       if(errors.length > 0){
         const errorMsg = `⚠ ${errors.length} PDF(s) failed to generate:\n\n${errors.map((e,i) => `${i+1}. ${e}`).join('\n')}`;
