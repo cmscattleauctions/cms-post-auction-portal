@@ -534,7 +534,13 @@ function updateCsvPreview(){
     consignorReports: 0,
     repReports: 0,
     preConsignorReports: 0,
-    preRepReports: 0
+    preRepReports: 0,
+    salesByConsignor: 0,
+    salesByBuyer: 0,
+    salesByRep: 0,
+    completeBuyer: 0,
+    completeConsignor: 0,
+    auctionRecap: 0
   };
 
   // Count unique entities
@@ -570,6 +576,26 @@ function updateCsvPreview(){
     counts.preRepReports = reps.size;
   }
 
+  // Special Reports
+  if(chkSalesByConsignor.checked){
+    const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
+    counts.salesByConsignor = consignors.size;
+  }
+
+  if(chkSalesByBuyer.checked){
+    const buyers = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
+    counts.salesByBuyer = buyers.size;
+  }
+
+  if(chkSalesByRep.checked){
+    const reps = new Set(csvRows.map(r => getRepColumn(r)).filter(Boolean));
+    counts.salesByRep = reps.size;
+  }
+
+  if(chkCompleteBuyer.checked) counts.completeBuyer = 1;
+  if(chkCompleteConsignor.checked) counts.completeConsignor = 1;
+  if(chkAuctionRecap.checked) counts.auctionRecap = 1;
+
   // Build preview HTML
   const lines = [];
   lines.push(`✓ CSV loaded: <b>${csvRows.length} rows</b>`);
@@ -584,6 +610,14 @@ function updateCsvPreview(){
   if(counts.repReports) items.push(`${counts.repReports} Rep Trade Confirmation${counts.repReports > 1 ? 's' : ''}`);
   if(counts.preConsignorReports) items.push(`${counts.preConsignorReports} Consignor Listing Confirmation${counts.preConsignorReports > 1 ? 's' : ''}`);
   if(counts.preRepReports) items.push(`${counts.preRepReports} Rep Listing Confirmation${counts.preRepReports > 1 ? 's' : ''}`);
+  
+  // Special Reports
+  if(counts.salesByConsignor) items.push(`${counts.salesByConsignor} Sales Summary by Consignor`);
+  if(counts.salesByBuyer) items.push(`${counts.salesByBuyer} Sales Summary by Buyer`);
+  if(counts.salesByRep) items.push(`${counts.salesByRep} Sales Summary by Rep`);
+  if(counts.completeBuyer) items.push(`1 Complete Buyer Summary`);
+  if(counts.completeConsignor) items.push(`1 Complete Consignor Summary`);
+  if(counts.auctionRecap) items.push(`1 Auction Recap Summary`);
 
   items.forEach(item => lines.push(`&nbsp;&nbsp;• ${item}`));
 
@@ -599,7 +633,13 @@ function anyChecked(){
     chkBuyerContracts.checked ||
     chkSellerContracts.checked ||
     chkPreConsignor.checked ||
-    chkPreRep.checked;
+    chkPreRep.checked ||
+    chkSalesByConsignor.checked ||
+    chkSalesByBuyer.checked ||
+    chkSalesByRep.checked ||
+    chkCompleteBuyer.checked ||
+    chkCompleteConsignor.checked ||
+    chkAuctionRecap.checked;
 }
 
 /* ---------------- SECTION SELECT/DESELECT ---------------- */
