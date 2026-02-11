@@ -87,27 +87,74 @@
             </div>
 
             <div class="row">
-              <label class="label">What to Generate</label>
+              
+              <!-- PRE-AUCTION SECTION -->
+              <div style="margin-bottom: 16px;">
+                <div class="sectionLabel">
+                  Pre-Auction (requires Lot Number column)
+                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
+                    <a href="#" id="selectAllPre" style="color: #336699; text-decoration: none;">Select All</a>
+                    <span style="color: #999; margin: 0 4px;">|</span>
+                    <a href="#" id="deselectAllPre" style="color: #336699; text-decoration: none;">Deselect All</a>
+                  </span>
+                </div>
+                <div class="pillRow">
+                  <label class="pill"><input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations</label>
+                  <label class="pill"><input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations</label>
+                </div>
+              </div>
               
               <!-- POST-AUCTION SECTION -->
               <div style="margin-bottom: 16px;">
-                <div class="sectionLabel">Post-Auction (requires Contract # column)</div>
+                <div class="sectionLabel">
+                  Post-Auction (requires Contract # column)
+                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
+                    <a href="#" id="selectAllPost" style="color: #336699; text-decoration: none;">Select All</a>
+                    <span style="color: #999; margin: 0 4px;">|</span>
+                    <a href="#" id="deselectAllPost" style="color: #336699; text-decoration: none;">Deselect All</a>
+                  </span>
+                </div>
                 <div class="pillRow">
                   <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports</label>
                   <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
-                  <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts</label>
-                  <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts</label>
                   <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
                   <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
                 </div>
               </div>
 
-              <!-- PRE-AUCTION SECTION -->
-              <div>
-                <div class="sectionLabel">Pre-Auction (requires Lot Number column)</div>
+              <!-- CONTRACTS SECTION -->
+              <div style="margin-bottom: 16px;">
+                <div class="sectionLabel">
+                  Contracts (requires Contract # column)
+                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
+                    <a href="#" id="selectAllContracts" style="color: #336699; text-decoration: none;">Select All</a>
+                    <span style="color: #999; margin: 0 4px;">|</span>
+                    <a href="#" id="deselectAllContracts" style="color: #336699; text-decoration: none;">Deselect All</a>
+                  </span>
+                </div>
                 <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations</label>
-                  <label class="pill"><input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations</label>
+                  <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts</label>
+                  <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts</label>
+                </div>
+              </div>
+
+              <!-- SPECIAL REPORTS SECTION -->
+              <div style="margin-bottom: 16px;">
+                <div class="sectionLabel">
+                  Special Reports (requires Contract # column)
+                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
+                    <a href="#" id="selectAllSpecial" style="color: #336699; text-decoration: none;">Select All</a>
+                    <span style="color: #999; margin: 0 4px;">|</span>
+                    <a href="#" id="deselectAllSpecial" style="color: #336699; text-decoration: none;">Deselect All</a>
+                  </span>
+                </div>
+                <div class="pillRow">
+                  <label class="pill"><input type="checkbox" id="chkSalesByConsignor" /> Sales Summary by Consignor</label>
+                  <label class="pill"><input type="checkbox" id="chkSalesByBuyer" /> Sales Summary by Buyer</label>
+                  <label class="pill"><input type="checkbox" id="chkSalesByRep" /> Sales Summary by Rep</label>
+                  <label class="pill"><input type="checkbox" id="chkCompleteBuyer" /> Complete Buyer Summary</label>
+                  <label class="pill"><input type="checkbox" id="chkCompleteConsignor" /> Complete Consignor Summary</label>
+                  <label class="pill"><input type="checkbox" id="chkAuctionRecap" /> Auction Recap Summary</label>
                 </div>
               </div>
 
@@ -121,6 +168,12 @@
 
               <div class="muted small" style="margin-top:6px;">
                 Rep PDFs ignore rows where <b>Representative</b> or <b>Rep</b> is blank.
+              </div>
+              
+              <!-- CSV VALIDATION PREVIEW -->
+              <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 12px; background: #f0f6ff; border: 1px solid #336699; border-radius: 4px;">
+                <div style="font-weight: 600; margin-bottom: 8px; color: #336699;">📋 Ready to Generate</div>
+                <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.6;"></div>
               </div>
             </div>
 
@@ -246,13 +299,92 @@
             <div id="listPreRepReports" class="list collapsible collapsed"></div>
           </div>
 
+          <!-- SPECIAL REPORTS RESULTS -->
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Sales Summaries by Consignor</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipSalesByConsignor" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togSalesByConsignor" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSalesByConsignor" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listSalesByConsignor" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Sales Summaries by Buyer</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipSalesByBuyer" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togSalesByBuyer" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSalesByBuyer" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listSalesByBuyer" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Sales Summaries by Rep</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipSalesByRep" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togSalesByRep" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSalesByRep" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listSalesByRep" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Complete Buyer Summary</h3>
+              <div class="resultsHeaderRight">
+                <button id="togCompleteBuyer" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listCompleteBuyer" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listCompleteBuyer" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Complete Consignor Summary</h3>
+              <div class="resultsHeaderRight">
+                <button id="togCompleteConsignor" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listCompleteConsignor" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listCompleteConsignor" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Auction Recap Summary</h3>
+              <div class="resultsHeaderRight">
+                <button id="togAuctionRecap" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listAuctionRecap" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listAuctionRecap" class="list collapsible collapsed"></div>
+          </div>
+
         </div>
 
         <hr class="divider" />
 
         <div class="row spaceBetween">
           <button id="backBtn" class="btn btnGhost">Back</button>
-          <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+          <div style="display: flex; gap: 12px;">
+            <button id="zipSpecialReports" class="btn btnGhost" disabled>Download Special Reports ZIP</button>
+            <button id="zipAll" class="btn" disabled>Download ALL as ZIP</button>
+          </div>
         </div>
 
         <div id="resultsMeta" class="muted small"></div>
