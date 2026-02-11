@@ -206,6 +206,13 @@ function bindDom(){
 
   chkShowCmsNotes = mustGet("chkShowCmsNotes");
 
+  chkSalesByConsignor = mustGet("chkSalesByConsignor");
+  chkSalesByBuyer = mustGet("chkSalesByBuyer");
+  chkSalesByRep = mustGet("chkSalesByRep");
+  chkCompleteBuyer = mustGet("chkCompleteBuyer");
+  chkCompleteConsignor = mustGet("chkCompleteConsignor");
+  chkAuctionRecap = mustGet("chkAuctionRecap");
+
   buildBtn = mustGet("buildBtn");
   builderError = mustGet("builderError");
 
@@ -596,75 +603,6 @@ function anyChecked(){
 }
 
 /* ---------------- SECTION SELECT/DESELECT ---------------- */
-function wireSectionSelectors(){
-  // Pre-Auction
-  document.getElementById("selectAllPre").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkPreConsignor.checked = true;
-    chkPreRep.checked = true;
-    setBuildEnabled();
-  });
-  document.getElementById("deselectAllPre").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkPreConsignor.checked = false;
-    chkPreRep.checked = false;
-    setBuildEnabled();
-  });
-
-  // Post-Auction
-  document.getElementById("selectAllPost").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkBuyer.checked = true;
-    chkLotByLot.checked = true;
-    chkConsignor.checked = true;
-    chkRep.checked = true;
-    setBuildEnabled();
-  });
-  document.getElementById("deselectAllPost").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkBuyer.checked = false;
-    chkLotByLot.checked = false;
-    chkConsignor.checked = false;
-    chkRep.checked = false;
-    setBuildEnabled();
-  });
-
-  // Contracts
-  document.getElementById("selectAllContracts").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkBuyerContracts.checked = true;
-    chkSellerContracts.checked = true;
-    setBuildEnabled();
-  });
-  document.getElementById("deselectAllContracts").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkBuyerContracts.checked = false;
-    chkSellerContracts.checked = false;
-    setBuildEnabled();
-  });
-
-  // Special Reports
-  document.getElementById("selectAllSpecial").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkSalesByConsignor.checked = true;
-    chkSalesByBuyer.checked = true;
-    chkSalesByRep.checked = true;
-    chkCompleteBuyer.checked = true;
-    chkCompleteConsignor.checked = true;
-    chkAuctionRecap.checked = true;
-    setBuildEnabled();
-  });
-  document.getElementById("deselectAllSpecial").addEventListener("click", (e) => {
-    e.preventDefault();
-    chkSalesByConsignor.checked = false;
-    chkSalesByBuyer.checked = false;
-    chkSalesByRep.checked = false;
-    chkCompleteBuyer.checked = false;
-    chkCompleteConsignor.checked = false;
-    chkAuctionRecap.checked = false;
-    setBuildEnabled();
-  });
-}
 
 /* ---------------- RESULTS DROPDOWNS ---------------- */
 function wireResultsDropdowns(){
