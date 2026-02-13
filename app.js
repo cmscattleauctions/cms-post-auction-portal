@@ -18,6 +18,7 @@ const CONFIG = {
     year: "Year",
 
     lotNumber: "Lot Number",
+    lotNumber2: "Lot Number #2",
     lotSeq: "Lot Sequence",
     head: "Head Count",
     loads: "Load Count",
@@ -1574,7 +1575,7 @@ async function buildSalesContractPdf({row, side}){
 
   // ---- Data ----
   const contract       = safeStr(getContract(row));
-  const lotNumber      = safeStr(row[CONFIG.COLS.lotNumber]);
+  const lotNumber      = safeStr(row[CONFIG.COLS.lotNumber2]);
   const buyer          = safeStr(row[CONFIG.COLS.buyer]);
   const consignor      = safeStr(row[CONFIG.COLS.consignor]);
   const rep            = getRepColumn(row);
