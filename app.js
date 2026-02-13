@@ -1745,10 +1745,6 @@ async function buildSalesContractPdf({row, side}){
     y -= 6;  // reduced from 8
     curPage.drawText(`Buyer: ${buyer}`, { x:M, y, size:12.2, font:fontBold, color:BLACK });
     y -= 14;
-    if(rep){
-      curPage.drawText(rep, { x:M, y, size:10.6, font, color:BLACK });
-      y -= 14;
-    }
   } else {
     const introText = `CMS Livestock Auction does hereby confirm the following cattle were sold on CMS Livestock Auction:`;
     const introLines = wrapLines(font, introText, 10.0, contentW - 10);
