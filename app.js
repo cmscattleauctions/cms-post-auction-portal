@@ -1246,25 +1246,29 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const consignor = safeStr(r[CONFIG.COLS.consignor]);
     let used = 0;
 
-    // Consignor in light box (moved higher)
-    if(consignor){
-      const consignorBoxH = 20;
-      const LIGHT_BOX = rgb(0.95, 0.97, 1.0); // Very light blue
-      page.drawRectangle({
-        x: M, y: y - 12 - consignorBoxH, width: contentW, height: consignorBoxH,
-        color: LIGHT_BOX, borderWidth: 0.5, borderColor: GRAY
-      });
-      page.drawText(`Consignor: ${consignor}`, { x: M + 8, y: y - 12 - 13, size: 11, font: fontBold, color: BLACK });
-      used += consignorBoxH + 6;
-    }
-
+    // Buyer first
     if(buyer){
       page.drawText(`Buyer: ${buyer}`, { x: M, y: y - 12 - used, size: 12.2, font: fontBold, color: BLACK });
       used += 14;
     }
+    
+    // Rep second
     if(rep){
       page.drawText(`Rep: ${rep}`, { x: M, y: y - 12 - used, size: 10.6, font, color: BLACK });
       used += 14;
+    }
+
+    // Consignor in light box (moved below buyer/rep)
+    if(consignor){
+      used += 4; // Small gap before consignor box
+      const consignorBoxH = 20;
+      const LIGHT_BOX = rgb(0.95, 0.97, 1.0); // Very light blue
+      page.drawRectangle({
+        x: M, y: y - 12 - used - consignorBoxH, width: contentW, height: consignorBoxH,
+        color: LIGHT_BOX, borderWidth: 0.5, borderColor: GRAY
+      });
+      page.drawText(`Consignor: ${consignor}`, { x: M + 8, y: y - 12 - used - 13, size: 11, font: fontBold, color: BLACK });
+      used += consignorBoxH + 2;
     }
 
     used += 10;
@@ -1751,7 +1755,7 @@ async function buildSalesContractPdf({row, side}){
   const notesText = safeStr(`Notes: ${notesRaw}`);
   const notesWrapW = contentW - padX*2 - 8;
   const notesWrapped = wrapLines(font, notesText, 8.5, notesWrapW);  // smaller font
-  const notesH = 6 + notesWrapped.length * 10 + 4;  // tighter
+  const notesH = 10 + notesWrapped.length * 10 + 4;  // increased top padding from 6 to 10
 
   // ---- DOWN MONEY row height ----
   const dmH = 18;  // tighter (was 22)
@@ -1847,9 +1851,10 @@ async function buildSalesContractPdf({row, side}){
         x:M, y:ty-rh, width:tableW, height:rh,
         color:sectionBgColor, borderWidth:0
       });
-      // Redraw left + right borders
-      curPage.drawLine({ start:{x:M,     y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY });
-      curPage.drawLine({ start:{x:M+tableW, y:ty}, end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY });
+      // Redraw top, left, and right borders
+      curPage.drawLine({ start:{x:M,       y:ty},    end:{x:M+tableW,   y:ty},    thickness:1.0, color:GRAY }); // Top
+      curPage.drawLine({ start:{x:M,       y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY }); // Left
+      curPage.drawLine({ start:{x:M+tableW, y:ty},   end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY }); // Right
 
       curPage.drawText(item.section, {
         x:M+padX, y:ty-11, size:9.5, font:fontBold, color:BLACK
@@ -1912,7 +1917,7 @@ async function buildSalesContractPdf({row, side}){
     x:M, y:y-notesH, width:contentW, height:notesH,
     color:WHITE, borderWidth:1.0, borderColor:GRAY
   });
-  let ny = y - 8;
+  let ny = y - 12; // increased from 8 to 12 for more top padding
   for(const ln of notesWrapped){
     curPage.drawText(ln, { x:M+padX, y:ny, size:8.5, font, color:BLACK });
     ny -= 10;
@@ -2739,6 +2744,7 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
   const BLACK = rgb(0,0,0);
   const GRAY = rgb(0.5, 0.5, 0.5);
   const LIGHT_GRAY = rgb(0.85, 0.85, 0.85);
+  const DARK_GRAY = rgb(0.3, 0.3, 0.3);
 
   let page = pdfDoc.addPage([W,H]);
   let y = H - 40;
@@ -2746,18 +2752,23 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
   const auctionTitleBase = safeStr(auctionName.value) || "Auction";
   const extra = safeStr(auctionLabel.value);
   const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+  const aDate = safeStr(auctionDate.value);
 
-  // Header
+  // Header - matching normal confirmation headers
   const title = isPre ? 
-    (mode === "rep" ? "REP LISTING CONFIRMATIONS (CONDENSED)" : "CONSIGNOR LISTING CONFIRMATIONS (CONDENSED)") :
-    (mode === "rep" ? "REP TRADE CONFIRMATIONS (CONDENSED)" : "CONSIGNOR TRADE CONFIRMATIONS (CONDENSED)");
+    (mode === "rep" ? "Rep Listing Confirmations" : "Consignor Listing Confirmations") :
+    (mode === "rep" ? "Rep Trade Confirmations" : "Consignor Trade Confirmations");
   
-  page.drawText(title, { x:M, y, size:11, font:fontBold, color:BLACK });
+  page.drawText(title, { x:M, y, size:12, font:fontBold, color:BLACK });
   y -= 14;
-  page.drawText(entityName, { x:M, y, size:10, font:fontBold, color:BLACK });
-  y -= 12;
-  page.drawText(auctionTitle, { x:M, y, size:8, font, color:GRAY });
-  y -= 20;
+  page.drawText(entityName, { x:M, y, size:11, font:fontBold, color:BLACK });
+  y -= 13;
+  page.drawText(auctionTitle, { x:M, y, size:9, font, color:DARK_GRAY });
+  if(aDate){
+    y -= 11;
+    page.drawText(aDate, { x:M, y, size:9, font, color:DARK_GRAY });
+  }
+  y -= 18;
 
   // Table header
   const headers = includePrice ? 
@@ -2773,18 +2784,16 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     page.drawText(headers[i], { x:x+2, y:y-8, size:7, font:fontBold, color:BLACK });
     x += colWidths[i];
   }
-  y -= 12;
+  y -= 14;
 
   // Draw lots
   const sorted = [...rows].sort(sortLots);
-  let prevWasOption = false;
 
   for(let i=0; i<sorted.length; i++){
     const row = sorted[i];
-    const isOption = isOptionLot(row, isPre);
     
-    // Gray line between non-option lots
-    if(!prevWasOption && !isOption && i > 0){
+    // Thin gray line between ALL lots
+    if(i > 0){
       page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
       y -= 3;
     }
@@ -2793,27 +2802,35 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     if(y < 50){
       page = pdfDoc.addPage([W,H]);
       y = H - 40;
+      
+      // Redraw headers on new page
+      x = M;
+      for(let j=0; j<headers.length; j++){
+        page.drawText(headers[j], { x:x+2, y:y-8, size:7, font:fontBold, color:BLACK });
+        x += colWidths[j];
+      }
+      y -= 14;
     }
 
-    // Draw row
+    // Draw row - Description from Breed column, no truncation
     const lotNum = safeStr(row[CONFIG.COLS.lotNumber] || row[CONFIG.PRE_COLS.lotNumber]);
     const seller = safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]);
     const head = safeStr(row[CONFIG.COLS.head] || row[CONFIG.PRE_COLS.head]);
-    const desc = safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]).substring(0, 30);
-    const sex = safeStr(row[CONFIG.COLS.sex] || row[CONFIG.PRE_COLS.sex]).substring(0, 15);
+    const breed = safeStr(row[CONFIG.COLS.breed] || row[CONFIG.PRE_COLS.breed] || row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]);
+    const sex = safeStr(row[CONFIG.COLS.sex] || row[CONFIG.PRE_COLS.sex]);
     const wt = safeStr(row[CONFIG.COLS.baseWeight] || row[CONFIG.PRE_COLS.baseWeight]);
-    const delivery = safeStr(row[CONFIG.COLS.delivery] || row[CONFIG.PRE_COLS.delivery]).substring(0, 20);
-    const location = safeStr(row[CONFIG.COLS.location] || row[CONFIG.PRE_COLS.location]).substring(0, 20);
-    const shrink = safeStr(row[CONFIG.COLS.shrink] || row[CONFIG.PRE_COLS.shrink]).substring(0, 10);
-    const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]).substring(0, 15);
-    const notes = (safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription] || "")).substring(0, 30);
+    const delivery = safeStr(row[CONFIG.COLS.delivery] || row[CONFIG.PRE_COLS.delivery]);
+    const location = safeStr(row[CONFIG.COLS.location] || row[CONFIG.PRE_COLS.location]);
+    const shrink = safeStr(row[CONFIG.COLS.shrink] || row[CONFIG.PRE_COLS.shrink]);
+    const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]);
+    const notes = (safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription] || "")).trim();
     
     let values;
     if(includePrice){
       const priceVal = isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price]);
-      values = [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes, priceVal];
+      values = [lotNum, seller, head, breed, sex, wt, delivery, location, shrink, slide, notes, priceVal];
     } else {
-      values = [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes];
+      values = [lotNum, seller, head, breed, sex, wt, delivery, location, shrink, slide, notes];
     }
 
     x = M;
@@ -2823,7 +2840,6 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     }
 
     y -= 10;
-    prevWasOption = isOption;
   }
 
   return await pdfDoc.save();
@@ -3704,6 +3720,14 @@ function init(){
   wireBuild();
   wireExit();
   wireResultsDropdowns();
+
+  // Set default time to 1:00PM for date picker
+  const now = new Date();
+  now.setHours(13, 0, 0, 0); // 1:00PM
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  auctionDatePicker.value = `${year}-${month}-${day}T13:00`;
 
   goto(pageAuth);
   setBuildEnabled();
