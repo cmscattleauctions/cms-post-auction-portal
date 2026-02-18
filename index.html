@@ -66,7 +66,10 @@
 
             <div class="row">
               <label class="label">Auction Date / Time</label>
-              <input id="auctionDate" class="input" placeholder="e.g. Feb 12, 2026 — 10:00 AM CT" />
+              <div style="display: flex; gap: 8px;">
+                <input id="auctionDatePicker" type="datetime-local" class="input" style="flex: 1;" />
+                <input id="auctionDate" class="input" style="flex: 2;" placeholder="e.g. February 12th, 2026 @ 1:00PM" />
+              </div>
             </div>
 
             <div class="row">
@@ -99,8 +102,18 @@
                   </span>
                 </div>
                 <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations</label>
-                  <label class="pill"><input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations</label>
+                  <label class="pill">
+                    <input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations
+                    <span style="margin-left: 8px; font-size: 11px; color: #666;">
+                      (<label style="cursor: pointer;"><input type="checkbox" id="chkPreConsignorCondensed" style="margin: 0 4px 0 0;" />Condensed</label>)
+                    </span>
+                  </label>
+                  <label class="pill">
+                    <input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations
+                    <span style="margin-left: 8px; font-size: 11px; color: #666;">
+                      (<label style="cursor: pointer;"><input type="checkbox" id="chkPreRepCondensed" style="margin: 0 4px 0 0;" />Condensed</label>)
+                    </span>
+                  </label>
                 </div>
               </div>
               
@@ -117,11 +130,17 @@
                 <div class="pillRow">
                   <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports</label>
                   <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
-                  <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
+                  <label class="pill">
+                    <input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations
+                    <span style="margin-left: 8px; font-size: 11px; color: #666;">
+                      (<label style="cursor: pointer;"><input type="checkbox" id="chkConsignorCondensed" style="margin: 0 4px 0 0;" />Condensed</label>)
+                    </span>
+                  </label>
                   <label class="pill">
                     <input type="checkbox" id="chkRep" /> Rep Trade Confirmations
                     <span style="margin-left: 8px; font-size: 11px; color: #666;">
                       (<label style="cursor: pointer;"><input type="checkbox" id="chkShowCmsNotes" style="margin: 0 4px 0 0;" />Include CMS Notes</label>)
+                      (<label style="cursor: pointer;"><input type="checkbox" id="chkRepCondensed" style="margin: 0 4px 0 0;" />Condensed</label>)
                     </span>
                   </label>
                 </div>
@@ -190,7 +209,42 @@
 
         <div class="resultsGrid">
 
-          <!-- POST-AUCTION RESULTS -->
+          <!-- PRE-AUCTION DOWNLOADS -->
+          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
+            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">PRE-AUCTION DOWNLOADS</h2>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Consignor Listing Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipPreConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togPreConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreConsignorReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listPreConsignorReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Rep Listing Confirmations</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipPreRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togPreRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreRepReports" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listPreRepReports" class="list collapsible collapsed"></div>
+          </div>
+
+          <!-- POST-AUCTION DOWNLOADS -->
+          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
+            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">POST-AUCTION DOWNLOADS</h2>
+          </div>
+
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Buyer Reports</h3>
@@ -219,32 +273,6 @@
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Buyer Contracts</h3>
-              <div class="resultsHeaderRight">
-                <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-                <button id="togBuyerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerContracts" title="Expand/Collapse">
-                  <span class="chev">▾</span>
-                </button>
-              </div>
-            </div>
-            <div id="listBuyerContracts" class="list collapsible collapsed"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Seller Contracts</h3>
-              <div class="resultsHeaderRight">
-                <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
-                <button id="togSellerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSellerContracts" title="Expand/Collapse">
-                  <span class="chev">▾</span>
-                </button>
-              </div>
-            </div>
-            <div id="listSellerContracts" class="list collapsible collapsed"></div>
-          </div>
-
-          <div class="resultsCol">
-            <div class="resultsHeader">
               <h3>Consignor Trade Confirmations</h3>
               <div class="resultsHeaderRight">
                 <button id="zipConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
@@ -269,34 +297,42 @@
             <div id="listRepReports" class="list collapsible collapsed"></div>
           </div>
 
-          <!-- PRE-AUCTION RESULTS -->
-          <div class="resultsCol">
-            <div class="resultsHeader">
-              <h3>Consignor Listing Confirmations</h3>
-              <div class="resultsHeaderRight">
-                <button id="zipPreConsignorReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-                <button id="togPreConsignorReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreConsignorReports" title="Expand/Collapse">
-                  <span class="chev">▾</span>
-                </button>
-              </div>
-            </div>
-            <div id="listPreConsignorReports" class="list collapsible collapsed"></div>
+          <!-- CONTRACTS -->
+          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
+            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">CONTRACTS</h2>
           </div>
 
           <div class="resultsCol">
             <div class="resultsHeader">
-              <h3>Rep Listing Confirmations</h3>
+              <h3>Buyer Contracts</h3>
               <div class="resultsHeaderRight">
-                <button id="zipPreRepReports" class="btn btnSmall btnGhost" disabled>ZIP</button>
-                <button id="togPreRepReports" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listPreRepReports" title="Expand/Collapse">
+                <button id="zipBuyerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togBuyerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerContracts" title="Expand/Collapse">
                   <span class="chev">▾</span>
                 </button>
               </div>
             </div>
-            <div id="listPreRepReports" class="list collapsible collapsed"></div>
+            <div id="listBuyerContracts" class="list collapsible collapsed"></div>
           </div>
 
-          <!-- SPECIAL REPORTS RESULTS -->
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Seller Contracts</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipSellerContracts" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togSellerContracts" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listSellerContracts" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listSellerContracts" class="list collapsible collapsed"></div>
+          </div>
+
+          <!-- SPECIAL REPORTS -->
+          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
+            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">SPECIAL REPORTS</h2>
+          </div>
+
           <div class="resultsCol">
             <div class="resultsHeader">
               <h3>Sales Summaries by Consignor</h3>
