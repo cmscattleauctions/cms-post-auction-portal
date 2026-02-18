@@ -1073,6 +1073,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.5,0.5,0.5);
   const FILL = rgb(0.98,0.98,0.98);
 
   const topBarHex =
@@ -1840,24 +1841,15 @@ async function buildSalesContractPdf({row, side}){
     const rh   = rowHeights[i];
 
     if(item.section){
-      // Section header background
+      // Section header background - light blue for buyers, gray for sellers
+      const sectionBgColor = side === "buyer" ? rgb(0.93, 0.96, 1.0) : SECTION_BG;
       curPage.drawRectangle({
         x:M, y:ty-rh, width:tableW, height:rh,
-        color:SECTION_BG, borderWidth:0
+        color:sectionBgColor, borderWidth:0
       });
       // Redraw left + right borders
       curPage.drawLine({ start:{x:M,     y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY });
       curPage.drawLine({ start:{x:M+tableW, y:ty}, end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY });
-
-      // Add blue underline for buyer contracts
-      if(side === "buyer"){
-        curPage.drawLine({ 
-          start:{x:M+padX, y:ty-13}, 
-          end:{x:M+padX + fontBold.widthOfTextAtSize(item.section, 9.5), y:ty-13}, 
-          thickness:2, 
-          color:topBarColor 
-        });
-      }
 
       curPage.drawText(item.section, {
         x:M+padX, y:ty-11, size:9.5, font:fontBold, color:BLACK
@@ -2814,11 +2806,15 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     const location = safeStr(row[CONFIG.COLS.location] || row[CONFIG.PRE_COLS.location]).substring(0, 20);
     const shrink = safeStr(row[CONFIG.COLS.shrink] || row[CONFIG.PRE_COLS.shrink]).substring(0, 10);
     const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]).substring(0, 15);
-    const notes = (safeStr(row[CONFIG.COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription])).substring(0, 30);
+    const notes = (safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription] || "")).substring(0, 30);
     
-    const values = includePrice ? 
-      [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes, isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price])] :
-      [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes];
+    let values;
+    if(includePrice){
+      const priceVal = isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price]);
+      values = [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes, priceVal];
+    } else {
+      values = [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes];
+    }
 
     x = M;
     for(let j=0; j<values.length; j++){
