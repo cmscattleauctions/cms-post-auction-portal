@@ -34,6 +34,7 @@ const CONFIG = {
     downMoney: "Down Money Due",
 
     cmsInternalNotes: "CMS Internal Notes",
+    cmsExternalNotes: "CMS External Notes",
   },
 
   // PRE-AUCTION COLS
@@ -150,10 +151,11 @@ function mustGet(id){
 
 let pageAuth, pageBuilder, pageResults;
 let pinInput, pinSubmit, authError;
-let auctionName, auctionDate, auctionLabel;
+let auctionName, auctionDate, auctionDatePicker, auctionLabel;
 let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
-let chkPreConsignor, chkPreRep;
+let chkPreConsignor, chkPreRep, chkPreConsignorCondensed, chkPreRepCondensed;
+let chkConsignorCondensed, chkRepCondensed;
 let chkShowCmsNotes;
 let chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkAuctionRecap;
 let buildBtn, builderError;
@@ -189,6 +191,7 @@ function bindDom(){
 
   auctionName = mustGet("auctionName");
   auctionDate = mustGet("auctionDate");
+  auctionDatePicker = mustGet("auctionDatePicker");
   auctionLabel = mustGet("auctionLabel");
 
   dropZone = mustGet("dropZone");
@@ -204,8 +207,12 @@ function bindDom(){
 
   chkPreConsignor = mustGet("chkPreConsignor");
   chkPreRep = mustGet("chkPreRep");
+  chkPreConsignorCondensed = mustGet("chkPreConsignorCondensed");
+  chkPreRepCondensed = mustGet("chkPreRepCondensed");
 
   chkShowCmsNotes = mustGet("chkShowCmsNotes");
+  chkConsignorCondensed = mustGet("chkConsignorCondensed");
+  chkRepCondensed = mustGet("chkRepCondensed");
 
   chkSalesByConsignor = mustGet("chkSalesByConsignor");
   chkSalesByBuyer = mustGet("chkSalesByBuyer");
@@ -575,21 +582,25 @@ function updateCsvPreview(){
   if(chkConsignor.checked){
     const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
     counts.consignorReports = consignors.size;
+    if(chkConsignorCondensed.checked) counts.consignorReports *= 2; // Regular + Condensed
   }
 
   if(chkRep.checked){
     const reps = new Set(csvRows.map(r => getRepColumn(r)).filter(Boolean));
     counts.repReports = reps.size;
+    if(chkRepCondensed.checked) counts.repReports *= 2; // Regular + Condensed
   }
 
   if(chkPreConsignor.checked){
     const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.consignor])).filter(Boolean));
     counts.preConsignorReports = consignors.size;
+    if(chkPreConsignorCondensed.checked) counts.preConsignorReports *= 2; // Regular + Condensed
   }
 
   if(chkPreRep.checked){
     const reps = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.rep])).filter(Boolean));
     counts.preRepReports = reps.size;
+    if(chkPreRepCondensed.checked) counts.preRepReports *= 2; // Regular + Condensed
   }
 
   // Special Reports
@@ -893,10 +904,10 @@ async function buildPreAuctionListingPdf({entityName, rows, mode, showCmsNotes=f
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
     const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
     
-    // For rep mode, add CMS Internal Notes below (bold) - ONLY if showCmsNotes is enabled
+    // For rep mode, add CMS External Notes below (bold) - ONLY if showCmsNotes is enabled
     // Pre-auction CSVs may not have this column, so check if it exists
-    const cmsNotes = (mode === "rep" && showCmsNotes && record[CONFIG.COLS.cmsInternalNotes]) 
-      ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) 
+    const cmsNotes = (mode === "rep" && showCmsNotes && record[CONFIG.COLS.cmsExternalNotes]) 
+      ? safeStr(record[CONFIG.COLS.cmsExternalNotes]) 
       : "";
     
     return { regularLines, cmsNotes };
@@ -1222,8 +1233,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const maxW = (W - 2*M) - 2*CONFIG.PDF.padX;
     const regularLines = wrapLines(font, notesLine, CONFIG.PDF.notes, maxW);
     
-    // For rep mode, add CMS Internal Notes below (bold) - ONLY if showCmsNotes is enabled
-    const cmsNotes = (mode === "rep" && showCmsNotes) ? safeStr(record[CONFIG.COLS.cmsInternalNotes]) : "";
+    // For rep mode, add CMS External Notes below (bold) - ONLY if showCmsNotes is enabled
+    const cmsNotes = (mode === "rep" && showCmsNotes) ? safeStr(record[CONFIG.COLS.cmsExternalNotes]) : "";
     
     return { regularLines, cmsNotes };
   }
@@ -1231,10 +1242,23 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   function drawSingleLotBuyerAndRepBlock(r){
     const buyer = safeStr(r[CONFIG.COLS.buyer]);
     const rep = getRepColumn(r);
+    const consignor = safeStr(r[CONFIG.COLS.consignor]);
     let used = 0;
 
+    // Consignor in light box (moved higher)
+    if(consignor){
+      const consignorBoxH = 20;
+      const LIGHT_BOX = rgb(0.95, 0.97, 1.0); // Very light blue
+      page.drawRectangle({
+        x: M, y: y - 12 - consignorBoxH, width: contentW, height: consignorBoxH,
+        color: LIGHT_BOX, borderWidth: 0.5, borderColor: GRAY
+      });
+      page.drawText(`Consignor: ${consignor}`, { x: M + 8, y: y - 12 - 13, size: 11, font: fontBold, color: BLACK });
+      used += consignorBoxH + 6;
+    }
+
     if(buyer){
-      page.drawText(`Buyer: ${buyer}`, { x: M, y: y - 12, size: 12.2, font: fontBold, color: BLACK });
+      page.drawText(`Buyer: ${buyer}`, { x: M, y: y - 12 - used, size: 12.2, font: fontBold, color: BLACK });
       used += 14;
     }
     if(rep){
@@ -1273,31 +1297,54 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     y = rowY - 18;
   }
 
-  function drawCmsInternalNotesIfAny(r){
-    const n = safeStr(r[CONFIG.COLS.cmsInternalNotes]);
-    if(!n) return;
+  function drawCmsNotesIfAny(r){
+    const internalNotes = safeStr(r[CONFIG.COLS.cmsInternalNotes]);
+    const externalNotes = safeStr(r[CONFIG.COLS.cmsExternalNotes]);
+    
+    if(!internalNotes && !externalNotes) return;
 
     y -= 26;
 
-    const label = "CMS Internal Notes: ";
     const size = 10.0;
+    const maxW = (W - 2*M);
 
-    const labelW = fontBold.widthOfTextAtSize(label, size);
-    const maxW = (W - 2*M) - labelW;
-    const lines = wrapLines(fontBold, n, size, maxW);
+    // Draw Internal Notes
+    if(internalNotes){
+      const label = "CMS Internal Notes: ";
+      const labelW = fontBold.widthOfTextAtSize(label, size);
+      const lines = wrapLines(fontBold, internalNotes, size, maxW - labelW);
 
-    let yy = y - 10;
-
-    page.drawText(label, { x: M, y: yy, size, font: fontBold, color: BLACK });
-    page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
-    yy -= 12;
-
-    for(let i=1;i<lines.length;i++){
-      page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+      let yy = y - 10;
+      page.drawText(label, { x: M, y: yy, size, font: fontBold, color: BLACK });
+      page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
       yy -= 12;
+
+      for(let i=1;i<lines.length;i++){
+        page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+        yy -= 12;
+      }
+
+      y = yy - 8;
     }
 
-    y = yy;
+    // Draw External Notes
+    if(externalNotes){
+      const label = "CMS External Notes: ";
+      const labelW = fontBold.widthOfTextAtSize(label, size);
+      const lines = wrapLines(fontBold, externalNotes, size, maxW - labelW);
+
+      let yy = y - 10;
+      page.drawText(label, { x: M, y: yy, size, font: fontBold, color: BLACK });
+      page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+      yy -= 12;
+
+      for(let i=1;i<lines.length;i++){
+        page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+        yy -= 12;
+      }
+
+      y = yy;
+    }
   }
 
   function lotBlockHeight(record){
@@ -1326,7 +1373,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     const dm = toNumber(record[CONFIG.COLS.downMoney]);
     const receivedBlockH = (singleLotMode && dm > 0) ? 26 : 0;
-    const internalNotesH = (singleLotMode && safeStr(record[CONFIG.COLS.cmsInternalNotes])) ? 44 : 0;
+    const internalNotesH = (singleLotMode && (safeStr(record[CONFIG.COLS.cmsInternalNotes]) || safeStr(record[CONFIG.COLS.cmsExternalNotes]))) ? 60 : 0;
 
     return preLinesH + row1H + gridH + notesH + dmRowH + receivedBlockH + internalNotesH + CONFIG.PDF.lotGap;
   }
@@ -1456,7 +1503,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     if(mode === "buyer" && singleLotMode){
       const dm = toNumber(r[CONFIG.COLS.downMoney]);
       if(dm > 0){ y -= 8; drawDownMoneyReceivedBlock(); }
-      drawCmsInternalNotesIfAny(r);
+      drawCmsNotesIfAny(r);
     }
 
     y -= CONFIG.PDF.lotGap;
@@ -1802,6 +1849,16 @@ async function buildSalesContractPdf({row, side}){
       curPage.drawLine({ start:{x:M,     y:ty},    end:{x:M,          y:ty-rh}, thickness:1.0, color:GRAY });
       curPage.drawLine({ start:{x:M+tableW, y:ty}, end:{x:M+tableW,   y:ty-rh}, thickness:1.0, color:GRAY });
 
+      // Add blue underline for buyer contracts
+      if(side === "buyer"){
+        curPage.drawLine({ 
+          start:{x:M+padX, y:ty-13}, 
+          end:{x:M+padX + fontBold.widthOfTextAtSize(item.section, 9.5), y:ty-13}, 
+          thickness:2, 
+          color:topBarColor 
+        });
+      }
+
       curPage.drawText(item.section, {
         x:M+padX, y:ty-11, size:9.5, font:fontBold, color:BLACK
       });
@@ -1978,6 +2035,18 @@ function getWeightClass(baseWeight){
 function isPO(row){
   const p = safeStr(row[CONFIG.COLS.price]);
   return p.toUpperCase() === 'PO' || p.toUpperCase() === 'SCRATCH' || p === '';
+}
+
+function isOptionLot(row, isPre=false){
+  // Pre-auction: check "Option" column for value
+  if(isPre){
+    const option = safeStr(row["Option"]);
+    return option !== "";
+  }
+  
+  // Post-auction: check if lot number ends with A, B, C, etc.
+  const lotNum = safeStr(row[CONFIG.COLS.lotNumber]);
+  return /[A-Z]$/.test(lotNum);
 }
 
 function groupLotsByType(rows){
@@ -2275,9 +2344,12 @@ async function buildCompleteSummaryPdf({summaries, mode}){
   // Table header
   const nameCol = mode === "buyer" ? "Buyer Name" : "Consignor Name";
   page.drawText(nameCol, { x:M+5, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
-  page.drawText("# Lots", { x:M+280, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
-  page.drawText("Head", { x:M+350, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
-  page.drawText("Total $", { x:M+420, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("# Lots", { x:M+250, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("Head", { x:M+310, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  page.drawText("Total $", { x:M+370, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  if(mode === "buyer"){
+    page.drawText("Down Money", { x:M+460, y:y-10, size:9, font:fontBold, color:DARK_GRAY });
+  }
   y -= 14;
 
   page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:0.5, color:GRAY });
@@ -2303,12 +2375,28 @@ async function buildCompleteSummaryPdf({summaries, mode}){
     if(y < 50){ newPage(); }
 
     page.drawText(s.name, { x:M+5, y:y-9, size:9, font, color:BLACK });
-    page.drawText(formatNumber(s.lotCount), { x:M+280, y:y-9, size:9, font, color:BLACK });
-    page.drawText(formatNumber(s.totalHead), { x:M+350, y:y-9, size:9, font, color:BLACK });
-    page.drawText(formatMoney(s.totalSales), { x:M+420, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatNumber(s.lotCount), { x:M+250, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatNumber(s.totalHead), { x:M+310, y:y-9, size:9, font, color:BLACK });
+    page.drawText(formatMoney(s.totalSales), { x:M+370, y:y-9, size:9, font, color:BLACK });
+    if(mode === "buyer" && s.downMoney !== undefined){
+      page.drawText(formatMoney(s.downMoney), { x:M+460, y:y-9, size:9, font, color:BLACK });
+    }
     
     y -= 12;
   }
+  
+  // Sold totals before PO section
+  const soldLots = soldSummaries.reduce((sum, s) => sum + s.lotCount, 0);
+  const soldHead = soldSummaries.reduce((sum, s) => sum + s.totalHead, 0);
+  const soldSales = soldSummaries.reduce((sum, s) => sum + s.totalSales, 0);
+  const soldDownMoney = mode === "buyer" ? soldSummaries.reduce((sum, s) => sum + (s.downMoney || 0), 0) : 0;
+  
+  if(y < 50){ newPage(); }
+  page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:0.5, color:GRAY });
+  y -= 12;
+  page.drawText("SOLD TOTALS:", { x:M+5, y:y-9, size:9, font:fontBold, color:BLACK });
+  page.drawText(formatNumber(soldHead) + " head", { x:M+310, y:y-9, size:9, font:fontBold, color:BLACK });
+  y -= 16;
   
   // Render PO buyers/consignors (if any) in gray
   if(sortedPO.length > 0){
@@ -2321,27 +2409,30 @@ async function buildCompleteSummaryPdf({summaries, mode}){
       if(y < 50){ newPage(); }
 
       page.drawText(s.name, { x:M+5, y:y-9, size:9, font, color:DARK_GRAY });
-      page.drawText(formatNumber(s.lotCount), { x:M+280, y:y-9, size:9, font, color:DARK_GRAY });
-      page.drawText(formatNumber(s.totalHead), { x:M+350, y:y-9, size:9, font, color:DARK_GRAY });
-      page.drawText("PO", { x:M+420, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText(formatNumber(s.lotCount), { x:M+250, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText(formatNumber(s.totalHead), { x:M+310, y:y-9, size:9, font, color:DARK_GRAY });
+      page.drawText("PO", { x:M+370, y:y-9, size:9, font, color:DARK_GRAY });
       
       y -= 12;
     }
   }
 
-  // Grand totals (only sold)
-  const grandLots = soldSummaries.reduce((sum, s) => sum + s.lotCount, 0);
-  const grandHead = soldSummaries.reduce((sum, s) => sum + s.totalHead, 0);
-  const grandSales = soldSummaries.reduce((sum, s) => sum + s.totalSales, 0);
+  // Grand totals (sold + PO)
+  const grandLots = summaries.reduce((sum, s) => sum + s.lotCount, 0);
+  const grandHead = summaries.reduce((sum, s) => sum + s.totalHead, 0);
+  const grandDownMoney = mode === "buyer" ? summaries.reduce((sum, s) => sum + (s.downMoney || 0), 0) : 0;
 
   if(y < 50){ newPage(); }
   page.drawLine({ start:{x:M, y}, end:{x:M+contentW, y}, thickness:1, color:GRAY });
   y -= 14;
 
-  page.drawText("TOTALS:", { x:M+5, y:y-10, size:10, font:fontBold, color:BLACK });
-  page.drawText(formatNumber(grandLots), { x:M+280, y:y-10, size:10, font:fontBold, color:BLACK });
-  page.drawText(formatNumber(grandHead), { x:M+350, y:y-10, size:10, font:fontBold, color:BLACK });
-  page.drawText(formatMoney(grandSales), { x:M+420, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText("GRAND TOTAL:", { x:M+5, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatNumber(grandLots), { x:M+250, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatNumber(grandHead) + " head", { x:M+310, y:y-10, size:10, font:fontBold, color:BLACK });
+  page.drawText(formatMoney(soldSales), { x:M+370, y:y-10, size:10, font:fontBold, color:BLACK });
+  if(mode === "buyer" && soldDownMoney > 0){
+    page.drawText(formatMoney(soldDownMoney), { x:M+460, y:y-10, size:10, font:fontBold, color:BLACK });
+  }
 
   return await pdfDoc.save();
 }
@@ -2630,6 +2721,113 @@ async function buildAuctionRecapPdf({allRows}){
     page.drawText(`  ${month}:`, { x:M+15, y:y-8, size:8, font, color:BLACK });
     page.drawText(`${formatNumber(head)} head`, { x:M+150, y:y-8, size:8, font, color:DARK_GRAY });
     y -= 10;
+  }
+
+  return await pdfDoc.save();
+}
+
+
+/* =========================================================================
+   CONDENSED LISTINGS
+   Table-based format for fitting more lots per page (8-12 lots)
+   ========================================================================= */
+async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, includePrice=false}){
+  assertLibsLoaded();
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const W = 792; // Landscape
+  const H = 612;
+  const M = 30;
+  const contentW = W - 2*M;
+
+  const BLACK = rgb(0,0,0);
+  const GRAY = rgb(0.5, 0.5, 0.5);
+  const LIGHT_GRAY = rgb(0.85, 0.85, 0.85);
+
+  let page = pdfDoc.addPage([W,H]);
+  let y = H - 40;
+
+  const auctionTitleBase = safeStr(auctionName.value) || "Auction";
+  const extra = safeStr(auctionLabel.value);
+  const auctionTitle = extra ? `${auctionTitleBase} — ${extra}` : auctionTitleBase;
+
+  // Header
+  const title = isPre ? 
+    (mode === "rep" ? "REP LISTING CONFIRMATIONS (CONDENSED)" : "CONSIGNOR LISTING CONFIRMATIONS (CONDENSED)") :
+    (mode === "rep" ? "REP TRADE CONFIRMATIONS (CONDENSED)" : "CONSIGNOR TRADE CONFIRMATIONS (CONDENSED)");
+  
+  page.drawText(title, { x:M, y, size:11, font:fontBold, color:BLACK });
+  y -= 14;
+  page.drawText(entityName, { x:M, y, size:10, font:fontBold, color:BLACK });
+  y -= 12;
+  page.drawText(auctionTitle, { x:M, y, size:8, font, color:GRAY });
+  y -= 20;
+
+  // Table header
+  const headers = includePrice ? 
+    ["Lot", "Seller", "Head", "Description", "Sex", "Wt", "Delivery", "Location", "Shrink", "Slide", "Notes", "Price"] :
+    ["Lot", "Seller", "Head", "Description", "Sex", "Wt", "Delivery", "Location", "Shrink", "Slide", "Notes"];
+  
+  const colWidths = includePrice ?
+    [35, 70, 35, 90, 50, 40, 80, 80, 45, 70, 120, 50] :
+    [35, 70, 35, 95, 55, 40, 85, 85, 50, 75, 125];
+
+  let x = M;
+  for(let i=0; i<headers.length; i++){
+    page.drawText(headers[i], { x:x+2, y:y-8, size:7, font:fontBold, color:BLACK });
+    x += colWidths[i];
+  }
+  y -= 12;
+
+  // Draw lots
+  const sorted = [...rows].sort(sortLots);
+  let prevWasOption = false;
+
+  for(let i=0; i<sorted.length; i++){
+    const row = sorted[i];
+    const isOption = isOptionLot(row, isPre);
+    
+    // Gray line between non-option lots
+    if(!prevWasOption && !isOption && i > 0){
+      page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
+      y -= 3;
+    }
+
+    // New page if needed
+    if(y < 50){
+      page = pdfDoc.addPage([W,H]);
+      y = H - 40;
+    }
+
+    // Draw row
+    const lotNum = safeStr(row[CONFIG.COLS.lotNumber] || row[CONFIG.PRE_COLS.lotNumber]);
+    const seller = safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]);
+    const head = safeStr(row[CONFIG.COLS.head] || row[CONFIG.PRE_COLS.head]);
+    const desc = safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]).substring(0, 30);
+    const sex = safeStr(row[CONFIG.COLS.sex] || row[CONFIG.PRE_COLS.sex]).substring(0, 15);
+    const wt = safeStr(row[CONFIG.COLS.baseWeight] || row[CONFIG.PRE_COLS.baseWeight]);
+    const delivery = safeStr(row[CONFIG.COLS.delivery] || row[CONFIG.PRE_COLS.delivery]).substring(0, 20);
+    const location = safeStr(row[CONFIG.COLS.location] || row[CONFIG.PRE_COLS.location]).substring(0, 20);
+    const shrink = safeStr(row[CONFIG.COLS.shrink] || row[CONFIG.PRE_COLS.shrink]).substring(0, 10);
+    const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]).substring(0, 15);
+    const notes = (safeStr(row[CONFIG.COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription])).substring(0, 30);
+    
+    const values = includePrice ? 
+      [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes, isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price])] :
+      [lotNum, seller.substring(0,20), head, desc, sex, wt, delivery, location, shrink, slide, notes];
+
+    x = M;
+    for(let j=0; j<values.length; j++){
+      page.drawText(values[j], { x:x+2, y:y-7, size:6.5, font, color:BLACK });
+      x += colWidths[j];
+    }
+
+    y -= 10;
+    prevWasOption = isOption;
   }
 
   return await pdfDoc.save();
@@ -2976,7 +3174,7 @@ function wireBuild(){
                 forceBuyerName: buyer,
                 headerRightBig: `Contract # ${contract}`
               });
-              generated.lotByLot.push({ filename: `Contract-Details-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+              generated.lotByLot.push({ filename: `${fileSafeName(contract)}-Contract-Details.pdf`, bytes, count: 1 });
             } catch(err){
               errors.push(`Contract Details for "${contract}": ${err.message}`);
             }
@@ -3004,7 +3202,7 @@ function wireBuild(){
             const seller = safeStr(row[CONFIG.COLS.consignor]) || "Seller";
             try{
               const bytes = await buildSalesContractPdf({ row, side:"seller" });
-              generated.sellerContracts.push({ filename: `${fileSafeName(seller)}-${fileSafeName(contract)}.pdf`, bytes, count: 1 });
+              generated.sellerContracts.push({ filename: `${fileSafeName(contract)}-${fileSafeName(seller)}-Consignor-Contract.pdf`, bytes, count: 1 });
             } catch(err){
               errors.push(`Seller Contract "${contract}": ${err.message}`);
             }
@@ -3015,8 +3213,15 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
+              // Generate regular version
               const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor" });
               generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`, bytes, count: rows.length });
+              
+              // Generate condensed version if checkbox is checked
+              if(chkConsignorCondensed.checked){
+                const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true });
+                generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+              }
             } catch(err){
               errors.push(`Consignor Report for "${consignor}": ${err.message}`);
             }
@@ -3027,8 +3232,15 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
+              // Generate regular version
               const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
               generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations.pdf`, bytes, count: rows.length });
+              
+              // Generate condensed version if checkbox is checked
+              if(chkRepCondensed.checked){
+                const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true });
+                generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+              }
             } catch(err){
               errors.push(`Rep Report for "${rep}": ${err.message}`);
             }
@@ -3058,12 +3270,23 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
+              // Generate regular version
               const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor" });
               generated.preConsignorReports.push({ 
                 filename: `Listing-Confirmations-${fileSafeName(consignor)}.pdf`, 
                 bytes, 
                 count: rows.length 
               });
+              
+              // Generate condensed version if checkbox is checked
+              if(chkPreConsignorCondensed.checked){
+                const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false });
+                generated.preConsignorReports.push({ 
+                  filename: `Listing-Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, 
+                  bytes: condensedBytes, 
+                  count: rows.length 
+                });
+              }
             } catch(err){
               errors.push(`Pre-Auction Consignor for "${consignor}": ${err.message}`);
             }
@@ -3077,12 +3300,23 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
+              // Generate regular version
               const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
               generated.preRepReports.push({ 
                 filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
                 bytes, 
                 count: rows.length 
               });
+              
+              // Generate condensed version if checkbox is checked
+              if(chkPreRepCondensed.checked){
+                const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false });
+                generated.preRepReports.push({ 
+                  filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations-CONDENSED.pdf`, 
+                  bytes: condensedBytes, 
+                  count: rows.length 
+                });
+              }
             } catch(err){
               errors.push(`Pre-Auction Rep for "${rep}": ${err.message}`);
             }
@@ -3163,7 +3397,8 @@ function wireBuild(){
               const lotCount = rows.length;
               const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
               const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
-              summaries.push({ name: buyer, lotCount, totalHead, totalSales, isPO: false });
+              const downMoney = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.downMoney]), 0);
+              summaries.push({ name: buyer, lotCount, totalHead, totalSales, downMoney, isPO: false });
             }
             
             // Add PO/SCRATCH buyers at the bottom
@@ -3173,7 +3408,7 @@ function wireBuild(){
               if(!buyer) continue;
               const lotCount = rows.length;
               const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
-              summaries.push({ name: buyer, lotCount, totalHead, totalSales: 0, isPO: true });
+              summaries.push({ name: buyer, lotCount, totalHead, totalSales: 0, downMoney: 0, isPO: true });
             }
             
             const bytes = await buildCompleteSummaryPdf({ summaries, mode: "buyer" });
@@ -3193,8 +3428,19 @@ function wireBuild(){
               const lotCount = rows.length;
               const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
               const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
-              summaries.push({ name: consignor, lotCount, totalHead, totalSales });
+              summaries.push({ name: consignor, lotCount, totalHead, totalSales, isPO: false });
             }
+            
+            // Add PO/SCRATCH consignors at the bottom
+            const poRows = csvRows.filter(r => isPO(r));
+            const byPOConsignor = groupBy(poRows, CONFIG.COLS.consignor);
+            for(const [consignor, rows] of byPOConsignor.entries()){
+              if(!consignor) continue;
+              const lotCount = rows.length;
+              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+              summaries.push({ name: consignor, lotCount, totalHead, totalSales: 0, isPO: true });
+            }
+            
             const bytes = await buildCompleteSummaryPdf({ summaries, mode: "consignor" });
             generated.completeConsignor = { filename: "Complete-Consignor-Summary.pdf", bytes, count: 1 };
           } catch(err){
@@ -3416,6 +3662,49 @@ function init(){
     .forEach(el => el.addEventListener("change", setBuildEnabled));
 
   wireSectionSelectors();
+  
+  // Wire date picker auto-fill
+  auctionDatePicker.addEventListener("change", () => {
+    const selectedDate = auctionDatePicker.value;
+    if(!selectedDate) return;
+    
+    // Parse the datetime-local value (format: YYYY-MM-DDTHH:mm)
+    const dateObj = new Date(selectedDate);
+    
+    // Format date: "February 12th, 2026 @ 1:00PM"
+    const months = ["January", "February", "March", "April", "May", "June", 
+                    "July", "August", "September", "October", "November", "December"];
+    const month = months[dateObj.getMonth()];
+    const day = dateObj.getDate();
+    const year = dateObj.getFullYear();
+    
+    // Add ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
+    const ordinal = (d) => {
+      if (d > 3 && d < 21) return 'th';
+      switch (d % 10) {
+        case 1: return "st";
+        case 2: return "nd";
+        case 3: return "rd";
+        default: return "th";
+      }
+    };
+    
+    // Format time: "1:00PM"
+    let hours = dateObj.getHours();
+    const minutes = dateObj.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const timeStr = `${hours}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    
+    // Set the formatted date
+    auctionDate.value = `${month} ${day}${ordinal(day)}, ${year} @ ${timeStr}`;
+    
+    // Auto-fill auction title ONLY if empty
+    if(!auctionName.value || auctionName.value.trim() === ""){
+      auctionName.value = `${month} DairyX, Holstein and Native Auction`;
+    }
+  });
+  
   wireBuild();
   wireExit();
   wireResultsDropdowns();
