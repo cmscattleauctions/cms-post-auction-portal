@@ -2786,9 +2786,10 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     ["Lot", "Seller", "Head", "Description", "Sex", "Wt", "Delivery", "Location", "Shrink", "Slide", "Notes", "Price"] :
     ["Lot", "Seller", "Head", "Description", "Sex", "Wt", "Delivery", "Location", "Shrink", "Slide", "Notes"];
   
+  // Adjusted widths: decreased Wt/Delivery/Seller/Location/Shrink, increased Description/Notes
   const colWidths = includePrice ?
-    [35, 70, 35, 90, 50, 40, 80, 80, 45, 70, 120, 50] :
-    [35, 70, 35, 95, 55, 40, 85, 85, 50, 75, 125];
+    [35, 55, 35, 115, 50, 30, 60, 60, 35, 70, 145, 50] :
+    [35, 55, 35, 120, 55, 30, 65, 65, 35, 75, 155];
 
   let x = M;
   for(let i=0; i<headers.length; i++){
@@ -2797,21 +2798,69 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
   }
   y -= 14;
 
-  // Draw lots
+  // Draw lots grouped by type
   const sorted = [...rows].sort(sortLots);
-
-  for(let i=0; i<sorted.length; i++){
-    const row = sorted[i];
-    
-    // Thin gray line between ALL lots
-    if(i > 0){
-      page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
-      y -= 3;
+  
+  // Group by type for headers
+  const lotsByType = new Map();
+  for(const row of sorted){
+    const type = safeStr(row[CONFIG.COLS.type] || row[CONFIG.PRE_COLS.type]) || "Other";
+    if(!lotsByType.has(type)) lotsByType.set(type, []);
+    lotsByType.get(type).push(row);
+  }
+  
+  // Get type color (same as regular reports)
+  const getTypeColor = (type) => {
+    const idx = CONFIG.TYPE_ORDER.indexOf(type);
+    if(idx >= 0 && idx < CONFIG.TYPE_PALETTE.length){
+      const hex = CONFIG.TYPE_PALETTE[idx];
+      const [r, g, b] = hexToRgb01(hex);
+      return rgb(r, g, b);
     }
+    return rgb(0.85, 0.85, 0.85); // Default light gray
+  };
 
-    // New page if needed
-    if(y < 50){
-      page = pdfDoc.addPage([W,H]);
+  let firstType = true;
+  for(const [type, typeLots] of lotsByType.entries()){
+    // Type header with colored background
+    if(!firstType || y < H - 60){
+      if(y < 60){
+        page = pdfDoc.addPage([W,H]);
+        y = H - 40;
+        
+        // Redraw column headers
+        x = M;
+        for(let j=0; j<headers.length; j++){
+          page.drawText(headers[j], { x:x+2, y:y-8, size:7, font:fontBold, color:BLACK });
+          x += colWidths[j];
+        }
+        y -= 14;
+      }
+      
+      // Draw type header
+      const typeColor = getTypeColor(type);
+      const typeH = 14;
+      page.drawRectangle({
+        x:M, y:y-typeH, width:contentW, height:typeH,
+        color:typeColor, borderWidth:0
+      });
+      page.drawText(type, { x:M+5, y:y-10, size:8, font:fontBold, color:BLACK });
+      y -= typeH + 2;
+    }
+    firstType = false;
+
+    for(let i=0; i<typeLots.length; i++){
+      const row = typeLots[i];
+      
+      // Thin gray line between lots
+      if(i > 0){
+        page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
+        y -= 3;
+      }
+
+      // New page if needed
+      if(y < 50){
+        page = pdfDoc.addPage([W,H]);
       y = H - 40;
       
       // Redraw headers on new page
@@ -2912,6 +2961,7 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     }
 
     y -= 2; // Small gap after row
+    }
   }
 
   return await pdfDoc.save();
@@ -3538,10 +3588,15 @@ function wireBuild(){
         // Complete Rep Summary
         if(chkCompleteRep.checked){
           try{
-            const repRows = soldRows.filter(r => getRepColumn(r));
-            const byRep = groupBy(repRows, r => getRepColumn(r));
             const summaries = [];
+            // Use sold rows only for regular summaries
+            const soldByRep = new Map();
             for(const [rep, rows] of byRep.entries()){
+              const soldReps = rows.filter(r => !isPO(r));
+              if(soldReps.length > 0) soldByRep.set(rep, soldReps);
+            }
+            
+            for(const [rep, rows] of soldByRep.entries()){
               if(!rep) continue;
               const lotCount = rows.length;
               const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
@@ -3550,13 +3605,13 @@ function wireBuild(){
             }
             
             // Add PO/SCRATCH reps at the bottom
-            const poRows = csvRows.filter(r => isPO(r) && getRepColumn(r));
-            const byPORep = groupBy(poRows, r => getRepColumn(r));
-            for(const [rep, rows] of byPORep.entries()){
-              if(!rep) continue;
-              const lotCount = rows.length;
-              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
-              summaries.push({ name: rep, lotCount, totalHead, totalSales: 0, isPO: true });
+            for(const [rep, rows] of byRep.entries()){
+              const poReps = rows.filter(r => isPO(r));
+              if(poReps.length > 0){
+                const lotCount = poReps.length;
+                const totalHead = poReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+                summaries.push({ name: rep, lotCount, totalHead, totalSales: 0, isPO: true });
+              }
             }
             
             const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
