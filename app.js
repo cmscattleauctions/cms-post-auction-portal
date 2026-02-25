@@ -1320,19 +1320,20 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const size = 10.0;
     const maxW = (W - 2*M);
 
-    // Draw Internal Notes
+    // Draw Internal Notes in RED
     if(internalNotes){
+      const RED = rgb(0.8, 0, 0);
       const label = "CMS Internal Notes: ";
       const labelW = fontBold.widthOfTextAtSize(label, size);
       const lines = wrapLines(fontBold, internalNotes, size, maxW - labelW);
 
       let yy = y - 10;
-      page.drawText(label, { x: M, y: yy, size, font: fontBold, color: BLACK });
-      page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+      page.drawText(label, { x: M, y: yy, size, font: fontBold, color: RED });
+      page.drawText(lines[0] || "", { x: M + labelW, y: yy, size, font: fontBold, color: RED });
       yy -= 12;
 
       for(let i=1;i<lines.length;i++){
-        page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: BLACK });
+        page.drawText(lines[i], { x: M + labelW, y: yy, size, font: fontBold, color: RED });
         yy -= 12;
       }
 
@@ -1438,7 +1439,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       headerFillHex = pickTypeColorHex(r);
     }
 
-    const topLine = `Contract # ${contract} - ${consignor}`;
+    const topLine = `Contract # ${contract}`;
     const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
 
     const breedColor = headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : BLACK;
@@ -1673,7 +1674,7 @@ async function buildSalesContractPdf({row, side}){
     const topY = H - 8 - 28;
 
     // Left: "Cattle Sales Contract" with BUYER/SELLER COPY
-    const contractLabel = side === "buyer" ? "Cattle Sales Contract — BUYER COPY" : "Cattle Sales Contract — SELLER COPY";
+    const contractLabel = side === "buyer" ? "Buyer Cattle Sales Contract" : "Seller Cattle Sales Contract";
     pg.drawText(contractLabel, {
       x: M, y: topY, size: 16, font: fontBold, color: BLACK
     });
@@ -1796,7 +1797,7 @@ async function buildSalesContractPdf({row, side}){
   y -= 4;  // minimal gap
 
   if(side === "buyer"){
-    const introText = `CMS Livestock Auction does hereby agree to sell and '${buyer}' does hereby agree to the purchase of the following livestock:`;
+    const introText = `CMS Livestock Auction does hereby agree to sell and the buyer listed below does hereby agree to the purchase of the following livestock:`;
     const introLines = wrapLines(font, introText, 10.0, contentW - 10);
     for(const ln of introLines){
       curPage.drawText(ln, { x:M, y, size:10.0, font, color:BLACK });
@@ -2809,15 +2810,12 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     lotsByType.get(type).push(row);
   }
   
-  // Get type color (same as regular reports)
-  const getTypeColor = (type) => {
-    const idx = CONFIG.TYPE_ORDER.indexOf(type);
-    if(idx >= 0 && idx < CONFIG.TYPE_PALETTE.length){
-      const hex = CONFIG.TYPE_PALETTE[idx];
-      const [r, g, b] = hexToRgb01(hex);
-      return rgb(r, g, b);
-    }
-    return rgb(0.85, 0.85, 0.85); // Default light gray
+  // Get type color using existing function
+  const getTypeColor = (typeLots) => {
+    if(typeLots.length === 0) return rgb(0.85, 0.85, 0.85);
+    const hex = pickTypeColorHex(typeLots[0], isPre);
+    const [r, g, b] = hexToRgb01(hex);
+    return rgb(r, g, b);
   };
 
   let firstType = true;
@@ -2838,7 +2836,7 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
       }
       
       // Draw type header
-      const typeColor = getTypeColor(type);
+      const typeColor = getTypeColor(typeLots);
       const typeH = 14;
       page.drawRectangle({
         x:M, y:y-typeH, width:contentW, height:typeH,
@@ -3191,6 +3189,7 @@ function wireSectionSelectors(){
       chkSalesByRep.checked = true;
       chkCompleteBuyer.checked = true;
       chkCompleteConsignor.checked = true;
+      chkCompleteRep.checked = true;
       chkAuctionRecap.checked = true;
       setBuildEnabled();
     });
@@ -3203,6 +3202,7 @@ function wireSectionSelectors(){
       chkSalesByRep.checked = false;
       chkCompleteBuyer.checked = false;
       chkCompleteConsignor.checked = false;
+      chkCompleteRep.checked = false;
       chkAuctionRecap.checked = false;
       setBuildEnabled();
     });
