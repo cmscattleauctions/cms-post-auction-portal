@@ -112,7 +112,7 @@ The CMS Livestock Auction Seller's Terms of Service Agreement as signed prior to
     gridLineH: 10.2,
     notesLineH: 10.0,
 
-    lotGap: 7,
+    lotGap: 11,
 
     padX: 8,
     cellPadX: 5,
@@ -155,7 +155,7 @@ let auctionName, auctionDate, auctionDatePicker, auctionLabel;
 let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let chkPreConsignor, chkPreRep, chkPreConsignorCondensed, chkPreRepCondensed;
-let chkConsignorCondensed, chkRepCondensed;
+let chkBuyerCondensed, chkConsignorCondensed, chkRepCondensed;
 let chkShowCmsNotes;
 let chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkCompleteRep, chkAuctionRecap;
 let buildBtn, builderError;
@@ -211,6 +211,7 @@ function bindDom(){
   chkPreRepCondensed = mustGet("chkPreRepCondensed");
 
   chkShowCmsNotes = mustGet("chkShowCmsNotes");
+  chkBuyerCondensed = mustGet("chkBuyerCondensed");
   chkConsignorCondensed = mustGet("chkConsignorCondensed");
   chkRepCondensed = mustGet("chkRepCondensed");
 
@@ -586,6 +587,7 @@ function updateCsvPreview(){
   if(chkConsignor.checked){
     const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
     counts.consignorReports = consignors.size;
+    if(chkBuyerCondensed.checked) counts.buyerReports *= 2; // Regular + Condensed
     if(chkConsignorCondensed.checked) counts.consignorReports *= 2; // Regular + Condensed
   }
 
@@ -1426,6 +1428,11 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     const contract = safeStr(getContract(r));
     const consignor = safeStr(r[CONFIG.COLS.consignor]);
     const breed = safeStr(r[CONFIG.COLS.breed]) || safeStr(r[CONFIG.COLS.description]);
+    
+    // Use Lot Number #2 for consignor/rep modes, regular for buyer
+    const lotForHeader = (mode === "consignor" || mode === "rep") ? 
+      safeStr(r[CONFIG.COLS.lotNumber2]) || safeStr(r[CONFIG.COLS.lotNumber]) :
+      safeStr(r[CONFIG.COLS.lotNumber]);
 
     if(mode === "buyer") buyerDownMoneyTotal += toNumber(r[CONFIG.COLS.downMoney]);
 
@@ -1439,10 +1446,13 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       headerFillHex = pickTypeColorHex(r);
     }
 
-    const topLine = `Contract # ${contract}`;
+    const topLine = lotForHeader ? `Lot # ${lotForHeader}` : `Contract # ${contract}`;
     const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
 
-    const breedColor = headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : BLACK;
+    // Use white text for Black X Beef on Dairy colored headers
+    const isBlackX = headerFillHex === "#202E4A";
+    const breedColor = (headerFillHex && isBlackX) ? rgb(...CONFIG.COLORS.textWhite) : 
+                       (headerFillHex ? rgb(...CONFIG.COLORS.textWhite) : BLACK);
     page.drawText(safeStr(breed), { x: M + CONFIG.PDF.padX, y: y - 27, size: CONFIG.PDF.lotBreed, font, color: breedColor });
     y -= row1H;
 
@@ -1523,7 +1533,25 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   }
 
   const sorted = [...rows].sort(sortLots);
-  for(const r of sorted){
+  let prevConsignor = null;
+  
+  for(let i = 0; i < sorted.length; i++){
+    const r = sorted[i];
+    const currentConsignor = safeStr(r[CONFIG.COLS.consignor]);
+    
+    // Draw thick line when consignor changes in rep mode
+    if(mode === "rep" && prevConsignor && currentConsignor !== prevConsignor){
+      y -= 4; // Extra space before thick line
+      page.drawLine({
+        start: { x: M, y: y },
+        end: { x: M + contentW, y: y },
+        thickness: 3,
+        color: rgb(0.6, 0.6, 0.6)
+      });
+      y -= 8; // Extra space after thick line
+    }
+    
+    prevConsignor = currentConsignor;
     ensureRoom(r);
     drawLotBlock(r);
   }
@@ -3291,6 +3319,12 @@ function wireBuild(){
             try{
               const bytes = await buildPdfForGroup({ entityName: buyer, rows, mode:"buyer", singleLotMode:false, forceBuyerName:buyer });
               generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap.pdf`, bytes, count: rows.length });
+              
+              // Generate condensed version if checkbox is checked
+              if(chkBuyerCondensed.checked){
+                const condensedBytes = await buildCondensedListingPdf({ entityName: buyer, rows, mode:"buyer", isPre:false, includePrice:true });
+                generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+              }
             } catch(err){
               errors.push(`Buyer Report for "${buyer}": ${err.message}`);
             }
@@ -3589,23 +3623,22 @@ function wireBuild(){
         if(chkCompleteRep.checked){
           try{
             const summaries = [];
-            // Use sold rows only for regular summaries
-            const soldByRep = new Map();
-            for(const [rep, rows] of byRep.entries()){
-              const soldReps = rows.filter(r => !isPO(r));
-              if(soldReps.length > 0) soldByRep.set(rep, soldReps);
-            }
             
-            for(const [rep, rows] of soldByRep.entries()){
-              if(!rep) continue;
-              const lotCount = rows.length;
-              const totalHead = rows.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
-              const totalSales = rows.reduce((sum, r) => sum + calculateLotTotal(r), 0);
-              summaries.push({ name: rep, lotCount, totalHead, totalSales, isPO: false });
+            // Build sold summaries
+            for(const [rep, rows] of byRep.entries()){
+              if(!rep || rep.trim() === "") continue;
+              const soldReps = rows.filter(r => !isPO(r));
+              if(soldReps.length > 0){
+                const lotCount = soldReps.length;
+                const totalHead = soldReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+                const totalSales = soldReps.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+                summaries.push({ name: rep, lotCount, totalHead, totalSales, isPO: false });
+              }
             }
             
             // Add PO/SCRATCH reps at the bottom
             for(const [rep, rows] of byRep.entries()){
+              if(!rep || rep.trim() === "") continue;
               const poReps = rows.filter(r => isPO(r));
               if(poReps.length > 0){
                 const lotCount = poReps.length;
@@ -3614,8 +3647,10 @@ function wireBuild(){
               }
             }
             
-            const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
-            generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
+            if(summaries.length > 0){
+              const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
+              generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
+            }
           } catch(err){
             errors.push(`Complete Rep Summary: ${err.message}`);
           }
