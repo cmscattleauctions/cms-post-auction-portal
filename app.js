@@ -2863,23 +2863,36 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
         y -= 14;
       }
       
-      // Draw type header
+      // Draw type header with white text for dark backgrounds
       const typeColor = getTypeColor(typeLots);
+      const typeHex = pickTypeColorHex(typeLots[0], isPre);
+      const isBlackX = typeHex === "#202E4A";
+      const typeTextColor = isBlackX ? rgb(1, 1, 1) : BLACK;
       const typeH = 14;
       page.drawRectangle({
         x:M, y:y-typeH, width:contentW, height:typeH,
         color:typeColor, borderWidth:0
       });
-      page.drawText(type, { x:M+5, y:y-10, size:8, font:fontBold, color:BLACK });
+      page.drawText(type, { x:M+5, y:y-10, size:8, font:fontBold, color:typeTextColor });
       y -= typeH + 2;
     }
     firstType = false;
 
+    let prevConsignor = null;
     for(let i=0; i<typeLots.length; i++){
       const row = typeLots[i];
+      const currentConsignor = mode === "rep" ? safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]) : null;
+      
+      // Thick line when consignor changes in rep mode
+      if(mode === "rep" && prevConsignor && currentConsignor !== prevConsignor){
+        y -= 4;
+        page.drawLine({ start:{x:M, y:y}, end:{x:M+contentW, y:y}, thickness:3, color:rgb(0.6, 0.6, 0.6) });
+        y -= 8;
+      }
+      prevConsignor = currentConsignor;
       
       // Thin gray line between lots
-      if(i > 0){
+      if(i > 0 && !(mode === "rep" && currentConsignor !== prevConsignor)){
         page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
         y -= 3;
       }
@@ -2898,12 +2911,16 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
       y -= 14;
     }
 
+    // Track previous consignor for rep mode thick line
+    const currentConsignor = mode === "rep" ? safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]) : null;
+    
     // Draw row - Description from Breed column, with word wrapping
-    const fontSize = 6.5;
+    const baseFontSize = 6.5;
+    const largeFontSize = 9.5; // +3 points for Lot, Head, Sex, Shrink, Price
     const lineHeight = 8;
     
     // Helper to wrap text within column width
-    const wrapText = (text, maxWidth) => {
+    const wrapText = (text, maxWidth, fontSize) => {
       const words = text.split(' ');
       const lines = [];
       let currentLine = '';
@@ -2923,8 +2940,8 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
       return lines.length > 0 ? lines : [''];
     };
     
-    // Get raw values
-    const lotNum = safeStr(row[CONFIG.COLS.lotNumber] || row[CONFIG.PRE_COLS.lotNumber]);
+    // Get raw values - use Lot Number #2
+    const lotNum = safeStr(row[CONFIG.COLS.lotNumber2] || row[CONFIG.COLS.lotNumber] || row[CONFIG.PRE_COLS.lotNumber]);
     const seller = safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]);
     const head = safeStr(row[CONFIG.COLS.head] || row[CONFIG.PRE_COLS.head]);
     const breed = safeStr(row[CONFIG.COLS.breed] || row[CONFIG.PRE_COLS.breed] || row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]);
@@ -2936,28 +2953,28 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]);
     const notes = (safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription] || "")).trim();
     
-    // Wrap text for each column
+    // Wrap text for each column with appropriate font sizes
     const wrappedValues = [
-      wrapText(lotNum, colWidths[0]),
-      wrapText(seller, colWidths[1]),
-      wrapText(head, colWidths[2]),
-      wrapText(breed, colWidths[3]),
-      wrapText(sex, colWidths[4]),
-      wrapText(wt, colWidths[5]),
-      wrapText(delivery, colWidths[6]),
-      wrapText(location, colWidths[7]),
-      wrapText(shrink, colWidths[8]),
-      wrapText(slide, colWidths[9]),
-      wrapText(notes, colWidths[10])
+      { lines: wrapText(lotNum, colWidths[0], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(seller, colWidths[1], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(head, colWidths[2], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(breed, colWidths[3], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(sex, colWidths[4], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(wt, colWidths[5], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(delivery, colWidths[6], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(location, colWidths[7], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(shrink, colWidths[8], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(slide, colWidths[9], baseFontSize), fontSize: baseFontSize },
+      { lines: wrapText(notes, colWidths[10], baseFontSize), fontSize: baseFontSize }
     ];
     
     if(includePrice){
       const priceVal = isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price]);
-      wrappedValues.push(wrapText(priceVal, colWidths[11]));
+      wrappedValues.push({ lines: wrapText(priceVal, colWidths[11], largeFontSize), fontSize: largeFontSize });
     }
     
     // Calculate max lines needed for this row
-    const maxLines = Math.max(...wrappedValues.map(lines => lines.length));
+    const maxLines = Math.max(...wrappedValues.map(v => v.lines.length));
     const rowHeight = maxLines * lineHeight + 2;
     
     // Check if we need a new page
@@ -2978,15 +2995,15 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     for(let lineIdx = 0; lineIdx < maxLines; lineIdx++){
       x = M;
       for(let colIdx = 0; colIdx < wrappedValues.length; colIdx++){
-        const lines = wrappedValues[colIdx];
-        const text = lines[lineIdx] || '';
-        page.drawText(text, { x:x+2, y:y-7, size:fontSize, font, color:BLACK });
+        const column = wrappedValues[colIdx];
+        const text = column.lines[lineIdx] || '';
+        page.drawText(text, { x:x+2, y:y-7, size:column.fontSize, font, color:BLACK });
         x += colWidths[colIdx];
       }
       y -= lineHeight;
     }
 
-    y -= 2; // Small gap after row
+    y -= 6; // Increased spacing after row (was 2)
     }
   }
 
@@ -3270,13 +3287,18 @@ function wireBuild(){
 
       generated = { 
         buyerReports:[], 
+        buyerReportsCondensed: [],
         lotByLot:[], 
         buyerContracts:[], 
         sellerContracts:[], 
         consignorReports:[], 
+        consignorReportsCondensed: [],
         repReports:[],
+        repReportsCondensed: [],
         preConsignorReports: [],
+        preConsignorReportsCondensed: [],
         preRepReports: [],
+        preRepReportsCondensed: [],
         salesByConsignor: [],
         salesByBuyer: [],
         salesByRep: [],
@@ -3320,10 +3342,10 @@ function wireBuild(){
               const bytes = await buildPdfForGroup({ entityName: buyer, rows, mode:"buyer", singleLotMode:false, forceBuyerName:buyer });
               generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap.pdf`, bytes, count: rows.length });
               
-              // Generate condensed version if checkbox is checked
+              // Generate condensed version to separate array
               if(chkBuyerCondensed.checked){
                 const condensedBytes = await buildCondensedListingPdf({ entityName: buyer, rows, mode:"buyer", isPre:false, includePrice:true });
-                generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+                generated.buyerReportsCondensed.push({ filename: `${fileSafeName(buyer)}-Buyer Recap-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
               }
             } catch(err){
               errors.push(`Buyer Report for "${buyer}": ${err.message}`);
@@ -3391,7 +3413,7 @@ function wireBuild(){
               // Generate condensed version if checkbox is checked
               if(chkConsignorCondensed.checked){
                 const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true });
-                generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+                generated.consignorReportsCondensed.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
               }
             } catch(err){
               errors.push(`Consignor Report for "${consignor}": ${err.message}`);
@@ -3410,7 +3432,7 @@ function wireBuild(){
               // Generate condensed version if checkbox is checked
               if(chkRepCondensed.checked){
                 const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true });
-                generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+                generated.repReportsCondensed.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
               }
             } catch(err){
               errors.push(`Rep Report for "${rep}": ${err.message}`);
@@ -3449,10 +3471,10 @@ function wireBuild(){
                 count: rows.length 
               });
               
-              // Generate condensed version if checkbox is checked
+              // Generate condensed version to separate array
               if(chkPreConsignorCondensed.checked){
                 const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false });
-                generated.preConsignorReports.push({ 
+                generated.preConsignorReportsCondensed.push({ 
                   filename: `Listing-Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, 
                   bytes: condensedBytes, 
                   count: rows.length 
@@ -3479,10 +3501,10 @@ function wireBuild(){
                 count: rows.length 
               });
               
-              // Generate condensed version if checkbox is checked
+              // Generate condensed version to separate array
               if(chkPreRepCondensed.checked){
                 const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false });
-                generated.preRepReports.push({ 
+                generated.preRepReportsCondensed.push({ 
                   filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations-CONDENSED.pdf`, 
                   bytes: condensedBytes, 
                   count: rows.length 
@@ -3622,34 +3644,40 @@ function wireBuild(){
         // Complete Rep Summary
         if(chkCompleteRep.checked){
           try{
-            const summaries = [];
-            
-            // Build sold summaries
-            for(const [rep, rows] of byRep.entries()){
-              if(!rep || rep.trim() === "") continue;
-              const soldReps = rows.filter(r => !isPO(r));
-              if(soldReps.length > 0){
-                const lotCount = soldReps.length;
-                const totalHead = soldReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
-                const totalSales = soldReps.reduce((sum, r) => sum + calculateLotTotal(r), 0);
-                summaries.push({ name: rep, lotCount, totalHead, totalSales, isPO: false });
+            if(!byRep || byRep.size === 0){
+              errors.push(`Complete Rep Summary: No reps found in data`);
+            } else {
+              const summaries = [];
+              
+              // Build sold summaries
+              for(const [rep, rows] of byRep.entries()){
+                if(!rep || rep.trim() === "") continue;
+                const soldReps = rows.filter(r => !isPO(r));
+                if(soldReps.length > 0){
+                  const lotCount = soldReps.length;
+                  const totalHead = soldReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+                  const totalSales = soldReps.reduce((sum, r) => sum + calculateLotTotal(r), 0);
+                  summaries.push({ name: rep, lotCount, totalHead, totalSales, isPO: false });
+                }
               }
-            }
-            
-            // Add PO/SCRATCH reps at the bottom
-            for(const [rep, rows] of byRep.entries()){
-              if(!rep || rep.trim() === "") continue;
-              const poReps = rows.filter(r => isPO(r));
-              if(poReps.length > 0){
-                const lotCount = poReps.length;
-                const totalHead = poReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
-                summaries.push({ name: rep, lotCount, totalHead, totalSales: 0, isPO: true });
+              
+              // Add PO/SCRATCH reps at the bottom
+              for(const [rep, rows] of byRep.entries()){
+                if(!rep || rep.trim() === "") continue;
+                const poReps = rows.filter(r => isPO(r));
+                if(poReps.length > 0){
+                  const lotCount = poReps.length;
+                  const totalHead = poReps.reduce((sum, r) => sum + toNumber(r[CONFIG.COLS.head]), 0);
+                  summaries.push({ name: rep, lotCount, totalHead, totalSales: 0, isPO: true });
+                }
               }
-            }
-            
-            if(summaries.length > 0){
-              const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
-              generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
+              
+              if(summaries.length > 0){
+                const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
+                generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
+              } else {
+                errors.push(`Complete Rep Summary: No rep data to summarize`);
+              }
             }
           } catch(err){
             errors.push(`Complete Rep Summary: ${err.message}`);
@@ -3937,13 +3965,18 @@ function init(){
   blobUrls = [];
   generated = { 
     buyerReports:[], 
+    buyerReportsCondensed: [],
     lotByLot:[], 
     buyerContracts:[], 
     sellerContracts:[], 
-    consignorReports:[], 
+    consignorReports:[],
+    consignorReportsCondensed: [],
     repReports:[],
+    repReportsCondensed: [],
     preConsignorReports: [],
+    preConsignorReportsCondensed: [],
     preRepReports: [],
+    preRepReportsCondensed: [],
   };
 }
 
