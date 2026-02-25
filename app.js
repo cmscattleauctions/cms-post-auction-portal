@@ -3464,17 +3464,22 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
-              // Generate regular version
               const bytes = await buildPdfForGroup({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
               generated.repReports.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations.pdf`, bytes, count: rows.length });
-              
-              // Generate condensed version if checkbox is checked
-              if(chkRepCondensed.checked){
-                const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true });
-                generated.repReportsCondensed.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
-              }
             } catch(err){
               errors.push(`Rep Report for "${rep}": ${err.message}`);
+            }
+          }
+        }
+        
+        if(chkRepCondensed.checked){
+          for(const [rep, rows] of byRep.entries()){
+            if(!rep) continue;
+            try{
+              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true });
+              generated.repReportsCondensed.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+            } catch(err){
+              errors.push(`Rep Report Condensed for "${rep}": ${err.message}`);
             }
           }
         }
@@ -3502,58 +3507,72 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              // Generate regular version
               const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor" });
               generated.preConsignorReports.push({ 
                 filename: `Listing-Confirmations-${fileSafeName(consignor)}.pdf`, 
                 bytes, 
                 count: rows.length 
               });
-              
-              // Generate condensed version to separate array
-              if(chkPreConsignorCondensed.checked){
-                const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false });
-                generated.preConsignorReportsCondensed.push({ 
-                  filename: `Listing-Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, 
-                  bytes: condensedBytes, 
-                  count: rows.length 
-                });
-              }
             } catch(err){
               errors.push(`Pre-Auction Consignor for "${consignor}": ${err.message}`);
             }
           }
         }
+        
+        if(chkPreConsignorCondensed.checked){
+          const byConsignor = groupBy(csvRows, CONFIG.PRE_COLS.consignor);
+          for(const [consignor, rows] of byConsignor.entries()){
+            if(!consignor) continue;
+            try{
+              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false });
+              generated.preConsignorReportsCondensed.push({ 
+                filename: `Listing-Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, 
+                bytes: condensedBytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Pre-Auction Consignor Condensed for "${consignor}": ${err.message}`);
+            }
+          }
+        }
 
         if(chkPreRep.checked){
-          // Check for rep in Rep column (pre-auction uses "Rep" not "Representative")
           const repRows = csvRows.filter(r => safeStr(r[CONFIG.PRE_COLS.rep]) !== "");
           const byRep = groupBy(repRows, CONFIG.PRE_COLS.rep);
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
-              // Generate regular version
               const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
               generated.preRepReports.push({ 
                 filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
                 bytes, 
                 count: rows.length 
               });
-              
-              // Generate condensed version to separate array
-              if(chkPreRepCondensed.checked){
-                const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false });
-                generated.preRepReportsCondensed.push({ 
-                  filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations-CONDENSED.pdf`, 
-                  bytes: condensedBytes, 
-                  count: rows.length 
-                });
-              }
             } catch(err){
               errors.push(`Pre-Auction Rep for "${rep}": ${err.message}`);
             }
           }
         }
+        
+        if(chkPreRepCondensed.checked){
+          const repRows = csvRows.filter(r => safeStr(r[CONFIG.PRE_COLS.rep]) !== "");
+          const byRep = groupBy(repRows, CONFIG.PRE_COLS.rep);
+          for(const [rep, rows] of byRep.entries()){
+            if(!rep) continue;
+            try{
+              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false });
+              generated.preRepReportsCondensed.push({ 
+                filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations-CONDENSED.pdf`, 
+                bytes: condensedBytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Pre-Auction Rep Condensed for "${rep}": ${err.message}`);
+            }
+          }
+        }
+
+        // PRE-AUCTION SPECIAL REPORTS
       }
 
       // SPECIAL REPORTS GENERATION
