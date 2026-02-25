@@ -681,13 +681,18 @@ function updateCsvPreview(){
 
 function anyChecked(){
   return chkBuyer.checked ||
+    chkBuyerCondensed.checked ||
     chkConsignor.checked ||
+    chkConsignorCondensed.checked ||
     chkRep.checked ||
+    chkRepCondensed.checked ||
     chkLotByLot.checked ||
     chkBuyerContracts.checked ||
     chkSellerContracts.checked ||
     chkPreConsignor.checked ||
+    chkPreConsignorCondensed.checked ||
     chkPreRep.checked ||
+    chkPreRepCondensed.checked ||
     chkSalesByConsignor.checked ||
     chkSalesByBuyer.checked ||
     chkSalesByRep.checked ||
@@ -3364,14 +3369,20 @@ function wireBuild(){
             try{
               const bytes = await buildPdfForGroup({ entityName: buyer, rows, mode:"buyer", singleLotMode:false, forceBuyerName:buyer });
               generated.buyerReports.push({ filename: `${fileSafeName(buyer)}-Buyer Recap.pdf`, bytes, count: rows.length });
-              
-              // Generate condensed version to separate array
-              if(chkBuyerCondensed.checked){
-                const condensedBytes = await buildCondensedListingPdf({ entityName: buyer, rows, mode:"buyer", isPre:false, includePrice:true });
-                generated.buyerReportsCondensed.push({ filename: `${fileSafeName(buyer)}-Buyer Recap-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
-              }
             } catch(err){
               errors.push(`Buyer Report for "${buyer}": ${err.message}`);
+            }
+          }
+        }
+        
+        if(chkBuyerCondensed.checked){
+          for(const [buyer, rows] of byBuyer.entries()){
+            if(!buyer) continue;
+            try{
+              const condensedBytes = await buildCondensedListingPdf({ entityName: buyer, rows, mode:"buyer", isPre:false, includePrice:true });
+              generated.buyerReportsCondensed.push({ filename: `${fileSafeName(buyer)}-Buyer Recap-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+            } catch(err){
+              errors.push(`Buyer Report Condensed for "${buyer}": ${err.message}`);
             }
           }
         }
@@ -3429,17 +3440,22 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              // Generate regular version
               const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor" });
               generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`, bytes, count: rows.length });
-              
-              // Generate condensed version if checkbox is checked
-              if(chkConsignorCondensed.checked){
-                const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true });
-                generated.consignorReportsCondensed.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
-              }
             } catch(err){
               errors.push(`Consignor Report for "${consignor}": ${err.message}`);
+            }
+          }
+        }
+        
+        if(chkConsignorCondensed.checked){
+          for(const [consignor, rows] of byConsignor.entries()){
+            if(!consignor) continue;
+            try{
+              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true });
+              generated.consignorReportsCondensed.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
+            } catch(err){
+              errors.push(`Consignor Report Condensed for "${consignor}": ${err.message}`);
             }
           }
         }
@@ -3667,11 +3683,9 @@ function wireBuild(){
         // Complete Rep Summary
         if(chkCompleteRep.checked){
           try{
-            if(!byRep || byRep.size === 0){
-              errors.push(`Complete Rep Summary: No reps found in data`);
-            } else {
-              const summaries = [];
-              
+            const summaries = [];
+            
+            if(byRep && byRep.size > 0){
               // Build sold summaries
               for(const [rep, rows] of byRep.entries()){
                 if(!rep || rep.trim() === "") continue;
@@ -3694,14 +3708,11 @@ function wireBuild(){
                   summaries.push({ name: rep, lotCount, totalHead, totalSales: 0, isPO: true });
                 }
               }
-              
-              if(summaries.length > 0){
-                const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
-                generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
-              } else {
-                errors.push(`Complete Rep Summary: No rep data to summarize`);
-              }
             }
+            
+            // Generate even if empty (will show "No reps" in PDF)
+            const bytes = await buildCompleteSummaryPdf({ summaries, mode: "rep" });
+            generated.completeRep = { filename: "Complete-Rep-Summary.pdf", bytes, count: 1 };
           } catch(err){
             errors.push(`Complete Rep Summary: ${err.message}`);
           }
@@ -3938,7 +3949,8 @@ function init(){
 
   wireDropZone({ zoneEl: dropZone, inputEl: fileInput, onFile: handleCsvFile, metaEl: fileMeta });
 
-  [chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts, chkPreConsignor, chkPreRep,
+  [chkBuyer, chkBuyerCondensed, chkConsignor, chkConsignorCondensed, chkRep, chkRepCondensed, chkLotByLot, chkBuyerContracts, chkSellerContracts, 
+   chkPreConsignor, chkPreConsignorCondensed, chkPreRep, chkPreRepCondensed,
    chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkCompleteRep, chkAuctionRecap]
     .forEach(el => el.addEventListener("change", setBuildEnabled));
 
