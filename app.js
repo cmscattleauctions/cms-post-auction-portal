@@ -2911,9 +2911,6 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
       y -= 14;
     }
 
-    // Track previous consignor for rep mode thick line
-    const currentConsignor = mode === "rep" ? safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]) : null;
-    
     // Draw row - Description from Breed column, with word wrapping
     const baseFontSize = 6.5;
     const largeFontSize = 9.5; // +3 points for Lot, Head, Sex, Shrink, Price
