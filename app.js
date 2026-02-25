@@ -576,6 +576,11 @@ function updateCsvPreview(){
     const buyers = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
     counts.buyerReports = buyers.size;
   }
+  
+  if(chkBuyerCondensed.checked){
+    const buyers = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
+    counts.buyerReports += buyers.size; // Add condensed count
+  }
 
   if(chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked){
     const contracts = csvRows.filter(r => getContract(r)).length;
@@ -587,26 +592,41 @@ function updateCsvPreview(){
   if(chkConsignor.checked){
     const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
     counts.consignorReports = consignors.size;
-    if(chkBuyerCondensed.checked) counts.buyerReports *= 2; // Regular + Condensed
-    if(chkConsignorCondensed.checked) counts.consignorReports *= 2; // Regular + Condensed
+  }
+  
+  if(chkConsignorCondensed.checked){
+    const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
+    counts.consignorReports += consignors.size; // Add condensed count
   }
 
   if(chkRep.checked){
     const reps = new Set(csvRows.map(r => getRepColumn(r)).filter(Boolean));
     counts.repReports = reps.size;
-    if(chkRepCondensed.checked) counts.repReports *= 2; // Regular + Condensed
+  }
+  
+  if(chkRepCondensed.checked){
+    const reps = new Set(csvRows.map(r => getRepColumn(r)).filter(Boolean));
+    counts.repReports += reps.size; // Add condensed count
   }
 
   if(chkPreConsignor.checked){
     const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.consignor])).filter(Boolean));
     counts.preConsignorReports = consignors.size;
-    if(chkPreConsignorCondensed.checked) counts.preConsignorReports *= 2; // Regular + Condensed
+  }
+  
+  if(chkPreConsignorCondensed.checked){
+    const consignors = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.consignor])).filter(Boolean));
+    counts.preConsignorReports += consignors.size; // Add condensed count
   }
 
   if(chkPreRep.checked){
     const reps = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.rep])).filter(Boolean));
     counts.preRepReports = reps.size;
-    if(chkPreRepCondensed.checked) counts.preRepReports *= 2; // Regular + Condensed
+  }
+  
+  if(chkPreRepCondensed.checked){
+    const reps = new Set(csvRows.map(r => safeStr(r[CONFIG.PRE_COLS.rep])).filter(Boolean));
+    counts.preRepReports += reps.size; // Add condensed count
   }
 
   // Special Reports
@@ -3093,13 +3113,18 @@ function renderList(container, items){
 function renderResults(){
   const total =
     generated.buyerReports.length +
+    generated.buyerReportsCondensed.length +
     generated.lotByLot.length +
     generated.buyerContracts.length +
     generated.sellerContracts.length +
     generated.consignorReports.length +
+    generated.consignorReportsCondensed.length +
     generated.repReports.length +
+    generated.repReportsCondensed.length +
     generated.preConsignorReports.length +
+    generated.preConsignorReportsCondensed.length +
     generated.preRepReports.length +
+    generated.preRepReportsCondensed.length +
     generated.salesByConsignor.length +
     generated.salesByBuyer.length +
     generated.salesByRep.length +
@@ -3110,14 +3135,15 @@ function renderResults(){
 
   resultsMeta.textContent = `Generated ${total} file(s) from ${csvRows.length} row(s).`;
 
-  renderList(listBuyerReports, generated.buyerReports);
+  // Render regular and condensed to same lists
+  renderList(listBuyerReports, [...generated.buyerReports, ...generated.buyerReportsCondensed]);
   renderList(listLotByLot, generated.lotByLot);
   renderList(listBuyerContracts, generated.buyerContracts);
   renderList(listSellerContracts, generated.sellerContracts);
-  renderList(listConsignorReports, generated.consignorReports);
-  renderList(listRepReports, generated.repReports);
-  renderList(listPreConsignorReports, generated.preConsignorReports);
-  renderList(listPreRepReports, generated.preRepReports);
+  renderList(listConsignorReports, [...generated.consignorReports, ...generated.consignorReportsCondensed]);
+  renderList(listRepReports, [...generated.repReports, ...generated.repReportsCondensed]);
+  renderList(listPreConsignorReports, [...generated.preConsignorReports, ...generated.preConsignorReportsCondensed]);
+  renderList(listPreRepReports, [...generated.preRepReports, ...generated.preRepReportsCondensed]);
   
   // Special reports
   renderList(listSalesByConsignor, generated.salesByConsignor);
@@ -3711,14 +3737,29 @@ function wireBuild(){
     }
   });
 
-  zipBuyerReports.addEventListener("click", async ()=> generated.buyerReports.length && downloadZip(generated.buyerReports, "Buyer-Reports.zip"));
+  zipBuyerReports.addEventListener("click", async ()=> {
+    const all = [...generated.buyerReports, ...generated.buyerReportsCondensed];
+    if(all.length) downloadZip(all, "Buyer-Reports.zip");
+  });
   zipLotByLot.addEventListener("click", async ()=> generated.lotByLot.length && downloadZip(generated.lotByLot, "Contract-Details.zip"));
   zipBuyerContracts.addEventListener("click", async ()=> generated.buyerContracts.length && downloadZip(generated.buyerContracts, "Buyer-Contracts.zip"));
   zipSellerContracts.addEventListener("click", async ()=> generated.sellerContracts.length && downloadZip(generated.sellerContracts, "Seller-Contracts.zip"));
-  zipConsignorReports.addEventListener("click", async ()=> generated.consignorReports.length && downloadZip(generated.consignorReports, "Consignor-Reports.zip"));
-  zipRepReports.addEventListener("click", async ()=> generated.repReports.length && downloadZip(generated.repReports, "Rep-Reports.zip"));
-  zipPreConsignorReports.addEventListener("click", async ()=> generated.preConsignorReports.length && downloadZip(generated.preConsignorReports, "Listing-Confirmations-Consignor.zip"));
-  zipPreRepReports.addEventListener("click", async ()=> generated.preRepReports.length && downloadZip(generated.preRepReports, "Listing-Confirmations-Rep.zip"));
+  zipConsignorReports.addEventListener("click", async ()=> {
+    const all = [...generated.consignorReports, ...generated.consignorReportsCondensed];
+    if(all.length) downloadZip(all, "Consignor-Reports.zip");
+  });
+  zipRepReports.addEventListener("click", async ()=> {
+    const all = [...generated.repReports, ...generated.repReportsCondensed];
+    if(all.length) downloadZip(all, "Rep-Reports.zip");
+  });
+  zipPreConsignorReports.addEventListener("click", async ()=> {
+    const all = [...generated.preConsignorReports, ...generated.preConsignorReportsCondensed];
+    if(all.length) downloadZip(all, "Listing-Confirmations-Consignor.zip");
+  });
+  zipPreRepReports.addEventListener("click", async ()=> {
+    const all = [...generated.preRepReports, ...generated.preRepReportsCondensed];
+    if(all.length) downloadZip(all, "Listing-Confirmations-Rep.zip");
+  });
 
   // Special Reports ZIP handlers
   zipSalesByConsignor.addEventListener("click", async ()=> generated.salesByConsignor.length && downloadZip(generated.salesByConsignor, "Sales-Summaries-Consignor.zip"));
@@ -3770,9 +3811,10 @@ function wireBuild(){
       for(const it of generated.sellerContracts) folder.file(it.filename, it.bytes);
     }
     
-    if(generated.buyerReports.length > 0){
+    if(generated.buyerReports.length > 0 || generated.buyerReportsCondensed.length > 0){
       const folder = zip.folder("Buyer-Reports");
       for(const it of generated.buyerReports) folder.file(it.filename, it.bytes);
+      for(const it of generated.buyerReportsCondensed) folder.file(it.filename, it.bytes);
     }
     
     if(generated.lotByLot.length > 0){
@@ -3780,24 +3822,28 @@ function wireBuild(){
       for(const it of generated.lotByLot) folder.file(it.filename, it.bytes);
     }
     
-    if(generated.consignorReports.length > 0){
+    if(generated.consignorReports.length > 0 || generated.consignorReportsCondensed.length > 0){
       const folder = zip.folder("Consignor-Trade-Confirmations");
       for(const it of generated.consignorReports) folder.file(it.filename, it.bytes);
+      for(const it of generated.consignorReportsCondensed) folder.file(it.filename, it.bytes);
     }
     
-    if(generated.repReports.length > 0){
+    if(generated.repReports.length > 0 || generated.repReportsCondensed.length > 0){
       const folder = zip.folder("Rep-Trade-Confirmations");
       for(const it of generated.repReports) folder.file(it.filename, it.bytes);
+      for(const it of generated.repReportsCondensed) folder.file(it.filename, it.bytes);
     }
     
-    if(generated.preConsignorReports.length > 0){
+    if(generated.preConsignorReports.length > 0 || generated.preConsignorReportsCondensed.length > 0){
       const folder = zip.folder("Consignor-Listing-Confirmations");
       for(const it of generated.preConsignorReports) folder.file(it.filename, it.bytes);
+      for(const it of generated.preConsignorReportsCondensed) folder.file(it.filename, it.bytes);
     }
     
-    if(generated.preRepReports.length > 0){
+    if(generated.preRepReports.length > 0 || generated.preRepReportsCondensed.length > 0){
       const folder = zip.folder("Rep-Listing-Confirmations");
       for(const it of generated.preRepReports) folder.file(it.filename, it.bytes);
+      for(const it of generated.preRepReportsCondensed) folder.file(it.filename, it.bytes);
     }
 
     // Special Reports
