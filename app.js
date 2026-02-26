@@ -437,11 +437,15 @@ function sortLots(a,b){
 // Pre-auction lot number logic
 function getPreLotNumber(row){
   const lotNum = safeStr(row[CONFIG.PRE_COLS.lotNumber]);
+  const option = safeStr(row[CONFIG.PRE_COLS.option]);
+  
+  // If lot number exists, use it (may already have option letter like "123A")
   if(lotNum) return lotNum;
   
-  const option = safeStr(row[CONFIG.PRE_COLS.option]);
-  if(option) return option;
+  // If no lot number but option exists, show "A-TBD", "B-TBD", etc.
+  if(option) return `${option}-TBD`;
   
+  // If neither exists, just show "TBD"
   return "TBD";
 }
 
@@ -1084,11 +1088,112 @@ async function buildPreAuctionListingPdf({entityName, rows, mode, showCmsNotes=f
     y -= CONFIG.PDF.lotGap;
   }
 
+  // Helper to extract base lot number (without letter suffix)
+  function getBaseLotNumber(lotNum) {
+    // Handle TBD format - always group TBD lots with options
+    if(lotNum.includes("TBD")) return "TBD";
+    
+    // Extract just the number part, removing any trailing letters
+    const match = lotNum.match(/^(\d+)/);
+    return match ? match[1] : lotNum;
+  }
+  
+  // Helper to check if two rows are part of the same option group
+  function areOptions(row1, row2, consignor) {
+    const lot1 = getPreLotNumber(row1);
+    const lot2 = getPreLotNumber(row2);
+    
+    // Case 1: Both have TBD with option letters (A-TBD, B-TBD, C-TBD)
+    if(lot1.includes("TBD") && lot2.includes("TBD")){
+      const consignor1 = safeStr(row1[CONFIG.PRE_COLS.consignor]);
+      const consignor2 = safeStr(row2[CONFIG.PRE_COLS.consignor]);
+      // Group if same consignor and both have option prefixes
+      if(consignor1 === consignor2 && consignor1 === entityName){
+        const hasOption1 = lot1.match(/^[A-Z]-TBD$/);
+        const hasOption2 = lot2.match(/^[A-Z]-TBD$/);
+        return hasOption1 && hasOption2;
+      }
+      return false;
+    }
+    
+    // Case 2: Both have lot numbers - check if same base number
+    if(lot1 && lot2 && lot1 !== "TBD" && lot2 !== "TBD" && !lot1.includes("TBD") && !lot2.includes("TBD")){
+      return getBaseLotNumber(lot1) === getBaseLotNumber(lot2);
+    }
+    
+    return false;
+  }
+
   // Keep CSV order for pre-auction
   const sorted = [...rows];
-  for(const r of sorted){
-    ensureRoom(r);
-    drawLotBlock(r);
+  
+  // Group consecutive option lots
+  const lotGroups = [];
+  let currentGroup = [];
+  
+  for(let i = 0; i < sorted.length; i++){
+    const currentRow = sorted[i];
+    const nextRow = i < sorted.length - 1 ? sorted[i + 1] : null;
+    
+    currentGroup.push(currentRow);
+    
+    // If next row is not an option OR we're at the end, close the group
+    if(!nextRow || !areOptions(currentRow, nextRow, entityName)){
+      lotGroups.push({ lots: currentGroup, isOptionGroup: currentGroup.length > 1 });
+      currentGroup = [];
+    }
+  }
+  
+  // Draw lots with brackets for option groups
+  for(const group of lotGroups){
+    const { lots, isOptionGroup } = group;
+    
+    if(isOptionGroup){
+      // Record starting Y position for bracket
+      const bracketStartY = y;
+      
+      // Draw all lots in the group
+      for(let i = 0; i < lots.length; i++){
+        ensureRoom(lots[i]);
+        const lotStartY = y;
+        drawLotBlock(lots[i]);
+        
+        // After last lot in group, draw the bracket
+        if(i === lots.length - 1){
+          const bracketEndY = y + CONFIG.PDF.lotGap;
+          const bracketX = M - 12;
+          const bracketHeight = bracketStartY - bracketEndY;
+          
+          // Draw bracket: vertical line, top hook, bottom hook
+          page.drawLine({
+            start: { x: bracketX, y: bracketEndY },
+            end: { x: bracketX, y: bracketStartY },
+            thickness: 1.5,
+            color: rgb(0.3, 0.3, 0.3)
+          });
+          
+          // Top hook
+          page.drawLine({
+            start: { x: bracketX, y: bracketStartY },
+            end: { x: bracketX + 6, y: bracketStartY },
+            thickness: 1.5,
+            color: rgb(0.3, 0.3, 0.3)
+          });
+          
+          // Bottom hook
+          page.drawLine({
+            start: { x: bracketX, y: bracketEndY },
+            end: { x: bracketX + 6, y: bracketEndY },
+            thickness: 1.5,
+            color: rgb(0.3, 0.3, 0.3)
+          });
+        }
+      }
+    } else {
+      // Single lot, no bracket
+      ensureRoom(lots[0]);
+      drawLotBlock(lots[0]);
+    }
   }
 
   return await pdfDoc.save();
@@ -3194,7 +3299,9 @@ function wireSectionSelectors(){
     selectAllPre.addEventListener("click", (e) => {
       e.preventDefault();
       chkPreConsignor.checked = true;
+      chkPreConsignorCondensed.checked = true;
       chkPreRep.checked = true;
+      chkPreRepCondensed.checked = true;
       setBuildEnabled();
     });
   }
@@ -3202,7 +3309,9 @@ function wireSectionSelectors(){
     deselectAllPre.addEventListener("click", (e) => {
       e.preventDefault();
       chkPreConsignor.checked = false;
+      chkPreConsignorCondensed.checked = false;
       chkPreRep.checked = false;
+      chkPreRepCondensed.checked = false;
       setBuildEnabled();
     });
   }
@@ -3214,9 +3323,12 @@ function wireSectionSelectors(){
     selectAllPost.addEventListener("click", (e) => {
       e.preventDefault();
       chkBuyer.checked = true;
+      chkBuyerCondensed.checked = true;
       chkLotByLot.checked = true;
       chkConsignor.checked = true;
+      chkConsignorCondensed.checked = true;
       chkRep.checked = true;
+      chkRepCondensed.checked = true;
       setBuildEnabled();
     });
   }
@@ -3224,9 +3336,12 @@ function wireSectionSelectors(){
     deselectAllPost.addEventListener("click", (e) => {
       e.preventDefault();
       chkBuyer.checked = false;
+      chkBuyerCondensed.checked = false;
       chkLotByLot.checked = false;
       chkConsignor.checked = false;
+      chkConsignorCondensed.checked = false;
       chkRep.checked = false;
+      chkRepCondensed.checked = false;
       setBuildEnabled();
     });
   }
@@ -3702,6 +3817,19 @@ function wireBuild(){
         // Complete Rep Summary
         if(chkCompleteRep.checked){
           try{
+            // Create byRep Map for this report
+            const repRows = csvRows.filter(r => {
+              const rep = getRepColumn(r);
+              return safeStr(rep) !== "";
+            });
+            const byRep = new Map();
+            for(const r of repRows){
+              const rep = safeStr(getRepColumn(r));
+              if(!rep) continue;
+              if(!byRep.has(rep)) byRep.set(rep, []);
+              byRep.get(rep).push(r);
+            }
+            
             const summaries = [];
             
             if(byRep && byRep.size > 0){
