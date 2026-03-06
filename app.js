@@ -156,7 +156,8 @@ let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let chkPreConsignor, chkPreRep, chkPreConsignorCondensed, chkPreRepCondensed;
 let chkBuyerCondensed, chkConsignorCondensed, chkRepCondensed;
-let chkShowCmsNotes, chkShowConsignorCmsNotes;
+let chkShowCmsNotes, chkShowConsignorCmsNotes, chkShowRepCondensedCmsNotes, chkShowConsignorCondensedCmsNotes;
+let chkShowPreConsignorCmsNotes, chkShowPreConsignorCondensedCmsNotes, chkShowPreRepCmsNotes, chkShowPreRepCondensedCmsNotes;
 let chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkCompleteRep, chkAuctionRecap;
 let buildBtn, builderError;
 
@@ -212,6 +213,12 @@ function bindDom(){
 
   chkShowCmsNotes = mustGet("chkShowCmsNotes");
   chkShowConsignorCmsNotes = mustGet("chkShowConsignorCmsNotes");
+  chkShowRepCondensedCmsNotes = mustGet("chkShowRepCondensedCmsNotes");
+  chkShowConsignorCondensedCmsNotes = mustGet("chkShowConsignorCondensedCmsNotes");
+  chkShowPreConsignorCmsNotes = mustGet("chkShowPreConsignorCmsNotes");
+  chkShowPreConsignorCondensedCmsNotes = mustGet("chkShowPreConsignorCondensedCmsNotes");
+  chkShowPreRepCmsNotes = mustGet("chkShowPreRepCmsNotes");
+  chkShowPreRepCondensedCmsNotes = mustGet("chkShowPreRepCondensedCmsNotes");
   chkBuyerCondensed = mustGet("chkBuyerCondensed");
   chkConsignorCondensed = mustGet("chkConsignorCondensed");
   chkRepCondensed = mustGet("chkRepCondensed");
@@ -1551,7 +1558,7 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       const dmRowH = 18;
       const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
       const dmAmount = toNumber(r[CONFIG.COLS.downMoney]);
-      const dmColor = dmAmount > 0 ? rgb(0.8, 0, 0) : BLACK; // Red if > 0
+      const dmColor = (singleLotMode && dmAmount > 0) ? rgb(0.8, 0, 0) : BLACK; // Red only in Contract Details if > 0
       page.drawRectangle({ x:M, y:y-dmRowH, width:contentW, height:dmRowH, color: FILL, borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
       page.drawText(`Down Money Due: ${dm}`, { x:M + CONFIG.PDF.padX, y:y-13, size: 10.0, font: fontBold, color: dmColor });
       y -= dmRowH;
@@ -2786,7 +2793,7 @@ async function buildAuctionRecapPdf({allRows}){
    CONDENSED LISTINGS
    Table-based format for fitting more lots per page (8-12 lots)
    ========================================================================= */
-async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, includePrice=false}){
+async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, includePrice=false, showCmsNotes=false}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
@@ -3018,6 +3025,42 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
         x += colWidths[colIdx];
       }
       y -= lineHeight;
+    }
+
+    // Add CMS External Notes if enabled (below the row)
+    if(showCmsNotes){
+      const cmsNotes = safeStr(row[CONFIG.COLS.cmsExternalNotes]);
+      if(cmsNotes){
+        const cmsText = `CMS Notes: ${cmsNotes}`;
+        const maxW = contentW - 4;
+        const cmsSize = 6;
+        const cmsLineHeight = 7;
+        
+        // Simple word wrapping for CMS notes
+        const words = cmsText.split(' ');
+        let currentLine = '';
+        const cmsLines = [];
+        
+        for(const word of words){
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = fontBold.widthOfTextAtSize(testLine, cmsSize);
+          
+          if(testWidth <= maxW){
+            currentLine = testLine;
+          } else {
+            if(currentLine) cmsLines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        if(currentLine) cmsLines.push(currentLine);
+        
+        // Draw CMS notes in bold, slightly indented
+        for(const line of cmsLines){
+          page.drawText(line, { x:M+4, y:y-6, size:cmsSize, font:fontBold, color:DARK_GRAY });
+          y -= cmsLineHeight;
+        }
+        y -= 2; // Extra space after CMS notes
+      }
     }
 
     y -= 6; // Increased spacing after row (was 2)
@@ -3457,7 +3500,7 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true });
+              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:false, includePrice:true, showCmsNotes: chkShowConsignorCondensedCmsNotes.checked });
               generated.consignorReportsCondensed.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
             } catch(err){
               errors.push(`Consignor Report Condensed for "${consignor}": ${err.message}`);
@@ -3481,7 +3524,7 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
-              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true });
+              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:false, includePrice:true, showCmsNotes: chkShowRepCondensedCmsNotes.checked });
               generated.repReportsCondensed.push({ filename: `Rep-${fileSafeName(rep)}-Trade Confirmations-CONDENSED.pdf`, bytes: condensedBytes, count: rows.length });
             } catch(err){
               errors.push(`Rep Report Condensed for "${rep}": ${err.message}`);
@@ -3512,7 +3555,7 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor" });
+              const bytes = await buildPreAuctionListingPdf({ entityName: consignor, rows, mode:"consignor", showCmsNotes: chkShowPreConsignorCmsNotes.checked });
               generated.preConsignorReports.push({ 
                 filename: `Listing-Confirmations-${fileSafeName(consignor)}.pdf`, 
                 bytes, 
@@ -3529,7 +3572,7 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false });
+              const condensedBytes = await buildCondensedListingPdf({ entityName: consignor, rows, mode:"consignor", isPre:true, includePrice:false, showCmsNotes: chkShowPreConsignorCondensedCmsNotes.checked });
               generated.preConsignorReportsCondensed.push({ 
                 filename: `Listing-Confirmations-${fileSafeName(consignor)}-CONDENSED.pdf`, 
                 bytes: condensedBytes, 
@@ -3547,7 +3590,7 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
-              const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowCmsNotes.checked });
+              const bytes = await buildPreAuctionListingPdf({ entityName: rep, rows, mode:"rep", showCmsNotes: chkShowPreRepCmsNotes.checked });
               generated.preRepReports.push({ 
                 filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations.pdf`, 
                 bytes, 
@@ -3565,7 +3608,7 @@ function wireBuild(){
           for(const [rep, rows] of byRep.entries()){
             if(!rep) continue;
             try{
-              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false });
+              const condensedBytes = await buildCondensedListingPdf({ entityName: rep, rows, mode:"rep", isPre:true, includePrice:false, showCmsNotes: chkShowPreRepCondensedCmsNotes.checked });
               generated.preRepReportsCondensed.push({ 
                 filename: `Rep-${fileSafeName(rep)}-Listing-Confirmations-CONDENSED.pdf`, 
                 bytes: condensedBytes, 
