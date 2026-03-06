@@ -156,7 +156,7 @@ let dropZone, fileInput, fileMeta;
 let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
 let chkPreConsignor, chkPreRep, chkPreConsignorCondensed, chkPreRepCondensed;
 let chkBuyerCondensed, chkConsignorCondensed, chkRepCondensed;
-let chkShowCmsNotes;
+let chkShowCmsNotes, chkShowConsignorCmsNotes;
 let chkSalesByConsignor, chkSalesByBuyer, chkSalesByRep, chkCompleteBuyer, chkCompleteConsignor, chkCompleteRep, chkAuctionRecap;
 let buildBtn, builderError;
 
@@ -211,6 +211,7 @@ function bindDom(){
   chkPreRepCondensed = mustGet("chkPreRepCondensed");
 
   chkShowCmsNotes = mustGet("chkShowCmsNotes");
+  chkShowConsignorCmsNotes = mustGet("chkShowConsignorCmsNotes");
   chkBuyerCondensed = mustGet("chkBuyerCondensed");
   chkConsignorCondensed = mustGet("chkConsignorCondensed");
   chkRepCondensed = mustGet("chkRepCondensed");
@@ -1088,112 +1089,11 @@ async function buildPreAuctionListingPdf({entityName, rows, mode, showCmsNotes=f
     y -= CONFIG.PDF.lotGap;
   }
 
-  // Helper to extract base lot number (without letter suffix)
-  function getBaseLotNumber(lotNum) {
-    // Handle TBD format - always group TBD lots with options
-    if(lotNum.includes("TBD")) return "TBD";
-    
-    // Extract just the number part, removing any trailing letters
-    const match = lotNum.match(/^(\d+)/);
-    return match ? match[1] : lotNum;
-  }
-  
-  // Helper to check if two rows are part of the same option group
-  function areOptions(row1, row2, consignor) {
-    const lot1 = getPreLotNumber(row1);
-    const lot2 = getPreLotNumber(row2);
-    
-    // Case 1: Both have TBD with option letters (A-TBD, B-TBD, C-TBD)
-    if(lot1.includes("TBD") && lot2.includes("TBD")){
-      const consignor1 = safeStr(row1[CONFIG.PRE_COLS.consignor]);
-      const consignor2 = safeStr(row2[CONFIG.PRE_COLS.consignor]);
-      // Group if same consignor and both have option prefixes
-      if(consignor1 === consignor2 && consignor1 === entityName){
-        const hasOption1 = lot1.match(/^[A-Z]-TBD$/);
-        const hasOption2 = lot2.match(/^[A-Z]-TBD$/);
-        return hasOption1 && hasOption2;
-      }
-      return false;
-    }
-    
-    // Case 2: Both have lot numbers - check if same base number
-    if(lot1 && lot2 && lot1 !== "TBD" && lot2 !== "TBD" && !lot1.includes("TBD") && !lot2.includes("TBD")){
-      return getBaseLotNumber(lot1) === getBaseLotNumber(lot2);
-    }
-    
-    return false;
-  }
-
   // Keep CSV order for pre-auction
   const sorted = [...rows];
-  
-  // Group consecutive option lots
-  const lotGroups = [];
-  let currentGroup = [];
-  
-  for(let i = 0; i < sorted.length; i++){
-    const currentRow = sorted[i];
-    const nextRow = i < sorted.length - 1 ? sorted[i + 1] : null;
-    
-    currentGroup.push(currentRow);
-    
-    // If next row is not an option OR we're at the end, close the group
-    if(!nextRow || !areOptions(currentRow, nextRow, entityName)){
-      lotGroups.push({ lots: currentGroup, isOptionGroup: currentGroup.length > 1 });
-      currentGroup = [];
-    }
-  }
-  
-  // Draw lots with brackets for option groups
-  for(const group of lotGroups){
-    const { lots, isOptionGroup } = group;
-    
-    if(isOptionGroup){
-      // Record starting Y position for bracket
-      const bracketStartY = y;
-      
-      // Draw all lots in the group
-      for(let i = 0; i < lots.length; i++){
-        ensureRoom(lots[i]);
-        const lotStartY = y;
-        drawLotBlock(lots[i]);
-        
-        // After last lot in group, draw the bracket
-        if(i === lots.length - 1){
-          const bracketEndY = y + CONFIG.PDF.lotGap;
-          const bracketX = M - 12;
-          const bracketHeight = bracketStartY - bracketEndY;
-          
-          // Draw bracket: vertical line, top hook, bottom hook
-          page.drawLine({
-            start: { x: bracketX, y: bracketEndY },
-            end: { x: bracketX, y: bracketStartY },
-            thickness: 1.5,
-            color: rgb(0.3, 0.3, 0.3)
-          });
-          
-          // Top hook
-          page.drawLine({
-            start: { x: bracketX, y: bracketStartY },
-            end: { x: bracketX + 6, y: bracketStartY },
-            thickness: 1.5,
-            color: rgb(0.3, 0.3, 0.3)
-          });
-          
-          // Bottom hook
-          page.drawLine({
-            start: { x: bracketX, y: bracketEndY },
-            end: { x: bracketX + 6, y: bracketEndY },
-            thickness: 1.5,
-            color: rgb(0.3, 0.3, 0.3)
-          });
-        }
-      }
-    } else {
-      // Single lot, no bracket
-      ensureRoom(lots[0]);
-      drawLotBlock(lots[0]);
-    }
+  for(const r of sorted){
+    ensureRoom(r);
+    drawLotBlock(r);
   }
 
   return await pdfDoc.save();
@@ -1576,7 +1476,9 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
       headerFillHex = pickTypeColorHex(r);
     }
 
-    const topLine = lotForHeader ? `Lot # ${lotForHeader}` : `Contract # ${contract}`;
+    const topLine = mode === "rep" ? 
+      `Lot # ${lotForHeader || contract} - ${consignor}` :
+      (lotForHeader ? `Lot # ${lotForHeader}` : `Contract # ${contract}`);
     const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
 
     // Use white text for Black X Beef on Dairy colored headers
@@ -1648,8 +1550,10 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
     if(mode === "buyer"){
       const dmRowH = 18;
       const dm = downMoneyDisplay(r[CONFIG.COLS.downMoney]);
+      const dmAmount = toNumber(r[CONFIG.COLS.downMoney]);
+      const dmColor = dmAmount > 0 ? rgb(0.8, 0, 0) : BLACK; // Red if > 0
       page.drawRectangle({ x:M, y:y-dmRowH, width:contentW, height:dmRowH, color: FILL, borderWidth: CONFIG.PDF.borderW, borderColor: rgb(0.55,0.55,0.55) });
-      page.drawText(`Down Money Due: ${dm}`, { x:M + CONFIG.PDF.padX, y:y-13, size: 10.0, font: fontBold, color: BLACK });
+      page.drawText(`Down Money Due: ${dm}`, { x:M + CONFIG.PDF.padX, y:y-13, size: 10.0, font: fontBold, color: dmColor });
       y -= dmRowH;
     }
 
@@ -1663,25 +1567,9 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   }
 
   const sorted = [...rows].sort(sortLots);
-  let prevConsignor = null;
   
   for(let i = 0; i < sorted.length; i++){
     const r = sorted[i];
-    const currentConsignor = safeStr(r[CONFIG.COLS.consignor]);
-    
-    // Draw thick line when consignor changes in rep mode
-    if(mode === "rep" && prevConsignor && currentConsignor !== prevConsignor){
-      y -= 4; // Extra space before thick line
-      page.drawLine({
-        start: { x: M, y: y },
-        end: { x: M + contentW, y: y },
-        thickness: 3,
-        color: rgb(0.6, 0.6, 0.6)
-      });
-      y -= 8; // Extra space after thick line
-    }
-    
-    prevConsignor = currentConsignor;
     ensureRoom(r);
     drawLotBlock(r);
   }
@@ -3009,23 +2897,26 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     firstType = false;
 
     let prevConsignor = null;
+    let drewThickLine = false;
     for(let i=0; i<typeLots.length; i++){
       const row = typeLots[i];
       const currentConsignor = mode === "rep" ? safeStr(row[CONFIG.COLS.consignor] || row[CONFIG.PRE_COLS.consignor]) : null;
       
-      // Thick line when consignor changes in rep mode
+      drewThickLine = false;
+      // Thick line when consignor changes in rep mode (replaces thin line completely)
       if(mode === "rep" && prevConsignor && currentConsignor !== prevConsignor){
-        y -= 4;
-        page.drawLine({ start:{x:M, y:y}, end:{x:M+contentW, y:y}, thickness:3, color:rgb(0.6, 0.6, 0.6) });
-        y -= 8;
+        page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:3, color:rgb(0.6, 0.6, 0.6) });
+        y -= 3;
+        drewThickLine = true;
       }
-      prevConsignor = currentConsignor;
       
-      // Thin gray line between lots
-      if(i > 0 && !(mode === "rep" && currentConsignor !== prevConsignor)){
+      // Thin gray line between lots (skip if we just drew thick line)
+      if(i > 0 && !drewThickLine){
         page.drawLine({ start:{x:M, y:y+2}, end:{x:M+contentW, y:y+2}, thickness:0.5, color:LIGHT_GRAY });
         y -= 3;
       }
+      
+      prevConsignor = currentConsignor;
 
       // New page if needed
       if(y < 50){
@@ -3042,8 +2933,7 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     }
 
     // Draw row - Description from Breed column, with word wrapping
-    const baseFontSize = 6.5;
-    const largeFontSize = 9.5; // +3 points for Lot, Head, Sex, Shrink, Price
+    const baseFontSize = 6.5; // Same size for all columns
     const lineHeight = 8;
     
     // Helper to wrap text within column width
@@ -3080,24 +2970,24 @@ async function buildCondensedListingPdf({entityName, rows, mode, isPre=false, in
     const slide = safeStr(row[CONFIG.COLS.slide] || row[CONFIG.PRE_COLS.slide]);
     const notes = (safeStr(row[CONFIG.COLS.description] || row[CONFIG.PRE_COLS.description]) + " " + safeStr(row[CONFIG.COLS.secondDescription] || "")).trim();
     
-    // Wrap text for each column with appropriate font sizes
+    // Wrap text for each column - all use same font size now
     const wrappedValues = [
-      { lines: wrapText(lotNum, colWidths[0], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(lotNum, colWidths[0], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(seller, colWidths[1], baseFontSize), fontSize: baseFontSize },
-      { lines: wrapText(head, colWidths[2], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(head, colWidths[2], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(breed, colWidths[3], baseFontSize), fontSize: baseFontSize },
-      { lines: wrapText(sex, colWidths[4], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(sex, colWidths[4], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(wt, colWidths[5], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(delivery, colWidths[6], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(location, colWidths[7], baseFontSize), fontSize: baseFontSize },
-      { lines: wrapText(shrink, colWidths[8], largeFontSize), fontSize: largeFontSize },
+      { lines: wrapText(shrink, colWidths[8], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(slide, colWidths[9], baseFontSize), fontSize: baseFontSize },
       { lines: wrapText(notes, colWidths[10], baseFontSize), fontSize: baseFontSize }
     ];
     
     if(includePrice){
       const priceVal = isPO(row) ? "PO" : priceDisplay(row[CONFIG.COLS.price]);
-      wrappedValues.push({ lines: wrapText(priceVal, colWidths[11], largeFontSize), fontSize: largeFontSize });
+      wrappedValues.push({ lines: wrapText(priceVal, colWidths[11], baseFontSize), fontSize: baseFontSize });
     }
     
     // Calculate max lines needed for this row
@@ -3555,7 +3445,7 @@ function wireBuild(){
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
             try{
-              const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor" });
+              const bytes = await buildPdfForGroup({ entityName: consignor, rows, mode:"consignor", showCmsNotes: chkShowConsignorCmsNotes.checked });
               generated.consignorReports.push({ filename: `Trade Confirmations-${fileSafeName(consignor)}.pdf`, bytes, count: rows.length });
             } catch(err){
               errors.push(`Consignor Report for "${consignor}": ${err.message}`);
