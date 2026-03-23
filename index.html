@@ -3,339 +3,794 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CMS Post-Auction Report Builder</title>
+  <title>CMS Auction Report Builder</title>
 
-  <link rel="stylesheet" href="styles.css" />
   <style>
-    /* ========== NEW UI IMPROVEMENTS ========== */
+    /* ========== PREMIUM DARK THEME REDESIGN ========== */
     
-    /* Workflow Presets */
-    .btnPreset {
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      border: 2px solid #336699;
-      background: #336699;
-      color: white;
+    :root {
+      --bg-darkest: #0a0e17;
+      --bg-dark: #0f1419;
+      --bg-panel: #161b24;
+      --bg-card: #1a2030;
+      --bg-card-hover: #1e2538;
+      --bg-input: #0d1117;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-strong: rgba(255, 255, 255, 0.12);
+      --text-primary: #e8edf5;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-blue-subtle: rgba(59, 130, 246, 0.1);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-darkest);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    /* ========== LAYOUT ========== */
+    
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      height: 40px;
+      width: auto;
       border-radius: 6px;
+      padding: 6px;
+      background: var(--bg-panel);
+    }
+
+    .brandTitle {
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+
+    .brandSub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .main {
+      flex: 1;
+      padding: 32px 24px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ========== CARDS ========== */
+    
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      padding: 32px;
+    }
+
+    .cardHeader {
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .muted {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .small {
+      font-size: 13px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* ========== WORKFLOW PRESETS ========== */
+    
+    .presetPanel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .presetLabel {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .presetButtons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btnPreset {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btnPreset:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .btnPreset.active {
+      background: var(--accent-blue-subtle);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    /* ========== FORM ELEMENTS ========== */
+    
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .row {
+      margin-top: 20px;
+    }
+
+    .row:first-child {
+      margin-top: 0;
+    }
+
+    .label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px var(--accent-blue-subtle);
+    }
+
+    .input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ========== DROPZONE ========== */
+    
+    .dropZone {
+      background: var(--bg-input);
+      border: 2px dashed var(--border-strong);
+      border-radius: 8px;
+      padding: 32px 24px;
+      text-align: center;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .btnPreset:hover {
-      background: #285580;
-      border-color: #285580;
-    }
-    .btnPresetOutline {
-      background: white;
-      color: #336699;
-    }
-    .btnPresetOutline:hover {
-      background: #f0f7ff;
+
+    .dropZone:hover {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.03);
     }
 
-    /* Collapsible Sections */
-    .collapsibleSection {
-      margin-bottom: 10px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      overflow: hidden;
-      background: white;
+    .dropZone.dragover {
+      border-color: var(--accent-blue);
+      background: var(--accent-blue-subtle);
     }
+
+    .dropIcon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+
+    .dropTitle {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .dropSub {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    #csvConfirmation {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .csvConfirmIcon {
+      font-size: 28px;
+      color: var(--accent-blue);
+    }
+
+    #csvFileName {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    #csvRowCount {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    #csvFieldsSummary {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ========== COLLAPSIBLE SECTIONS ========== */
+    
+    .collapsibleSection {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .collapsibleSection:hover {
+      border-color: var(--border-strong);
+    }
+
     .collapsibleHeader {
       display: flex;
       align-items: center;
-      padding: 12px 14px;
+      padding: 14px 16px;
       cursor: pointer;
-      background: #f8f9fa;
-      border-bottom: 1px solid transparent;
-      transition: all 0.2s;
       gap: 12px;
+      user-select: none;
     }
-    .collapsibleHeader:hover {
-      background: #f0f2f5;
+
+    .collapsibleSection.collapsed .collapsibleHeader {
+      border-bottom: none;
     }
+
     .collapsibleSection:not(.collapsed) .collapsibleHeader {
-      border-bottom-color: #e0e0e0;
-      background: #f0f7ff;
+      border-bottom: 1px solid var(--border-subtle);
     }
+
     .sectionChevron {
-      font-size: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
       transition: transform 0.2s;
-      color: #666;
       flex-shrink: 0;
     }
+
     .collapsibleSection:not(.collapsed) .sectionChevron {
       transform: rotate(90deg);
     }
-    .sectionCount {
-      font-size: 12px;
-      color: #666;
-      font-weight: 500;
-      padding: 2px 8px;
-      background: #e8f4f8;
-      border-radius: 10px;
-      margin-left: auto;
+
+    .sectionTitle {
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -0.01em;
     }
+
+    .sectionSubtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .sectionCount {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 3px 8px;
+      background: var(--bg-input);
+      border-radius: 4px;
+    }
+
     .sectionActions {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       flex-shrink: 0;
     }
+
     .btnSectionControl {
       padding: 4px 10px;
-      font-size: 12px;
-      border: 1px solid #d0d0d0;
-      background: white;
-      color: #555;
+      font-size: 11px;
+      font-weight: 500;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.15s;
-      font-weight: 500;
     }
+
     .btnSectionControl:hover {
-      background: #f5f5f5;
-      border-color: #336699;
-      color: #336699;
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
     }
+
     .collapsibleContent {
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.3s ease;
     }
+
     .collapsibleSection:not(.collapsed) .collapsibleContent {
       max-height: 2000px;
-      padding: 14px;
+      padding: 16px;
     }
 
-    /* Report Groups */
+    /* ========== REPORT OPTIONS ========== */
+    
     .reportGroup {
       margin-bottom: 16px;
     }
+
     .reportGroup:last-child {
       margin-bottom: 0;
     }
+
     .reportGroupTitle {
-      font-weight: 600;
-      font-size: 13px;
-      color: #333;
-      margin-bottom: 8px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #f0f0f0;
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-subtle);
     }
+
     .reportOptions {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
+
     .optionCheckbox {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #333;
+      gap: 10px;
+      font-size: 13px;
       cursor: pointer;
-      padding: 4px 0;
-      font-weight: 400;
+      padding: 6px 0;
+      color: var(--text-primary);
     }
+
     .optionCheckbox input[type="checkbox"] {
       width: 16px;
       height: 16px;
       cursor: pointer;
-      flex-shrink: 0;
-    }
-    .optionSub {
-      padding-left: 24px;
-      font-size: 13px;
-      color: #666;
-      font-weight: 400;
+      accent-color: var(--accent-blue);
     }
 
-    /* CSV Upload */
-    #csvConfirmation {
-      background: #f0fff0;
-      border: 2px solid #28a745;
+    .optionSub {
+      padding-left: 26px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* ========== CSV VALIDATION ========== */
+    
+    #csvPreview {
+      background: var(--bg-card);
+      border: 1px solid var(--accent-blue);
       border-radius: 6px;
       padding: 16px;
-    }
-    .dropZone {
-      min-height: 120px;
-      border: 2px dashed #336699;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: #f8f9fa;
-      padding: 20px;
-      text-align: center;
-    }
-    .dropZone:hover {
-      border-color: #285580;
-      background: #f0f7ff;
-    }
-    .dropZone.dragover {
-      border-color: #28a745;
-      background: #f0fff0;
+      margin-top: 20px;
     }
 
-    /* Generation Summary */
-    #generationSummary {
-      animation: fadeIn 0.3s;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Sticky Generate Button */
-    .btnGenerate {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      padding: 16px 32px;
-      font-size: 16px;
+    .validationTitle {
       font-weight: 600;
-      background: #28a745;
-      color: white;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-blue);
+      margin-bottom: 12px;
+    }
+
+    #csvPreviewContent {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    /* ========== GENERATION SUMMARY ========== */
+    
+    #generationSummary {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.03));
+      border: 1px solid var(--accent-blue);
+      border-radius: 6px;
+      padding: 18px;
+      margin-top: 20px;
+    }
+
+    #generationSummaryContent {
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    /* ========== BUTTONS ========== */
+    
+    .btn {
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      background: var(--accent-blue);
       border: none;
-      border-radius: 8px;
+      color: white;
+      border-radius: 6px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-      transition: all 0.2s;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
+      transition: all 0.15s;
+      box-shadow: var(--shadow-sm);
     }
-    .btnGenerate:hover:not(:disabled) {
-      background: #218838;
-      box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
-      transform: translateY(-2px);
+
+    .btn:hover:not(:disabled) {
+      background: var(--accent-blue-hover);
+      box-shadow: var(--shadow-md);
     }
-    .btnGenerate:disabled {
-      background: #ccc;
+
+    .btn:disabled {
+      opacity: 0.4;
       cursor: not-allowed;
       box-shadow: none;
     }
 
-    /* Validation */
-    .validationItem {
+    .btnGhost {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      box-shadow: none;
+    }
+
+    .btnGhost:hover:not(:disabled) {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .btnSmall {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btnGenerate {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent-blue);
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4), 0 8px 10px -6px rgba(59, 130, 246, 0.3);
+      transition: all 0.2s;
+      z-index: 1000;
       display: flex;
-      align-items: start;
+      align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
     }
-    .validationIcon {
-      flex-shrink: 0;
-      font-size: 16px;
-      line-height: 1.3;
+
+    .btnGenerate:hover:not(:disabled) {
+      background: var(--accent-blue-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.5), 0 10px 15px -6px rgba(59, 130, 246, 0.4);
     }
-    .validationWarning {
-      color: #856404;
-      background: #fff3cd;
-      border: 1px solid #ffeaa7;
+
+    .btnGenerate:disabled {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ========== RESULTS PAGE ========== */
+    
+    .resultsGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .sectionDivider {
+      grid-column: 1 / -1;
+      margin: 24px 0 16px 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .sectionDivider h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .resultsCol {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .resultsCol:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .resultsHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-panel);
+    }
+
+    .resultsHeader h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .resultsHeaderRight {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .list {
+      padding: 8px;
+      background: var(--bg-card);
+    }
+
+    .list.collapsible {
+      max-height: 400px;
+      overflow: auto;
+      transition: max-height 0.2s ease, opacity 0.2s ease;
+      opacity: 1;
+    }
+
+    .list.collapsible.collapsed {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      padding: 0;
+    }
+
+    .listItem {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
       padding: 10px 12px;
-      border-radius: 4px;
-      margin-top: 8px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      transition: all 0.15s;
+    }
+
+    .listItem:last-child {
+      margin-bottom: 0;
+    }
+
+    .listItem:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+    }
+
+    .listName {
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .listMeta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .file {
+      display: block;
+      padding: 10px 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      text-decoration: none;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+
+    .file:last-child {
+      margin-bottom: 0;
+    }
+
+    .file:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .toggleBtn {
+      padding: 6px 8px;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .toggleBtn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .chev {
+      display: inline-block;
+      transform: rotate(-90deg);
+      transition: transform 0.2s;
+      font-size: 12px;
+    }
+
+    .toggleBtn[aria-expanded="true"] .chev {
+      transform: rotate(0deg);
+    }
+
+    .spaceBetween {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid var(--border-subtle);
+      margin: 32px 0;
+    }
+
+    .footer {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-dark);
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin-top: 16px;
       font-size: 13px;
     }
 
+    /* ========== RESPONSIVE ========== */
+    
     @media (max-width: 768px) {
-      .btnGenerate {
-        bottom: 16px;
-        right: 16px;
-        left: 16px;
-        width: auto;
-        justify-content: center;
+      .main {
+        padding: 24px 16px;
       }
+
+      .card {
+        padding: 24px 20px;
+      }
+
       .sectionActions {
         display: none;
       }
-    }
 
-    /* Fix 2: Blue backgrounds throughout results page */
-    .resultsCol {
-      background: #336699 !important;
-      border: 1px solid #285580 !important;
-      border-radius: 6px;
-      padding: 0;
-      overflow: hidden;
-    }
-    .resultsHeader {
-      background: #336699 !important;
-      color: white !important;
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .resultsHeader h3 {
-      color: white !important;
-      margin: 0;
-      font-size: 15px;
-    }
-    .list {
-      background: #336699 !important;
-      padding: 8px;
-    }
-    .listItem {
-      background: rgba(255, 255, 255, 0.1) !important;
-      border: 1px solid rgba(255, 255, 255, 0.15) !important;
-      color: white !important;
-    }
-    .listItem:hover {
-      background: rgba(255, 255, 255, 0.15) !important;
-    }
-    .listName {
-      color: white !important;
-    }
-    .listMeta {
-      color: rgba(255, 255, 255, 0.8) !important;
-    }
-    .file {
-      background: rgba(255, 255, 255, 0.1) !important;
-      color: white !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 10px 14px;
-    }
-    .file:hover {
-      background: rgba(255, 255, 255, 0.15) !important;
-    }
-    .resultsGrid {
-      background: transparent !important;
-    }
-    /* Buttons on blue background */
-    .btn.btnSmall.btnGhost {
-      color: white !important;
-      border-color: rgba(255, 255, 255, 0.4) !important;
-      background: transparent !important;
-    }
-    .btn.btnSmall.btnGhost:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.15) !important;
-      border-color: rgba(255, 255, 255, 0.7) !important;
-    }
-    .btn.btnSmall.btnGhost:disabled {
-      opacity: 0.4;
-      color: rgba(255, 255, 255, 0.5) !important;
-    }
-    .toggleBtn {
-      color: white !important;
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-color: rgba(255, 255, 255, 0.2) !important;
-    }
-    .toggleBtn:hover {
-      background: rgba(255, 255, 255, 0.2) !important;
-    }
-    .chev {
-      color: white !important;
-    }
-    /* Collapsible list styling */
-    .list.collapsible.collapsed {
-      max-height: 0 !important;
-      overflow: hidden !important;
-      padding: 0 !important;
-    }
-    /* Section headers on results page */
-    .resultsGrid > div[style*="border-bottom"] h2 {
-      color: #60a5fa !important;
+      .btnGenerate {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        justify-content: center;
+      }
+
+      .grid2 {
+        gap: 20px;
+      }
     }
   </style>
 
@@ -352,14 +807,14 @@
     <header class="topbar">
       <div class="brand">
         <img src="assets/logo.png" alt="CMS Livestock Auction" class="logo" />
-        <div class="brandText">
+        <div>
           <div class="brandTitle">CMS Auction Reporting</div>
           <div class="brandSub">Internal PDF Builder</div>
         </div>
       </div>
 
       <div class="topbarActions">
-        <button id="exitBtn" class="btn btnGhost" title="Clears all data & resets app">
+        <button id="exitBtn" class="btn btnGhost btnSmall" title="Clears all data & resets app">
           Exit / Clear
         </button>
       </div>
@@ -369,8 +824,10 @@
 
       <!-- PAGE 1: AUTH -->
       <section id="pageAuth" class="card">
-        <h1>Enter PIN</h1>
-        <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
+        <div class="cardHeader">
+          <h1>Enter PIN</h1>
+          <p class="muted">Data is processed in your browser only. Nothing is uploaded or stored.</p>
+        </div>
 
         <div class="row">
           <label class="label">PIN</label>
@@ -386,18 +843,20 @@
 
       <!-- PAGE 2: BUILDER -->
       <section id="pageBuilder" class="card hidden">
-        <h1>Generate Auction Reports</h1>
-        <p class="muted">Upload your auction data and select report outputs</p>
+        <div class="cardHeader">
+          <h1>Generate Auction Reports</h1>
+          <p class="muted">Upload your auction data and select report outputs</p>
+        </div>
 
         <!-- WORKFLOW PRESETS -->
-        <div style="margin-bottom: 24px; padding: 20px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
-          <div style="font-weight: 600; margin-bottom: 12px; color: #336699; font-size: 14px;">WORKFLOW PRESETS</div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" id="presetFullPostAuction" class="btn btnPreset">Run Full Post-Auction Package</button>
-            <button type="button" id="presetPreAuction" class="btn btnPreset">Pre-Auction Confirmations</button>
-            <button type="button" id="presetContracts" class="btn btnPreset">Contracts Only</button>
-            <button type="button" id="presetSpecialReports" class="btn btnPreset">Special Reports Only</button>
-            <button type="button" id="presetCustom" class="btn btnPreset btnPresetOutline">Custom</button>
+        <div class="presetPanel">
+          <div class="presetLabel">Workflow Presets</div>
+          <div class="presetButtons">
+            <button type="button" id="presetFullPostAuction" class="btnPreset">Full Post-Auction</button>
+            <button type="button" id="presetPreAuction" class="btnPreset">Pre-Auction</button>
+            <button type="button" id="presetContracts" class="btnPreset">Contracts Only</button>
+            <button type="button" id="presetSpecialReports" class="btnPreset">Special Reports</button>
+            <button type="button" id="presetCustom" class="btnPreset">Custom</button>
           </div>
         </div>
 
@@ -427,19 +886,19 @@
               <label class="label">Upload Auction Data (CSV)</label>
               <div id="dropZone" class="dropZone">
                 <div id="dropzoneContent">
-                  <div style="font-size: 40px; color: #336699; margin-bottom: 8px;">📄</div>
-                  <div style="font-weight: 500; margin-bottom: 4px;">Drop CSV file here or click to browse</div>
-                  <div style="font-size: 13px; color: #666;">Supports auction exports, post-auction data, and pre-auction listings</div>
+                  <div class="dropIcon">📄</div>
+                  <div class="dropTitle">Drop CSV file here or click to browse</div>
+                  <div class="dropSub">Supports auction exports, post-auction data, and pre-auction listings</div>
                 </div>
                 <div id="csvConfirmation" class="hidden">
                   <div style="display: flex; align-items: start; gap: 12px;">
-                    <div style="font-size: 32px;">✓</div>
+                    <div class="csvConfirmIcon">✓</div>
                     <div style="flex: 1;">
-                      <div style="font-weight: 600; margin-bottom: 4px;" id="csvFileName"></div>
-                      <div style="font-size: 13px; color: #666; margin-bottom: 8px;" id="csvRowCount"></div>
-                      <div id="csvFieldsSummary" style="font-size: 13px; color: #666;"></div>
+                      <div id="csvFileName"></div>
+                      <div id="csvRowCount"></div>
+                      <div id="csvFieldsSummary"></div>
                     </div>
-                    <button type="button" id="csvRemove" class="btn btnSmall btnGhost" style="padding: 4px 8px;">Change File</button>
+                    <button type="button" id="csvRemove" class="btn btnSmall btnGhost">Change</button>
                   </div>
                 </div>
               </div>
@@ -448,31 +907,29 @@
             </div>
 
             <!-- CSV VALIDATION PREVIEW -->
-            <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 14px; background: #e8f4f8; border: 1px solid #b3d9e8; border-radius: 4px;">
-              <div style="font-weight: 600; margin-bottom: 10px; color: #336699; font-size: 14px;">DATA VALIDATION</div>
-              <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.7; color: #333;"></div>
+            <div id="csvPreview" class="hidden">
+              <div class="validationTitle">Data Validation</div>
+              <div id="csvPreviewContent"></div>
             </div>
 
             <!-- GENERATION SUMMARY -->
-            <div id="generationSummary" class="hidden" style="margin-top: 20px; padding: 16px; background: #f0f7ff; border: 2px solid #336699; border-radius: 6px;">
-              <div style="font-weight: 600; margin-bottom: 10px; color: #336699; font-size: 14px;">YOU ARE ABOUT TO GENERATE:</div>
-              <div id="generationSummaryContent" style="font-size: 14px; line-height: 1.8; color: #333;"></div>
+            <div id="generationSummary" class="hidden">
+              <div class="validationTitle">You Are About To Generate:</div>
+              <div id="generationSummaryContent"></div>
             </div>
           </div>
 
           <div>
             <div class="row">
-              <div style="font-weight: 600; color: #336699; margin-bottom: 12px; font-size: 15px;">REPORT OUTPUTS</div>
+              <label class="label">Report Outputs</label>
               
               <!-- PRE-AUCTION SECTION -->
               <div class="collapsibleSection collapsed" data-section="pre">
                 <div class="collapsibleHeader">
-                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                    <span class="sectionChevron">▸</span>
-                    <div>
-                      <div style="font-weight: 600; font-size: 14px;">Pre-Auction Outputs</div>
-                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Lot Number</span></div>
-                    </div>
+                  <span class="sectionChevron">▸</span>
+                  <div style="flex: 1;">
+                    <div class="sectionTitle">Pre-Auction Outputs</div>
+                    <div class="sectionSubtitle">Requires: Lot Number</div>
                   </div>
                   <div class="sectionCount">0 selected</div>
                   <div class="sectionActions">
@@ -506,12 +963,10 @@
               <!-- POST-AUCTION SECTION -->
               <div class="collapsibleSection collapsed" data-section="post">
                 <div class="collapsibleHeader">
-                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                    <span class="sectionChevron">▸</span>
-                    <div>
-                      <div style="font-weight: 600; font-size: 14px;">Post-Auction Outputs</div>
-                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
-                    </div>
+                  <span class="sectionChevron">▸</span>
+                  <div style="flex: 1;">
+                    <div class="sectionTitle">Post-Auction Outputs</div>
+                    <div class="sectionSubtitle">Requires: Contract #</div>
                   </div>
                   <div class="sectionCount">0 selected</div>
                   <div class="sectionActions">
@@ -553,12 +1008,10 @@
               <!-- CONTRACTS SECTION -->
               <div class="collapsibleSection collapsed" data-section="contracts">
                 <div class="collapsibleHeader">
-                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                    <span class="sectionChevron">▸</span>
-                    <div>
-                      <div style="font-weight: 600; font-size: 14px;">Contracts</div>
-                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
-                    </div>
+                  <span class="sectionChevron">▸</span>
+                  <div style="flex: 1;">
+                    <div class="sectionTitle">Contracts</div>
+                    <div class="sectionSubtitle">Requires: Contract #</div>
                   </div>
                   <div class="sectionCount">0 selected</div>
                   <div class="sectionActions">
@@ -581,12 +1034,10 @@
               <!-- SPECIAL REPORTS SECTION -->
               <div class="collapsibleSection collapsed" data-section="special">
                 <div class="collapsibleHeader">
-                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                    <span class="sectionChevron">▸</span>
-                    <div>
-                      <div style="font-weight: 600; font-size: 14px;">Special Reports</div>
-                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
-                    </div>
+                  <span class="sectionChevron">▸</span>
+                  <div style="flex: 1;">
+                    <div class="sectionTitle">Special Reports</div>
+                    <div class="sectionSubtitle">Requires: Contract #</div>
                   </div>
                   <div class="sectionCount">0 selected</div>
                   <div class="sectionActions">
@@ -609,8 +1060,8 @@
                 </div>
               </div>
 
-              <div class="muted small" style="margin-top: 12px; line-height: 1.5;">
-                Rep PDFs ignore rows where <b>Representative</b> or <b>Rep</b> is blank.
+              <div class="muted small" style="margin-top: 16px; line-height: 1.6;">
+                Rep PDFs ignore rows where <strong>Representative</strong> or <strong>Rep</strong> is blank.
               </div>
             </div>
           </div>
@@ -620,20 +1071,23 @@
 
         <!-- STICKY GENERATE BUTTON -->
         <button id="buildBtn" class="btnGenerate" disabled>
-          <span style="font-size: 18px; margin-right: 8px;">⚡</span>
-          Generate PDFs
+          <span style="font-size: 16px;">⚡</span>
+          <span>Generate PDFs</span>
         </button>
       </section>
+
       <!-- PAGE 3: RESULTS -->
       <section id="pageResults" class="card hidden">
-        <h1>Generated PDFs</h1>
-        <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
+        <div class="cardHeader">
+          <h1>Generated PDFs</h1>
+          <p class="muted">Download individually or as ZIPs. Nothing persists after refresh or exit.</p>
+        </div>
 
         <div class="resultsGrid">
 
           <!-- PRE-AUCTION DOWNLOADS -->
-          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
-            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">PRE-AUCTION DOWNLOADS</h2>
+          <div class="sectionDivider">
+            <h2>Pre-Auction Downloads</h2>
           </div>
 
           <div class="resultsCol">
@@ -663,8 +1117,8 @@
           </div>
 
           <!-- POST-AUCTION DOWNLOADS -->
-          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
-            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">POST-AUCTION DOWNLOADS</h2>
+          <div class="sectionDivider">
+            <h2>Post-Auction Downloads</h2>
           </div>
 
           <div class="resultsCol">
@@ -720,8 +1174,8 @@
           </div>
 
           <!-- CONTRACTS -->
-          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
-            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">CONTRACTS</h2>
+          <div class="sectionDivider">
+            <h2>Contracts</h2>
           </div>
 
           <div class="resultsCol">
@@ -777,8 +1231,8 @@
           </div>
 
           <!-- SPECIAL REPORTS -->
-          <div style="grid-column: 1 / -1; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #336699;">
-            <h2 style="margin: 0; font-size: 16px; color: #336699; font-weight: 600;">SPECIAL REPORTS</h2>
+          <div class="sectionDivider">
+            <h2>Special Reports</h2>
           </div>
 
           <div class="resultsCol">
@@ -872,7 +1326,7 @@
 
         <hr class="divider" />
 
-        <div class="row spaceBetween">
+        <div class="spaceBetween">
           <button id="backBtn" class="btn btnGhost">Back</button>
           <div style="display: flex; gap: 12px;">
             <button id="zipSpecialReports" class="btn btnGhost" disabled>Download Special Reports ZIP</button>
@@ -880,12 +1334,12 @@
           </div>
         </div>
 
-        <div id="resultsMeta" class="muted small"></div>
+        <div id="resultsMeta" class="muted small" style="margin-top: 16px;"></div>
       </section>
 
     </main>
 
-    <footer class="footer muted small">
+    <footer class="footer">
       Client-only app. No CSVs or PDFs are uploaded or stored.
     </footer>
   </div>
@@ -894,6 +1348,8 @@
   <script src="app.js"></script>
 
   <script>
+    // ========== UI IMPROVEMENTS JAVASCRIPT ==========
+    
     // Make drop zone clickable
     document.addEventListener("DOMContentLoaded", () => {
       const dz = document.getElementById("dropZone");
@@ -901,12 +1357,11 @@
       if(dz && fi){
         dz.addEventListener("click", () => fi.click());
       }
+      
+      // Initialize new UI
+      setTimeout(initNewUI, 100);
     });
-  </script>
-  
-  <script>
-    // ========== NEW UI IMPROVEMENTS ==========
-    
+
     // Workflow Presets
     function setupWorkflowPresets() {
       const presetButtons = {
@@ -922,30 +1377,21 @@
       presetButtons.presetFullPostAuction.addEventListener('click', () => {
         clearAllSelections();
         if (typeof chkBuyer !== 'undefined') {
-          // Buyer reports
           chkBuyer.checked = true;
           chkBuyerCondensed.checked = true;
           chkLotByLot.checked = true;
-          
-          // Consignor reports with all options
           chkConsignor.checked = true;
           chkShowConsignorCmsNotes.checked = true;
           chkConsignorCondensed.checked = true;
           chkShowConsignorCondensedCmsNotes.checked = true;
-          
-          // Rep reports with all options
           chkRep.checked = true;
           chkShowCmsNotes.checked = true;
           chkRepCondensed.checked = true;
           chkShowRepCondensedCmsNotes.checked = true;
-          
-          // Contracts
           chkBuyerContracts.checked = true;
           chkSellerContracts.checked = true;
           chkBuyerContractsGrouped.checked = true;
           chkConsignorContractsGrouped.checked = true;
-          
-          // Special reports
           chkSalesByConsignor.checked = true;
           chkSalesByBuyer.checked = true;
           chkSalesByRep.checked = true;
@@ -964,13 +1410,10 @@
       presetButtons.presetPreAuction.addEventListener('click', () => {
         clearAllSelections();
         if (typeof chkPreConsignor !== 'undefined') {
-          // Consignor listing confirmations with all options
           chkPreConsignor.checked = true;
           chkShowPreConsignorCmsNotes.checked = true;
           chkPreConsignorCondensed.checked = true;
           chkShowPreConsignorCondensedCmsNotes.checked = true;
-          
-          // Rep listing confirmations with all options
           chkPreRep.checked = true;
           chkShowPreRepCmsNotes.checked = true;
           chkPreRepCondensed.checked = true;
@@ -993,8 +1436,8 @@
           chkLotByLot.checked = true;
         }
         expandSection('contracts');
+        expandSection('post');
         collapseSection('pre');
-        collapseSection('post');
         collapseSection('special');
         updateAllCountsAndSummary();
       });
@@ -1129,9 +1572,9 @@
       }
       
       contentEl.innerHTML = `
-        <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">• Approximately ${totalChecked * 10}-${totalChecked * 50} PDFs</div>
-        <div style="font-size: 14px; color: #555;">• ${totalChecked} report types selected</div>
-        <div style="font-size: 14px; color: #555;">• ZIP downloads available for each type</div>
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">• Approximately ${totalChecked * 10}-${totalChecked * 50} PDFs</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">• ${totalChecked} report types selected</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">• ZIP downloads available for each type</div>
       `;
       
       summaryEl.classList.remove('hidden');
@@ -1212,7 +1655,6 @@
 
     // Initialize new UI
     function initNewUI() {
-      // Set all sections to collapsed by default
       document.querySelectorAll('.collapsibleSection').forEach(section => {
         section.classList.add('collapsed');
       });
@@ -1222,16 +1664,6 @@
       setupCsvUploadUI();
       setupLiveUpdates();
     }
-
-    // Run after DOM loads
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(initNewUI, 100); // Delay to ensure other scripts load first
-      });
-    } else {
-      setTimeout(initNewUI, 100);
-    }
   </script>
-
 </body>
 </html>
