@@ -1756,10 +1756,12 @@ async function buildSalesContractPdf({row, side}){
       x: M, y: topY, size: 16, font: fontBold, color: BLACK
     });
 
-    // Right: Contract #
-    const cnText = `Contract #: ${contract}`.trim();
-    const cnW    = fontBold.widthOfTextAtSize(cnText, 16);
-    pg.drawText(cnText, {
+    // Right: Lot # - Consignor (or Contract # if no lot number)
+    const headerRight = lotNumber 
+      ? `Lot # ${lotNumber} - ${consignor}`.trim()
+      : `Contract # ${contract}`.trim();
+    const cnW = fontBold.widthOfTextAtSize(headerRight, 16);
+    pg.drawText(headerRight, {
       x: M + contentW - cnW, y: topY, size: 16, font: fontBold, color: BLACK
     });
 
