@@ -158,6 +158,10 @@
                   <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts</label>
                   <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts</label>
                 </div>
+                <div class="pillRow">
+                  <label class="pill"><input type="checkbox" id="chkBuyerContractsGrouped" /> Buyer Contracts (Grouped by Buyer)</label>
+                  <label class="pill"><input type="checkbox" id="chkConsignorContractsGrouped" /> Consignor Contracts (Grouped by Consignor)</label>
+                </div>
               </div>
 
               <!-- SPECIAL REPORTS SECTION -->
@@ -325,6 +329,32 @@
               </div>
             </div>
             <div id="listSellerContracts" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Buyer Contracts (Grouped)</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipBuyerContractsGrouped" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togBuyerContractsGrouped" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listBuyerContractsGrouped" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listBuyerContractsGrouped" class="list collapsible collapsed"></div>
+          </div>
+
+          <div class="resultsCol">
+            <div class="resultsHeader">
+              <h3>Consignor Contracts (Grouped)</h3>
+              <div class="resultsHeaderRight">
+                <button id="zipConsignorContractsGrouped" class="btn btnSmall btnGhost" disabled>ZIP</button>
+                <button id="togConsignorContractsGrouped" class="toggleBtn" type="button" aria-expanded="false" aria-controls="listConsignorContractsGrouped" title="Expand/Collapse">
+                  <span class="chev">▾</span>
+                </button>
+              </div>
+            </div>
+            <div id="listConsignorContractsGrouped" class="list collapsible collapsed"></div>
           </div>
 
           <!-- SPECIAL REPORTS -->
