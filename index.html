@@ -6,6 +6,253 @@
   <title>CMS Post-Auction Report Builder</title>
 
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ========== NEW UI IMPROVEMENTS ========== */
+    
+    /* Workflow Presets */
+    .btnPreset {
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 2px solid #336699;
+      background: #336699;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btnPreset:hover {
+      background: #285580;
+      border-color: #285580;
+    }
+    .btnPresetOutline {
+      background: white;
+      color: #336699;
+    }
+    .btnPresetOutline:hover {
+      background: #f0f7ff;
+    }
+
+    /* Collapsible Sections */
+    .collapsibleSection {
+      margin-bottom: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      background: white;
+    }
+    .collapsibleHeader {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      cursor: pointer;
+      background: #f8f9fa;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s;
+      gap: 12px;
+    }
+    .collapsibleHeader:hover {
+      background: #f0f2f5;
+    }
+    .collapsibleSection:not(.collapsed) .collapsibleHeader {
+      border-bottom-color: #e0e0e0;
+      background: #f0f7ff;
+    }
+    .sectionChevron {
+      font-size: 12px;
+      transition: transform 0.2s;
+      color: #666;
+      flex-shrink: 0;
+    }
+    .collapsibleSection:not(.collapsed) .sectionChevron {
+      transform: rotate(90deg);
+    }
+    .sectionCount {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+      padding: 2px 8px;
+      background: #e8f4f8;
+      border-radius: 10px;
+      margin-left: auto;
+    }
+    .sectionActions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .btnSectionControl {
+      padding: 4px 10px;
+      font-size: 12px;
+      border: 1px solid #d0d0d0;
+      background: white;
+      color: #555;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-weight: 500;
+    }
+    .btnSectionControl:hover {
+      background: #f5f5f5;
+      border-color: #336699;
+      color: #336699;
+    }
+    .collapsibleContent {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .collapsibleSection:not(.collapsed) .collapsibleContent {
+      max-height: 2000px;
+      padding: 14px;
+    }
+
+    /* Report Groups */
+    .reportGroup {
+      margin-bottom: 16px;
+    }
+    .reportGroup:last-child {
+      margin-bottom: 0;
+    }
+    .reportGroupTitle {
+      font-weight: 600;
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .reportOptions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .optionCheckbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+      padding: 4px 0;
+      font-weight: 400;
+    }
+    .optionCheckbox input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .optionSub {
+      padding-left: 24px;
+      font-size: 13px;
+      color: #666;
+      font-weight: 400;
+    }
+
+    /* CSV Upload */
+    #csvConfirmation {
+      background: #f0fff0;
+      border: 2px solid #28a745;
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .dropZone {
+      min-height: 120px;
+      border: 2px dashed #336699;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+    }
+    .dropZone:hover {
+      border-color: #285580;
+      background: #f0f7ff;
+    }
+    .dropZone.dragover {
+      border-color: #28a745;
+      background: #f0fff0;
+    }
+
+    /* Generation Summary */
+    #generationSummary {
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Sticky Generate Button */
+    .btnGenerate {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+      transition: all 0.2s;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+    }
+    .btnGenerate:hover:not(:disabled) {
+      background: #218838;
+      box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+      transform: translateY(-2px);
+    }
+    .btnGenerate:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Validation */
+    .validationItem {
+      display: flex;
+      align-items: start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .validationIcon {
+      flex-shrink: 0;
+      font-size: 16px;
+      line-height: 1.3;
+    }
+    .validationWarning {
+      color: #856404;
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 10px 12px;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 768px) {
+      .btnGenerate {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        justify-content: center;
+      }
+      .sectionActions {
+        display: none;
+      }
+    }
+  </style>
 
   <!-- Client-only libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -54,11 +301,24 @@
 
       <!-- PAGE 2: BUILDER -->
       <section id="pageBuilder" class="card hidden">
-        <h1>Build PDFs</h1>
-        <p class="muted">Upload a CSV and choose what you want to generate.</p>
+        <h1>Generate Auction Reports</h1>
+        <p class="muted">Upload your auction data and select report outputs</p>
+
+        <!-- WORKFLOW PRESETS -->
+        <div style="margin-bottom: 24px; padding: 20px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
+          <div style="font-weight: 600; margin-bottom: 12px; color: #336699; font-size: 14px;">WORKFLOW PRESETS</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="presetFullPostAuction" class="btn btnPreset">Run Full Post-Auction Package</button>
+            <button type="button" id="presetPreAuction" class="btn btnPreset">Pre-Auction Confirmations</button>
+            <button type="button" id="presetContracts" class="btn btnPreset">Contracts Only</button>
+            <button type="button" id="presetSpecialReports" class="btn btnPreset">Special Reports Only</button>
+            <button type="button" id="presetCustom" class="btn btnPreset btnPresetOutline">Custom</button>
+          </div>
+        </div>
 
         <div class="grid2">
           <div>
+            <!-- AUCTION INFO -->
             <div class="row">
               <label class="label">Auction Title</label>
               <input id="auctionName" class="input" placeholder="e.g. CMS Weekly Video Auction" />
@@ -76,135 +336,209 @@
               <label class="label">Optional Label</label>
               <input id="auctionLabel" class="input" placeholder="e.g. Special Calf Sale" />
             </div>
+
+            <!-- CSV UPLOAD -->
+            <div class="row">
+              <label class="label">Upload Auction Data (CSV)</label>
+              <div id="dropZone" class="dropZone">
+                <div id="dropzoneContent">
+                  <div style="font-size: 40px; color: #336699; margin-bottom: 8px;">📄</div>
+                  <div style="font-weight: 500; margin-bottom: 4px;">Drop CSV file here or click to browse</div>
+                  <div style="font-size: 13px; color: #666;">Supports auction exports, post-auction data, and pre-auction listings</div>
+                </div>
+                <div id="csvConfirmation" class="hidden">
+                  <div style="display: flex; align-items: start; gap: 12px;">
+                    <div style="font-size: 32px;">✓</div>
+                    <div style="flex: 1;">
+                      <div style="font-weight: 600; margin-bottom: 4px;" id="csvFileName"></div>
+                      <div style="font-size: 13px; color: #666; margin-bottom: 8px;" id="csvRowCount"></div>
+                      <div id="csvFieldsSummary" style="font-size: 13px; color: #666;"></div>
+                    </div>
+                    <button type="button" id="csvRemove" class="btn btnSmall btnGhost" style="padding: 4px 8px;">Change File</button>
+                  </div>
+                </div>
+              </div>
+              <input id="fileInput" type="file" accept=".csv,text/csv" class="hidden" />
+              <div id="fileMeta" class="file hidden"></div>
+            </div>
+
+            <!-- CSV VALIDATION PREVIEW -->
+            <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 14px; background: #e8f4f8; border: 1px solid #b3d9e8; border-radius: 4px;">
+              <div style="font-weight: 600; margin-bottom: 10px; color: #336699; font-size: 14px;">DATA VALIDATION</div>
+              <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.7; color: #333;"></div>
+            </div>
+
+            <!-- GENERATION SUMMARY -->
+            <div id="generationSummary" class="hidden" style="margin-top: 20px; padding: 16px; background: #f0f7ff; border: 2px solid #336699; border-radius: 6px;">
+              <div style="font-weight: 600; margin-bottom: 10px; color: #336699; font-size: 14px;">YOU ARE ABOUT TO GENERATE:</div>
+              <div id="generationSummaryContent" style="font-size: 14px; line-height: 1.8; color: #333;"></div>
+            </div>
           </div>
 
           <div>
             <div class="row">
-              <label class="label">Upload CSV</label>
-              <div id="dropZone" class="dropZone">
-                <div class="dropTitle">Drag & drop your CSV here</div>
-                <div class="dropSub">or click to browse</div>
-                <input id="fileInput" type="file" accept=".csv,text/csv" class="hidden" />
-                <div id="fileMeta" class="file hidden"></div>
-              </div>
-            </div>
-
-            <div class="row">
+              <div style="font-weight: 600; color: #336699; margin-bottom: 12px; font-size: 15px;">REPORT OUTPUTS</div>
               
               <!-- PRE-AUCTION SECTION -->
-              <div style="margin-bottom: 16px;">
-                <div class="sectionLabel">
-                  Pre-Auction (requires Lot Number column)
-                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
-                    <a href="#" id="selectAllPre" style="color: #336699; text-decoration: none;">Select All</a>
-                    <span style="color: #999; margin: 0 4px;">|</span>
-                    <a href="#" id="deselectAllPre" style="color: #336699; text-decoration: none;">Deselect All</a>
-                  </span>
+              <div class="collapsibleSection collapsed" data-section="pre">
+                <div class="collapsibleHeader">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <span class="sectionChevron">▸</span>
+                    <div>
+                      <div style="font-weight: 600; font-size: 14px;">Pre-Auction Outputs</div>
+                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Lot Number</span></div>
+                    </div>
+                  </div>
+                  <div class="sectionCount">0 selected</div>
+                  <div class="sectionActions">
+                    <button type="button" class="btnSectionControl" data-action="all">All</button>
+                    <button type="button" class="btnSectionControl" data-action="none">None</button>
+                    <button type="button" class="btnSectionControl" data-action="standard">Standard</button>
+                  </div>
                 </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkPreConsignor" /> Consignor Listing Confirmations</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowPreConsignorCmsNotes" /> → Include CMS Notes</label>
-                  <label class="pill"><input type="checkbox" id="chkPreConsignorCondensed" /> Consignor Listing Confirmations (Condensed)</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowPreConsignorCondensedCmsNotes" /> → Include CMS Notes</label>
-                </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkPreRep" /> Rep Listing Confirmations</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowPreRepCmsNotes" /> → Include CMS Notes</label>
-                  <label class="pill"><input type="checkbox" id="chkPreRepCondensed" /> Rep Listing Confirmations (Condensed)</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowPreRepCondensedCmsNotes" /> → Include CMS Notes</label>
+                <div class="collapsibleContent">
+                  <div class="reportGroup">
+                    <div class="reportGroupTitle">Consignor Listing Confirmations</div>
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkPreConsignor" /> Standard</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowPreConsignorCmsNotes" /> Include CMS Notes</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkPreConsignorCondensed" /> Condensed</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowPreConsignorCondensedCmsNotes" /> Include CMS Notes</label>
+                    </div>
+                  </div>
+                  <div class="reportGroup">
+                    <div class="reportGroupTitle">Rep Listing Confirmations</div>
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkPreRep" /> Standard</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowPreRepCmsNotes" /> Include CMS Notes</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkPreRepCondensed" /> Condensed</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowPreRepCondensedCmsNotes" /> Include CMS Notes</label>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
+
               <!-- POST-AUCTION SECTION -->
-              <div style="margin-bottom: 16px;">
-                <div class="sectionLabel">
-                  Post-Auction (requires Contract # column)
-                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
-                    <a href="#" id="selectAllPost" style="color: #336699; text-decoration: none;">Select All</a>
-                    <span style="color: #999; margin: 0 4px;">|</span>
-                    <a href="#" id="deselectAllPost" style="color: #336699; text-decoration: none;">Deselect All</a>
-                  </span>
+              <div class="collapsibleSection collapsed" data-section="post">
+                <div class="collapsibleHeader">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <span class="sectionChevron">▸</span>
+                    <div>
+                      <div style="font-weight: 600; font-size: 14px;">Post-Auction Outputs</div>
+                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
+                    </div>
+                  </div>
+                  <div class="sectionCount">0 selected</div>
+                  <div class="sectionActions">
+                    <button type="button" class="btnSectionControl" data-action="all">All</button>
+                    <button type="button" class="btnSectionControl" data-action="none">None</button>
+                    <button type="button" class="btnSectionControl" data-action="standard">Standard</button>
+                  </div>
                 </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkBuyer" /> Buyer Reports</label>
-                  <label class="pill"><input type="checkbox" id="chkBuyerCondensed" /> Buyer Reports (Condensed)</label>
-                  <label class="pill"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
-                </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkConsignor" /> Consignor Trade Confirmations</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowConsignorCmsNotes" /> → Include CMS Notes</label>
-                  <label class="pill"><input type="checkbox" id="chkConsignorCondensed" /> Consignor Trade Confirmations (Condensed)</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowConsignorCondensedCmsNotes" /> → Include CMS Notes</label>
-                </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkRep" /> Rep Trade Confirmations</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowCmsNotes" /> → Include CMS Notes</label>
-                  <label class="pill"><input type="checkbox" id="chkRepCondensed" /> Rep Trade Confirmations (Condensed)</label>
-                  <label class="pill" style="margin-left: 20px; font-size: 13px;"><input type="checkbox" id="chkShowRepCondensedCmsNotes" /> → Include CMS Notes</label>
+                <div class="collapsibleContent">
+                  <div class="reportGroup">
+                    <div class="reportGroupTitle">Buyer Reports</div>
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkBuyer" /> Standard</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkBuyerCondensed" /> Condensed</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkLotByLot" /> Contract Details</label>
+                    </div>
+                  </div>
+                  <div class="reportGroup">
+                    <div class="reportGroupTitle">Consignor Trade Confirmations</div>
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkConsignor" /> Standard</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowConsignorCmsNotes" /> Include CMS Notes</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkConsignorCondensed" /> Condensed</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowConsignorCondensedCmsNotes" /> Include CMS Notes</label>
+                    </div>
+                  </div>
+                  <div class="reportGroup">
+                    <div class="reportGroupTitle">Rep Trade Confirmations</div>
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkRep" /> Standard</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowCmsNotes" /> Include CMS Notes</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkRepCondensed" /> Condensed</label>
+                      <label class="optionCheckbox optionSub"><input type="checkbox" id="chkShowRepCondensedCmsNotes" /> Include CMS Notes</label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <!-- CONTRACTS SECTION -->
-              <div style="margin-bottom: 16px;">
-                <div class="sectionLabel">
-                  Contracts (requires Contract # column)
-                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
-                    <a href="#" id="selectAllContracts" style="color: #336699; text-decoration: none;">Select All</a>
-                    <span style="color: #999; margin: 0 4px;">|</span>
-                    <a href="#" id="deselectAllContracts" style="color: #336699; text-decoration: none;">Deselect All</a>
-                  </span>
+              <div class="collapsibleSection collapsed" data-section="contracts">
+                <div class="collapsibleHeader">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <span class="sectionChevron">▸</span>
+                    <div>
+                      <div style="font-weight: 600; font-size: 14px;">Contracts</div>
+                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
+                    </div>
+                  </div>
+                  <div class="sectionCount">0 selected</div>
+                  <div class="sectionActions">
+                    <button type="button" class="btnSectionControl" data-action="all">All</button>
+                    <button type="button" class="btnSectionControl" data-action="none">None</button>
+                  </div>
                 </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts</label>
-                  <label class="pill"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts</label>
-                </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkBuyerContractsGrouped" /> Buyer Contracts (Grouped by Buyer)</label>
-                  <label class="pill"><input type="checkbox" id="chkConsignorContractsGrouped" /> Consignor Contracts (Grouped by Consignor)</label>
+                <div class="collapsibleContent">
+                  <div class="reportGroup">
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkBuyerContracts" /> Buyer Contracts (Individual)</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkSellerContracts" /> Seller Contracts (Individual)</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkBuyerContractsGrouped" /> Buyer Contracts (Grouped by Buyer)</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkConsignorContractsGrouped" /> Consignor Contracts (Grouped by Consignor)</label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <!-- SPECIAL REPORTS SECTION -->
-              <div style="margin-bottom: 16px;">
-                <div class="sectionLabel">
-                  Special Reports (requires Contract # column)
-                  <span style="margin-left: 12px; font-size: 12px; font-weight: normal;">
-                    <a href="#" id="selectAllSpecial" style="color: #336699; text-decoration: none;">Select All</a>
-                    <span style="color: #999; margin: 0 4px;">|</span>
-                    <a href="#" id="deselectAllSpecial" style="color: #336699; text-decoration: none;">Deselect All</a>
-                  </span>
+              <div class="collapsibleSection collapsed" data-section="special">
+                <div class="collapsibleHeader">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <span class="sectionChevron">▸</span>
+                    <div>
+                      <div style="font-weight: 600; font-size: 14px;">Special Reports</div>
+                      <div style="font-size: 12px; color: #666; margin-top: 2px;">Requires: <span style="font-weight: 500;">Contract #</span></div>
+                    </div>
+                  </div>
+                  <div class="sectionCount">0 selected</div>
+                  <div class="sectionActions">
+                    <button type="button" class="btnSectionControl" data-action="all">All</button>
+                    <button type="button" class="btnSectionControl" data-action="none">None</button>
+                  </div>
                 </div>
-                <div class="pillRow">
-                  <label class="pill"><input type="checkbox" id="chkSalesByConsignor" /> Sales Summary by Consignor</label>
-                  <label class="pill"><input type="checkbox" id="chkSalesByBuyer" /> Sales Summary by Buyer</label>
-                  <label class="pill"><input type="checkbox" id="chkSalesByRep" /> Sales Summary by Rep</label>
-                  <label class="pill"><input type="checkbox" id="chkCompleteBuyer" /> Complete Buyer Summary</label>
-                  <label class="pill"><input type="checkbox" id="chkCompleteConsignor" /> Complete Consignor Summary</label>
-                  <label class="pill"><input type="checkbox" id="chkCompleteRep" /> Complete Rep Summary</label>
-                  <label class="pill"><input type="checkbox" id="chkAuctionRecap" /> Auction Recap Summary</label>
+                <div class="collapsibleContent">
+                  <div class="reportGroup">
+                    <div class="reportOptions">
+                      <label class="optionCheckbox"><input type="checkbox" id="chkSalesByConsignor" /> Sales Summary by Consignor</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkSalesByBuyer" /> Sales Summary by Buyer</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkSalesByRep" /> Sales Summary by Rep</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkCompleteBuyer" /> Complete Buyer Summary</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkCompleteConsignor" /> Complete Consignor Summary</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkCompleteRep" /> Complete Rep Summary</label>
+                      <label class="optionCheckbox"><input type="checkbox" id="chkAuctionRecap" /> Auction Recap Summary</label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="muted small" style="margin-top:6px;">
+              <div class="muted small" style="margin-top: 12px; line-height: 1.5;">
                 Rep PDFs ignore rows where <b>Representative</b> or <b>Rep</b> is blank.
               </div>
-              
-              <!-- CSV VALIDATION PREVIEW -->
-              <div id="csvPreview" class="hidden" style="margin-top: 16px; padding: 12px; background: #e8f4f8; border: 1px solid #336699; border-radius: 4px;">
-                <div style="font-weight: 600; margin-bottom: 8px; color: #336699;">Ready to Generate</div>
-                <div id="csvPreviewContent" style="font-size: 13px; line-height: 1.6; color: #333;"></div>
-              </div>
             </div>
-
-            <div class="row">
-              <button id="buildBtn" class="btn" disabled>Generate PDFs</button>
-            </div>
-
-            <div id="builderError" class="error hidden"></div>
           </div>
         </div>
-      </section>
 
+        <div id="builderError" class="error hidden"></div>
+
+        <!-- STICKY GENERATE BUTTON -->
+        <button id="buildBtn" class="btnGenerate" disabled>
+          <span style="font-size: 18px; margin-right: 8px;">⚡</span>
+          Generate PDFs
+        </button>
+      </section>
       <!-- PAGE 3: RESULTS -->
       <section id="pageResults" class="card hidden">
         <h1>Generated PDFs</h1>
@@ -484,5 +818,304 @@
       }
     });
   </script>
+  
+  <script>
+    // ========== NEW UI IMPROVEMENTS ==========
+    
+    // Workflow Presets
+    function setupWorkflowPresets() {
+      const presetButtons = {
+        presetFullPostAuction: document.getElementById('presetFullPostAuction'),
+        presetPreAuction: document.getElementById('presetPreAuction'),
+        presetContracts: document.getElementById('presetContracts'),
+        presetSpecialReports: document.getElementById('presetSpecialReports'),
+        presetCustom: document.getElementById('presetCustom')
+      };
+      
+      if (!presetButtons.presetFullPostAuction) return;
+      
+      presetButtons.presetFullPostAuction.addEventListener('click', () => {
+        clearAllSelections();
+        if (typeof chkBuyer !== 'undefined') {
+          chkBuyer.checked = true;
+          chkConsignor.checked = true;
+          chkRep.checked = true;
+          chkLotByLot.checked = true;
+          chkBuyerContracts.checked = true;
+          chkSellerContracts.checked = true;
+          chkSalesByConsignor.checked = true;
+          chkSalesByBuyer.checked = true;
+          chkSalesByRep.checked = true;
+        }
+        expandSection('post');
+        expandSection('contracts');
+        expandSection('special');
+        collapseSection('pre');
+        updateAllCountsAndSummary();
+      });
+      
+      presetButtons.presetPreAuction.addEventListener('click', () => {
+        clearAllSelections();
+        if (typeof chkPreConsignor !== 'undefined') {
+          chkPreConsignor.checked = true;
+          chkPreRep.checked = true;
+        }
+        expandSection('pre');
+        collapseSection('post');
+        collapseSection('contracts');
+        collapseSection('special');
+        updateAllCountsAndSummary();
+      });
+      
+      presetButtons.presetContracts.addEventListener('click', () => {
+        clearAllSelections();
+        if (typeof chkBuyerContracts !== 'undefined') {
+          chkBuyerContracts.checked = true;
+          chkSellerContracts.checked = true;
+          chkBuyerContractsGrouped.checked = true;
+          chkConsignorContractsGrouped.checked = true;
+          chkLotByLot.checked = true;
+        }
+        expandSection('contracts');
+        collapseSection('pre');
+        collapseSection('post');
+        collapseSection('special');
+        updateAllCountsAndSummary();
+      });
+      
+      presetButtons.presetSpecialReports.addEventListener('click', () => {
+        clearAllSelections();
+        if (typeof chkSalesByConsignor !== 'undefined') {
+          chkSalesByConsignor.checked = true;
+          chkSalesByBuyer.checked = true;
+          chkSalesByRep.checked = true;
+          chkCompleteBuyer.checked = true;
+          chkCompleteConsignor.checked = true;
+          chkCompleteRep.checked = true;
+          chkAuctionRecap.checked = true;
+        }
+        expandSection('special');
+        collapseSection('pre');
+        collapseSection('post');
+        collapseSection('contracts');
+        updateAllCountsAndSummary();
+      });
+      
+      presetButtons.presetCustom.addEventListener('click', () => {
+        clearAllSelections();
+        collapseSection('pre');
+        collapseSection('post');
+        collapseSection('contracts');
+        collapseSection('special');
+        updateAllCountsAndSummary();
+      });
+    }
+
+    function clearAllSelections() {
+      document.querySelectorAll('input[type="checkbox"][id^="chk"]').forEach(cb => cb.checked = false);
+    }
+
+    // Collapsible Sections
+    function setupCollapsibleSections() {
+      document.querySelectorAll('.collapsibleSection').forEach(section => {
+        const header = section.querySelector('.collapsibleHeader');
+        if (!header) return;
+        
+        header.addEventListener('click', (e) => {
+          if (e.target.classList.contains('btnSectionControl')) return;
+          section.classList.toggle('collapsed');
+        });
+      });
+      
+      document.querySelectorAll('.btnSectionControl').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const section = btn.closest('.collapsibleSection');
+          const action = btn.dataset.action;
+          const sectionName = section.dataset.section;
+          
+          handleSectionAction(sectionName, action);
+          updateSectionCount(section);
+          updateGenerationSummary();
+        });
+      });
+    }
+
+    function expandSection(sectionName) {
+      const section = document.querySelector(`.collapsibleSection[data-section="${sectionName}"]`);
+      if (section) section.classList.remove('collapsed');
+    }
+
+    function collapseSection(sectionName) {
+      const section = document.querySelector(`.collapsibleSection[data-section="${sectionName}"]`);
+      if (section) section.classList.add('collapsed');
+    }
+
+    function handleSectionAction(sectionName, action) {
+      const checkboxIds = getSectionCheckboxes(sectionName);
+      
+      checkboxIds.forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (!checkbox) return;
+        
+        if (action === 'all') {
+          checkbox.checked = true;
+        } else if (action === 'none') {
+          checkbox.checked = false;
+        } else if (action === 'standard') {
+          const isSubOption = id.includes('Show') && id.includes('CmsNotes');
+          const isCondensed = id.includes('Condensed');
+          checkbox.checked = !isSubOption && !isCondensed;
+        }
+      });
+    }
+
+    function getSectionCheckboxes(sectionName) {
+      const mapping = {
+        'pre': ['chkPreConsignor', 'chkShowPreConsignorCmsNotes', 'chkPreConsignorCondensed', 'chkShowPreConsignorCondensedCmsNotes',
+                'chkPreRep', 'chkShowPreRepCmsNotes', 'chkPreRepCondensed', 'chkShowPreRepCondensedCmsNotes'],
+        'post': ['chkBuyer', 'chkBuyerCondensed', 'chkLotByLot',
+                 'chkConsignor', 'chkShowConsignorCmsNotes', 'chkConsignorCondensed', 'chkShowConsignorCondensedCmsNotes',
+                 'chkRep', 'chkShowCmsNotes', 'chkRepCondensed', 'chkShowRepCondensedCmsNotes'],
+        'contracts': ['chkBuyerContracts', 'chkSellerContracts', 'chkBuyerContractsGrouped', 'chkConsignorContractsGrouped'],
+        'special': ['chkSalesByConsignor', 'chkSalesByBuyer', 'chkSalesByRep', 
+                    'chkCompleteBuyer', 'chkCompleteConsignor', 'chkCompleteRep', 'chkAuctionRecap']
+      };
+      
+      return mapping[sectionName] || [];
+    }
+
+    function updateSectionCount(section) {
+      const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+      const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+      const countEl = section.querySelector('.sectionCount');
+      if (countEl) {
+        countEl.textContent = `${checked} selected`;
+      }
+    }
+
+    function updateAllSectionCounts() {
+      document.querySelectorAll('.collapsibleSection').forEach(updateSectionCount);
+    }
+
+    // Generation Summary
+    function updateGenerationSummary() {
+      const summaryEl = document.getElementById('generationSummary');
+      const contentEl = document.getElementById('generationSummaryContent');
+      
+      if (!summaryEl || !contentEl) return;
+      
+      const totalChecked = document.querySelectorAll('input[type="checkbox"][id^="chk"]:checked').length;
+      
+      if (totalChecked === 0 || !csvRows || csvRows.length === 0) {
+        summaryEl.classList.add('hidden');
+        return;
+      }
+      
+      contentEl.innerHTML = `
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">• Approximately ${totalChecked * 10}-${totalChecked * 50} PDFs</div>
+        <div style="font-size: 14px; color: #555;">• ${totalChecked} report types selected</div>
+        <div style="font-size: 14px; color: #555;">• ZIP downloads available for each type</div>
+      `;
+      
+      summaryEl.classList.remove('hidden');
+    }
+
+    // CSV Upload UI
+    function setupCsvUploadUI() {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const csvRemove = document.getElementById('csvRemove');
+      const dropzoneContent = document.getElementById('dropzoneContent');
+      const csvConfirmation = document.getElementById('csvConfirmation');
+      
+      if (!dropZone || !fileInput) return;
+      
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+      
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          handleCsvUpload(files[0]);
+        }
+      });
+      
+      if (csvRemove) {
+        csvRemove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.value = '';
+          csvRows = [];
+          if (dropzoneContent) dropzoneContent.classList.remove('hidden');
+          if (csvConfirmation) csvConfirmation.classList.add('hidden');
+          document.getElementById('csvPreview')?.classList.add('hidden');
+          document.getElementById('generationSummary')?.classList.add('hidden');
+          if (typeof buildBtn !== 'undefined') buildBtn.disabled = true;
+        });
+      }
+    }
+
+    function handleCsvUpload(file) {
+      const csvFileName = document.getElementById('csvFileName');
+      const csvRowCount = document.getElementById('csvRowCount');
+      const dropzoneContent = document.getElementById('dropzoneContent');
+      const csvConfirmation = document.getElementById('csvConfirmation');
+      
+      if (csvFileName) csvFileName.textContent = file.name;
+      if (csvRowCount) csvRowCount.textContent = `Uploaded ${new Date().toLocaleString()}`;
+      
+      if (dropzoneContent) dropzoneContent.classList.add('hidden');
+      if (csvConfirmation) csvConfirmation.classList.remove('hidden');
+    }
+
+    // Live Updates
+    function setupLiveUpdates() {
+      document.querySelectorAll('input[type="checkbox"][id^="chk"]').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          updateAllCountsAndSummary();
+        });
+      });
+    }
+
+    function updateAllCountsAndSummary() {
+      updateAllSectionCounts();
+      updateGenerationSummary();
+      if (typeof buildBtn !== 'undefined' && typeof anyChecked === 'function') {
+        buildBtn.disabled = !anyChecked() || !csvRows || csvRows.length === 0;
+      }
+    }
+
+    // Initialize new UI
+    function initNewUI() {
+      // Set all sections to collapsed by default
+      document.querySelectorAll('.collapsibleSection').forEach(section => {
+        section.classList.add('collapsed');
+      });
+      
+      setupWorkflowPresets();
+      setupCollapsibleSections();
+      setupCsvUploadUI();
+      setupLiveUpdates();
+    }
+
+    // Run after DOM loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initNewUI, 100); // Delay to ensure other scripts load first
+      });
+    } else {
+      setTimeout(initNewUI, 100);
+    }
+  </script>
+
 </body>
 </html>
