@@ -252,6 +252,28 @@
         display: none;
       }
     }
+
+    /* Fix 3: Consistent result card styling */
+    .resultsCol {
+      background: white !important;
+    }
+    .resultsHeader {
+      background: white !important;
+      color: #333 !important;
+    }
+    .resultsHeader h3 {
+      color: #333 !important;
+    }
+    .list {
+      background: white !important;
+    }
+    .file {
+      background: white !important;
+      color: #333 !important;
+    }
+    .resultsGrid {
+      background: transparent !important;
+    }
   </style>
 
   <!-- Client-only libraries -->
@@ -837,15 +859,37 @@
       presetButtons.presetFullPostAuction.addEventListener('click', () => {
         clearAllSelections();
         if (typeof chkBuyer !== 'undefined') {
+          // Buyer reports
           chkBuyer.checked = true;
-          chkConsignor.checked = true;
-          chkRep.checked = true;
+          chkBuyerCondensed.checked = true;
           chkLotByLot.checked = true;
+          
+          // Consignor reports with all options
+          chkConsignor.checked = true;
+          chkShowConsignorCmsNotes.checked = true;
+          chkConsignorCondensed.checked = true;
+          chkShowConsignorCondensedCmsNotes.checked = true;
+          
+          // Rep reports with all options
+          chkRep.checked = true;
+          chkShowCmsNotes.checked = true;
+          chkRepCondensed.checked = true;
+          chkShowRepCondensedCmsNotes.checked = true;
+          
+          // Contracts
           chkBuyerContracts.checked = true;
           chkSellerContracts.checked = true;
+          chkBuyerContractsGrouped.checked = true;
+          chkConsignorContractsGrouped.checked = true;
+          
+          // Special reports
           chkSalesByConsignor.checked = true;
           chkSalesByBuyer.checked = true;
           chkSalesByRep.checked = true;
+          chkCompleteBuyer.checked = true;
+          chkCompleteConsignor.checked = true;
+          chkCompleteRep.checked = true;
+          chkAuctionRecap.checked = true;
         }
         expandSection('post');
         expandSection('contracts');
@@ -857,8 +901,17 @@
       presetButtons.presetPreAuction.addEventListener('click', () => {
         clearAllSelections();
         if (typeof chkPreConsignor !== 'undefined') {
+          // Consignor listing confirmations with all options
           chkPreConsignor.checked = true;
+          chkShowPreConsignorCmsNotes.checked = true;
+          chkPreConsignorCondensed.checked = true;
+          chkShowPreConsignorCondensedCmsNotes.checked = true;
+          
+          // Rep listing confirmations with all options
           chkPreRep.checked = true;
+          chkShowPreRepCmsNotes.checked = true;
+          chkPreRepCondensed.checked = true;
+          chkShowPreRepCondensedCmsNotes.checked = true;
         }
         expandSection('pre');
         collapseSection('post');
