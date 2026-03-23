@@ -253,26 +253,89 @@
       }
     }
 
-    /* Fix 3: Consistent result card styling */
+    /* Fix 2: Blue backgrounds throughout results page */
     .resultsCol {
-      background: white !important;
+      background: #336699 !important;
+      border: 1px solid #285580 !important;
+      border-radius: 6px;
+      padding: 0;
+      overflow: hidden;
     }
     .resultsHeader {
-      background: white !important;
-      color: #333 !important;
+      background: #336699 !important;
+      color: white !important;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     .resultsHeader h3 {
-      color: #333 !important;
+      color: white !important;
+      margin: 0;
+      font-size: 15px;
     }
     .list {
-      background: white !important;
+      background: #336699 !important;
+      padding: 8px;
+    }
+    .listItem {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      color: white !important;
+    }
+    .listItem:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
+    }
+    .listName {
+      color: white !important;
+    }
+    .listMeta {
+      color: rgba(255, 255, 255, 0.8) !important;
     }
     .file {
-      background: white !important;
-      color: #333 !important;
+      background: rgba(255, 255, 255, 0.1) !important;
+      color: white !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 14px;
+    }
+    .file:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
     }
     .resultsGrid {
       background: transparent !important;
+    }
+    /* Buttons on blue background */
+    .btn.btnSmall.btnGhost {
+      color: white !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
+      background: transparent !important;
+    }
+    .btn.btnSmall.btnGhost:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15) !important;
+      border-color: rgba(255, 255, 255, 0.7) !important;
+    }
+    .btn.btnSmall.btnGhost:disabled {
+      opacity: 0.4;
+      color: rgba(255, 255, 255, 0.5) !important;
+    }
+    .toggleBtn {
+      color: white !important;
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    .toggleBtn:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+    }
+    .chev {
+      color: white !important;
+    }
+    /* Collapsible list styling */
+    .list.collapsible.collapsed {
+      max-height: 0 !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+    }
+    /* Section headers on results page */
+    .resultsGrid > div[style*="border-bottom"] h2 {
+      color: #60a5fa !important;
     }
   </style>
 
