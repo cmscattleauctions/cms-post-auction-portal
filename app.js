@@ -1895,10 +1895,11 @@ async function buildSalesContractPdf({row, side}){
 
   y -= 4;  // reduced gap before top box
 
-  // ---- TOP BOX: Lot # + (Seller for seller side) + Breed ----
+  // ---- TOP BOX: Lot # + Seller/Consignor (for both sides) + Breed ----
   const topBoxLines = [];
   if(lotNumber){ topBoxLines.push({ text: `Lot # ${lotNumber}`, bold: true, size: 10.6 }); }
-  if(side === "seller"){ topBoxLines.push({ text: `Seller: ${consignor}`, bold: true, size: 10.6 }); }
+  // Show seller/consignor on BOTH buyer and seller contracts
+  topBoxLines.push({ text: `Seller: ${consignor}`, bold: true, size: 10.6 });
   topBoxLines.push({ text: safeStr(breed), bold: side === "buyer", size: 9.6 });
 
   const topBoxH = 8 + topBoxLines.length * 13;  // tighter
