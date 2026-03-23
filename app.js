@@ -3521,27 +3521,21 @@ function wireBuild(){
           const byBuyer = groupBy(csvRows.filter(r => getContract(r)), CONFIG.COLS.buyer);
           for(const [buyer, rows] of byBuyer.entries()){
             if(!buyer) continue;
-            try{
-              // Merge all buyer contracts into one PDF
-              const { PDFDocument } = window.PDFLib;
-              const mergedPdf = await PDFDocument.create();
-              
-              for(const row of rows){
-                const contractBytes = await buildSalesContractPdf({ row, side:"buyer" });
-                const contractPdf = await PDFDocument.load(contractBytes);
-                const copiedPages = await mergedPdf.copyPages(contractPdf, contractPdf.getPageIndices());
-                copiedPages.forEach((page) => mergedPdf.addPage(page));
+            // Generate individual PDFs for each contract, stored grouped by buyer
+            for(const row of rows){
+              const contract = safeStr(getContract(row)) || "Contract";
+              try{
+                const bytes = await buildSalesContractPdf({ row, side:"buyer" });
+                generated.buyerContractsGrouped = generated.buyerContractsGrouped || [];
+                generated.buyerContractsGrouped.push({ 
+                  filename: `${fileSafeName(contract)}-${fileSafeName(buyer)}.pdf`, 
+                  bytes, 
+                  count: 1,
+                  groupName: buyer // Used for ZIP folder organization
+                });
+              } catch(err){
+                errors.push(`Grouped Buyer Contract "${contract}" for "${buyer}": ${err.message}`);
               }
-              
-              const bytes = await mergedPdf.save();
-              generated.buyerContractsGrouped = generated.buyerContractsGrouped || [];
-              generated.buyerContractsGrouped.push({ 
-                filename: `Buyer-Contracts-${fileSafeName(buyer)}.pdf`, 
-                bytes, 
-                count: rows.length 
-              });
-            } catch(err){
-              errors.push(`Grouped Buyer Contracts for "${buyer}": ${err.message}`);
             }
           }
         }
@@ -3550,27 +3544,21 @@ function wireBuild(){
           const byConsignor = groupBy(csvRows.filter(r => getContract(r)), CONFIG.COLS.consignor);
           for(const [consignor, rows] of byConsignor.entries()){
             if(!consignor) continue;
-            try{
-              // Merge all consignor contracts into one PDF
-              const { PDFDocument } = window.PDFLib;
-              const mergedPdf = await PDFDocument.create();
-              
-              for(const row of rows){
-                const contractBytes = await buildSalesContractPdf({ row, side:"seller" });
-                const contractPdf = await PDFDocument.load(contractBytes);
-                const copiedPages = await mergedPdf.copyPages(contractPdf, contractPdf.getPageIndices());
-                copiedPages.forEach((page) => mergedPdf.addPage(page));
+            // Generate individual PDFs for each contract, stored grouped by consignor
+            for(const row of rows){
+              const contract = safeStr(getContract(row)) || "Contract";
+              try{
+                const bytes = await buildSalesContractPdf({ row, side:"seller" });
+                generated.consignorContractsGrouped = generated.consignorContractsGrouped || [];
+                generated.consignorContractsGrouped.push({ 
+                  filename: `${fileSafeName(contract)}-${fileSafeName(consignor)}-Consignor-Contract.pdf`, 
+                  bytes, 
+                  count: 1,
+                  groupName: consignor // Used for ZIP folder organization
+                });
+              } catch(err){
+                errors.push(`Grouped Consignor Contract "${contract}" for "${consignor}": ${err.message}`);
               }
-              
-              const bytes = await mergedPdf.save();
-              generated.consignorContractsGrouped = generated.consignorContractsGrouped || [];
-              generated.consignorContractsGrouped.push({ 
-                filename: `Consignor-Contracts-${fileSafeName(consignor)}.pdf`, 
-                bytes, 
-                count: rows.length 
-              });
-            } catch(err){
-              errors.push(`Grouped Consignor Contracts for "${consignor}": ${err.message}`);
             }
           }
         }
@@ -3926,8 +3914,67 @@ function wireBuild(){
   zipLotByLot.addEventListener("click", async ()=> generated.lotByLot.length && downloadZip(generated.lotByLot, "Contract-Details.zip"));
   zipBuyerContracts.addEventListener("click", async ()=> generated.buyerContracts.length && downloadZip(generated.buyerContracts, "Buyer-Contracts.zip"));
   zipSellerContracts.addEventListener("click", async ()=> generated.sellerContracts.length && downloadZip(generated.sellerContracts, "Seller-Contracts.zip"));
-  zipBuyerContractsGrouped.addEventListener("click", async ()=> generated.buyerContractsGrouped.length && downloadZip(generated.buyerContractsGrouped, "Buyer-Contracts-Grouped.zip"));
-  zipConsignorContractsGrouped.addEventListener("click", async ()=> generated.consignorContractsGrouped.length && downloadZip(generated.consignorContractsGrouped, "Consignor-Contracts-Grouped.zip"));
+  zipBuyerContractsGrouped.addEventListener("click", async ()=> {
+    if (!generated.buyerContractsGrouped.length) return;
+    
+    // Group files by buyer name
+    const zip = new JSZip();
+    const byBuyer = {};
+    
+    for(const item of generated.buyerContractsGrouped){
+      const groupName = item.groupName || "Unknown";
+      if(!byBuyer[groupName]) byBuyer[groupName] = [];
+      byBuyer[groupName].push(item);
+    }
+    
+    // Create a folder for each buyer
+    for(const [buyer, items] of Object.entries(byBuyer)){
+      const folder = zip.folder(fileSafeName(buyer));
+      for(const it of items) folder.file(it.filename, it.bytes);
+    }
+    
+    const blob = await zip.generateAsync({type:"blob"});
+    const url = URL.createObjectURL(blob);
+    blobUrls.push(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Buyer-Contracts-Grouped.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} blobUrls = blobUrls.filter(u => u !== url); }, 25000);
+  });
+  
+  zipConsignorContractsGrouped.addEventListener("click", async ()=> {
+    if (!generated.consignorContractsGrouped.length) return;
+    
+    // Group files by consignor name
+    const zip = new JSZip();
+    const byConsignor = {};
+    
+    for(const item of generated.consignorContractsGrouped){
+      const groupName = item.groupName || "Unknown";
+      if(!byConsignor[groupName]) byConsignor[groupName] = [];
+      byConsignor[groupName].push(item);
+    }
+    
+    // Create a folder for each consignor
+    for(const [consignor, items] of Object.entries(byConsignor)){
+      const folder = zip.folder(fileSafeName(consignor));
+      for(const it of items) folder.file(it.filename, it.bytes);
+    }
+    
+    const blob = await zip.generateAsync({type:"blob"});
+    const url = URL.createObjectURL(blob);
+    blobUrls.push(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Consignor-Contracts-Grouped.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} blobUrls = blobUrls.filter(u => u !== url); }, 25000);
+  });
   zipConsignorReports.addEventListener("click", async ()=> {
     const all = [...generated.consignorReports, ...generated.consignorReportsCondensed];
     if(all.length) downloadZip(all, "Consignor-Reports.zip");
@@ -3996,13 +4043,31 @@ function wireBuild(){
     }
     
     if(generated.buyerContractsGrouped.length > 0){
-      const folder = zip.folder("Buyer-Contracts-Grouped");
-      for(const it of generated.buyerContractsGrouped) folder.file(it.filename, it.bytes);
+      const mainFolder = zip.folder("Buyer-Contracts-Grouped");
+      const byBuyer = {};
+      for(const item of generated.buyerContractsGrouped){
+        const groupName = item.groupName || "Unknown";
+        if(!byBuyer[groupName]) byBuyer[groupName] = [];
+        byBuyer[groupName].push(item);
+      }
+      for(const [buyer, items] of Object.entries(byBuyer)){
+        const subFolder = mainFolder.folder(fileSafeName(buyer));
+        for(const it of items) subFolder.file(it.filename, it.bytes);
+      }
     }
     
     if(generated.consignorContractsGrouped.length > 0){
-      const folder = zip.folder("Consignor-Contracts-Grouped");
-      for(const it of generated.consignorContractsGrouped) folder.file(it.filename, it.bytes);
+      const mainFolder = zip.folder("Consignor-Contracts-Grouped");
+      const byConsignor = {};
+      for(const item of generated.consignorContractsGrouped){
+        const groupName = item.groupName || "Unknown";
+        if(!byConsignor[groupName]) byConsignor[groupName] = [];
+        byConsignor[groupName].push(item);
+      }
+      for(const [consignor, items] of Object.entries(byConsignor)){
+        const subFolder = mainFolder.folder(fileSafeName(consignor));
+        for(const it of items) subFolder.file(it.filename, it.bytes);
+      }
     }
     
     if(generated.buyerReports.length > 0 || generated.buyerReportsCondensed.length > 0){
@@ -4085,6 +4150,17 @@ function wireExit(){
     fileInput.value = "";
     fileMeta.textContent = "";
     hide(fileMeta);
+    
+    // Clear new UI elements
+    const dropzoneContent = document.getElementById('dropzoneContent');
+    const csvConfirmation = document.getElementById('csvConfirmation');
+    const csvPreview = document.getElementById('csvPreview');
+    const generationSummary = document.getElementById('generationSummary');
+    
+    if (dropzoneContent) dropzoneContent.classList.remove('hidden');
+    if (csvConfirmation) csvConfirmation.classList.add('hidden');
+    if (csvPreview) csvPreview.classList.add('hidden');
+    if (generationSummary) generationSummary.classList.add('hidden');
 
     auctionName.value = "";
     auctionDate.value = "";
