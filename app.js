@@ -153,7 +153,7 @@ let pageAuth, pageBuilder, pageResults;
 let pinInput, pinSubmit, authError;
 let auctionName, auctionDate, auctionDatePicker, auctionLabel;
 let dropZone, fileInput, fileMeta;
-let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts;
+let chkBuyer, chkConsignor, chkRep, chkLotByLot, chkBuyerContracts, chkSellerContracts, chkBuyerContractsGrouped, chkConsignorContractsGrouped;
 let chkPreConsignor, chkPreRep, chkPreConsignorCondensed, chkPreRepCondensed;
 let chkBuyerCondensed, chkConsignorCondensed, chkRepCondensed;
 let chkShowCmsNotes, chkShowConsignorCmsNotes, chkShowRepCondensedCmsNotes, chkShowConsignorCondensedCmsNotes;
@@ -164,17 +164,17 @@ let buildBtn, builderError;
 let csvPreview, csvPreviewContent;
 
 let listBuyerReports, listLotByLot, listConsignorReports, listRepReports;
-let listBuyerContracts, listSellerContracts;
+let listBuyerContracts, listSellerContracts, listBuyerContractsGrouped, listConsignorContractsGrouped;
 let listPreConsignorReports, listPreRepReports;
 let listSalesByConsignor, listSalesByBuyer, listSalesByRep;
 let listCompleteBuyer, listCompleteConsignor, listCompleteRep, listAuctionRecap;
 
 let zipBuyerReports, zipLotByLot, zipConsignorReports, zipRepReports, zipAll;
-let zipBuyerContracts, zipSellerContracts;
+let zipBuyerContracts, zipSellerContracts, zipBuyerContractsGrouped, zipConsignorContractsGrouped;
 let zipPreConsignorReports, zipPreRepReports;
 let zipSalesByConsignor, zipSalesByBuyer, zipSalesByRep, zipSpecialReports;
 
-let togBuyerReports, togLotByLot, togBuyerContracts, togSellerContracts, togConsignorReports, togRepReports;
+let togBuyerReports, togLotByLot, togBuyerContracts, togSellerContracts, togBuyerContractsGrouped, togConsignorContractsGrouped, togConsignorReports, togRepReports;
 let togPreConsignorReports, togPreRepReports;
 let togSalesByConsignor, togSalesByBuyer, togSalesByRep;
 let togCompleteBuyer, togCompleteConsignor, togCompleteRep, togAuctionRecap;
@@ -205,6 +205,8 @@ function bindDom(){
   chkLotByLot = mustGet("chkLotByLot");
   chkBuyerContracts = mustGet("chkBuyerContracts");
   chkSellerContracts = mustGet("chkSellerContracts");
+  chkBuyerContractsGrouped = mustGet("chkBuyerContractsGrouped");
+  chkConsignorContractsGrouped = mustGet("chkConsignorContractsGrouped");
 
   chkPreConsignor = mustGet("chkPreConsignor");
   chkPreRep = mustGet("chkPreRep");
@@ -243,6 +245,8 @@ function bindDom(){
   listRepReports = mustGet("listRepReports");
   listBuyerContracts = mustGet("listBuyerContracts");
   listSellerContracts = mustGet("listSellerContracts");
+  listBuyerContractsGrouped = mustGet("listBuyerContractsGrouped");
+  listConsignorContractsGrouped = mustGet("listConsignorContractsGrouped");
 
   listPreConsignorReports = mustGet("listPreConsignorReports");
   listPreRepReports = mustGet("listPreRepReports");
@@ -259,6 +263,8 @@ function bindDom(){
   zipLotByLot = mustGet("zipLotByLot");
   zipBuyerContracts = mustGet("zipBuyerContracts");
   zipSellerContracts = mustGet("zipSellerContracts");
+  zipBuyerContractsGrouped = mustGet("zipBuyerContractsGrouped");
+  zipConsignorContractsGrouped = mustGet("zipConsignorContractsGrouped");
   zipConsignorReports = mustGet("zipConsignorReports");
   zipRepReports = mustGet("zipRepReports");
 
@@ -276,6 +282,8 @@ function bindDom(){
   togLotByLot = mustGet("togLotByLot");
   togBuyerContracts = mustGet("togBuyerContracts");
   togSellerContracts = mustGet("togSellerContracts");
+  togBuyerContractsGrouped = mustGet("togBuyerContractsGrouped");
+  togConsignorContractsGrouped = mustGet("togConsignorContractsGrouped");
   togConsignorReports = mustGet("togConsignorReports");
   togRepReports = mustGet("togRepReports");
 
@@ -305,6 +313,8 @@ let generated = {
   lotByLot: [],
   buyerContracts: [],
   sellerContracts: [],
+  buyerContractsGrouped: [],
+  consignorContractsGrouped: [],
   consignorReports: [],
   repReports: [],
   preConsignorReports: [],
@@ -599,6 +609,14 @@ function updateCsvPreview(){
     if(chkLotByLot.checked) counts.lotByLot = contracts;
     if(chkBuyerContracts.checked) counts.buyerContracts = contracts;
     if(chkSellerContracts.checked) counts.sellerContracts = contracts;
+    if(chkBuyerContractsGrouped.checked){
+      const buyers = new Set(csvRows.filter(r => getContract(r)).map(r => safeStr(r[CONFIG.COLS.buyer])).filter(Boolean));
+      counts.buyerContractsGrouped = buyers.size;
+    }
+    if(chkConsignorContractsGrouped.checked){
+      const consignors = new Set(csvRows.filter(r => getContract(r)).map(r => safeStr(r[CONFIG.COLS.consignor])).filter(Boolean));
+      counts.consignorContractsGrouped = consignors.size;
+    }
   }
 
   if(chkConsignor.checked){
@@ -701,6 +719,8 @@ function anyChecked(){
     chkLotByLot.checked ||
     chkBuyerContracts.checked ||
     chkSellerContracts.checked ||
+    chkBuyerContractsGrouped.checked ||
+    chkConsignorContractsGrouped.checked ||
     chkPreConsignor.checked ||
     chkPreConsignorCondensed.checked ||
     chkPreRep.checked ||
@@ -723,6 +743,8 @@ function wireResultsDropdowns(){
     [togLotByLot, listLotByLot],
     [togBuyerContracts, listBuyerContracts],
     [togSellerContracts, listSellerContracts],
+    [togBuyerContractsGrouped, listBuyerContractsGrouped],
+    [togConsignorContractsGrouped, listConsignorContractsGrouped],
     [togConsignorReports, listConsignorReports],
     [togRepReports, listRepReports],
     [togPreConsignorReports, listPreConsignorReports],
@@ -1485,6 +1507,8 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
 
     const topLine = mode === "rep" ? 
       `Lot # ${lotForHeader || contract} - ${consignor}` :
+      mode === "buyer" ?
+      `${lotForHeader ? `Lot # ${lotForHeader}` : `Contract # ${contract}`} - ${consignor}` :
       (lotForHeader ? `Lot # ${lotForHeader}` : `Contract # ${contract}`);
     const row1H = drawLotHeaderRow({ textLeft: topLine, fillHex: headerFillHex });
 
@@ -3160,6 +3184,8 @@ function renderResults(){
     generated.lotByLot.length +
     generated.buyerContracts.length +
     generated.sellerContracts.length +
+    generated.buyerContractsGrouped.length +
+    generated.consignorContractsGrouped.length +
     generated.consignorReports.length +
     generated.consignorReportsCondensed.length +
     generated.repReports.length +
@@ -3183,6 +3209,8 @@ function renderResults(){
   renderList(listLotByLot, generated.lotByLot);
   renderList(listBuyerContracts, generated.buyerContracts);
   renderList(listSellerContracts, generated.sellerContracts);
+  renderList(listBuyerContractsGrouped, generated.buyerContractsGrouped);
+  renderList(listConsignorContractsGrouped, generated.consignorContractsGrouped);
   renderList(listConsignorReports, [...generated.consignorReports, ...generated.consignorReportsCondensed]);
   renderList(listRepReports, [...generated.repReports, ...generated.repReportsCondensed]);
   renderList(listPreConsignorReports, [...generated.preConsignorReports, ...generated.preConsignorReportsCondensed]);
@@ -3201,6 +3229,8 @@ function renderResults(){
   zipLotByLot.disabled = generated.lotByLot.length === 0;
   zipBuyerContracts.disabled = generated.buyerContracts.length === 0;
   zipSellerContracts.disabled = generated.sellerContracts.length === 0;
+  zipBuyerContractsGrouped.disabled = generated.buyerContractsGrouped.length === 0;
+  zipConsignorContractsGrouped.disabled = generated.consignorContractsGrouped.length === 0;
   zipConsignorReports.disabled = generated.consignorReports.length === 0;
   zipRepReports.disabled = generated.repReports.length === 0;
   zipPreConsignorReports.disabled = generated.preConsignorReports.length === 0;
@@ -3367,6 +3397,8 @@ function wireBuild(){
         lotByLot:[], 
         buyerContracts:[], 
         sellerContracts:[], 
+        buyerContractsGrouped: [],
+        consignorContractsGrouped: [],
         consignorReports:[], 
         consignorReportsCondensed: [],
         repReports:[],
@@ -3386,7 +3418,8 @@ function wireBuild(){
 
       // POST-AUCTION GENERATION
       const postAuctionRequested = chkBuyer.checked || chkConsignor.checked || chkRep.checked || 
-                                   chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked;
+                                   chkLotByLot.checked || chkBuyerContracts.checked || chkSellerContracts.checked ||
+                                   chkBuyerContractsGrouped.checked || chkConsignorContractsGrouped.checked;
 
       if(postAuctionRequested){
         const chk = requiredColsPresent(csvRows);
@@ -3480,6 +3513,64 @@ function wireBuild(){
               generated.sellerContracts.push({ filename: `${fileSafeName(contract)}-${fileSafeName(seller)}-Consignor-Contract.pdf`, bytes, count: 1 });
             } catch(err){
               errors.push(`Seller Contract "${contract}": ${err.message}`);
+            }
+          }
+        }
+
+        if(chkBuyerContractsGrouped.checked){
+          const byBuyer = groupBy(csvRows.filter(r => getContract(r)), CONFIG.COLS.buyer);
+          for(const [buyer, rows] of byBuyer.entries()){
+            if(!buyer) continue;
+            try{
+              // Merge all buyer contracts into one PDF
+              const { PDFDocument } = window.PDFLib;
+              const mergedPdf = await PDFDocument.create();
+              
+              for(const row of rows){
+                const contractBytes = await buildSalesContractPdf({ row, side:"buyer" });
+                const contractPdf = await PDFDocument.load(contractBytes);
+                const copiedPages = await mergedPdf.copyPages(contractPdf, contractPdf.getPageIndices());
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+              }
+              
+              const bytes = await mergedPdf.save();
+              generated.buyerContractsGrouped = generated.buyerContractsGrouped || [];
+              generated.buyerContractsGrouped.push({ 
+                filename: `Buyer-Contracts-${fileSafeName(buyer)}.pdf`, 
+                bytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Grouped Buyer Contracts for "${buyer}": ${err.message}`);
+            }
+          }
+        }
+
+        if(chkConsignorContractsGrouped.checked){
+          const byConsignor = groupBy(csvRows.filter(r => getContract(r)), CONFIG.COLS.consignor);
+          for(const [consignor, rows] of byConsignor.entries()){
+            if(!consignor) continue;
+            try{
+              // Merge all consignor contracts into one PDF
+              const { PDFDocument } = window.PDFLib;
+              const mergedPdf = await PDFDocument.create();
+              
+              for(const row of rows){
+                const contractBytes = await buildSalesContractPdf({ row, side:"seller" });
+                const contractPdf = await PDFDocument.load(contractBytes);
+                const copiedPages = await mergedPdf.copyPages(contractPdf, contractPdf.getPageIndices());
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+              }
+              
+              const bytes = await mergedPdf.save();
+              generated.consignorContractsGrouped = generated.consignorContractsGrouped || [];
+              generated.consignorContractsGrouped.push({ 
+                filename: `Consignor-Contracts-${fileSafeName(consignor)}.pdf`, 
+                bytes, 
+                count: rows.length 
+              });
+            } catch(err){
+              errors.push(`Grouped Consignor Contracts for "${consignor}": ${err.message}`);
             }
           }
         }
@@ -3835,6 +3926,8 @@ function wireBuild(){
   zipLotByLot.addEventListener("click", async ()=> generated.lotByLot.length && downloadZip(generated.lotByLot, "Contract-Details.zip"));
   zipBuyerContracts.addEventListener("click", async ()=> generated.buyerContracts.length && downloadZip(generated.buyerContracts, "Buyer-Contracts.zip"));
   zipSellerContracts.addEventListener("click", async ()=> generated.sellerContracts.length && downloadZip(generated.sellerContracts, "Seller-Contracts.zip"));
+  zipBuyerContractsGrouped.addEventListener("click", async ()=> generated.buyerContractsGrouped.length && downloadZip(generated.buyerContractsGrouped, "Buyer-Contracts-Grouped.zip"));
+  zipConsignorContractsGrouped.addEventListener("click", async ()=> generated.consignorContractsGrouped.length && downloadZip(generated.consignorContractsGrouped, "Consignor-Contracts-Grouped.zip"));
   zipConsignorReports.addEventListener("click", async ()=> {
     const all = [...generated.consignorReports, ...generated.consignorReportsCondensed];
     if(all.length) downloadZip(all, "Consignor-Reports.zip");
@@ -3900,6 +3993,16 @@ function wireBuild(){
     if(generated.sellerContracts.length > 0){
       const folder = zip.folder("Seller-Contracts");
       for(const it of generated.sellerContracts) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.buyerContractsGrouped.length > 0){
+      const folder = zip.folder("Buyer-Contracts-Grouped");
+      for(const it of generated.buyerContractsGrouped) folder.file(it.filename, it.bytes);
+    }
+    
+    if(generated.consignorContractsGrouped.length > 0){
+      const folder = zip.folder("Consignor-Contracts-Grouped");
+      for(const it of generated.consignorContractsGrouped) folder.file(it.filename, it.bytes);
     }
     
     if(generated.buyerReports.length > 0 || generated.buyerReportsCondensed.length > 0){
@@ -4104,6 +4207,8 @@ function init(){
     lotByLot:[], 
     buyerContracts:[], 
     sellerContracts:[], 
+    buyerContractsGrouped: [],
+    consignorContractsGrouped: [],
     consignorReports:[],
     consignorReportsCondensed: [],
     repReports:[],
