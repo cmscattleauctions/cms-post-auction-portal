@@ -1132,7 +1132,7 @@ async function buildPreAuctionListingPdf({entityName, rows, mode, showCmsNotes=f
 /* =========================================================================
    PDF: POST-AUCTION GROUP + CONTRACT DETAILS (LANDSCAPE - unchanged)
    ========================================================================= */
-async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null, showCmsNotes=false}){
+async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, forceBuyerName=null, headerRightBig=null, showCmsNotes=false, lotByLotBannerColorHex=null}){
   assertLibsLoaded();
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
@@ -1145,11 +1145,13 @@ async function buildPdfForGroup({entityName, rows, mode, singleLotMode=false, fo
   const FILL = rgb(0.98,0.98,0.98);
 
   const topBarHex =
+    (singleLotMode && lotByLotBannerColorHex) ? lotByLotBannerColorHex :
     mode === "buyer" ? CONFIG.COLORS.cmsBlue :
     mode === "consignor" ? CONFIG.COLORS.consignorColor :
     CONFIG.COLORS.repBar;
 
   const topBarColor = rgb(...hexToRgb01(topBarHex));
+
 
   const W = CONFIG.PDF.pageSize.width;
   const H = CONFIG.PDF.pageSize.height;
@@ -1756,10 +1758,8 @@ async function buildSalesContractPdf({row, side}){
       x: M, y: topY, size: 16, font: fontBold, color: BLACK
     });
 
-    // Right: Lot # - Consignor (or Contract # if no lot number)
-    const headerRight = lotNumber 
-      ? `Lot # ${lotNumber} - ${consignor}`.trim()
-      : `Contract # ${contract}`.trim();
+    // Right: Contract #: {Contract}
+    const headerRight = `Contract #: ${contract}`.trim();
     const cnW = fontBold.widthOfTextAtSize(headerRight, 16);
     pg.drawText(headerRight, {
       x: M + contentW - cnW, y: topY, size: 16, font: fontBold, color: BLACK
@@ -3472,6 +3472,10 @@ function wireBuild(){
         }
 
         if(chkLotByLot.checked){
+          // Read selected banner color from UI
+          const selectedColorEl = document.querySelector('input[name="lotByLotColor"]:checked');
+          const lotByLotBannerColor = selectedColorEl ? selectedColorEl.value : CONFIG.COLORS.cmsBlue;
+
           const sorted = [...csvRows].sort(sortLots);
           for(const row of sorted){
             const contract = safeStr(getContract(row)) || "Contract";
@@ -3483,7 +3487,8 @@ function wireBuild(){
                 mode: "buyer",
                 singleLotMode: true,
                 forceBuyerName: buyer,
-                headerRightBig: `Contract # ${contract}`
+                headerRightBig: `Contract # ${contract}`,
+                lotByLotBannerColorHex: lotByLotBannerColor
               });
               generated.lotByLot.push({ filename: `${fileSafeName(contract)}-Contract-Details.pdf`, bytes, count: 1 });
             } catch(err){
